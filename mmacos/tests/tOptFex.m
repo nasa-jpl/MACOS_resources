@@ -7,7 +7,7 @@ classdef tOptFex < matlab.unittest.TestCase
 %   is the OPD to a reference surface that never leaves the nominal field,
 %   which on an off-axis design measures image-displacement TILT rather than
 %   wavefront error.  Evidence and the full diagnosis:
-%   design/rodgers1/PACKET.md Addendum 5.
+%   challenges/rodgers1/PACKET.md Addendum 5.
 %
 %   These are engine gates driven from mmacos, the same pattern tPolElement
 %   and tVecChain use.  All three fail against the pre-fix engine.
@@ -28,7 +28,7 @@ classdef tOptFex < matlab.unittest.TestCase
         function build_deck(tc)
             here = fileparts(mfilename('fullpath'));
             run(fullfile(fileparts(here),'mmacos_setup.m'));
-            addpath(fullfile(fileparts(here),'design','rodgers1'));
+            addpath(fullfile(fileparts(here),'challenges','rodgers1'));
             t = tc.pupil_telescope();
             tc.nE = numel(t.spec.elt);
             f = [tempname '.in'];  t.save(f);
@@ -64,7 +64,7 @@ classdef tOptFex < matlab.unittest.TestCase
 
         function m = merit(tc, dK3)
         %MERIT  CALIB's inner WFE evaluation at the nominal field: per-field
-        %   FEX at nElt-1, then OPD there.  Gate 0 (design/rodgers1/
+        %   FEX at nElt-1, then OPD there.  Gate 0 (challenges/rodgers1/
         %   gate0_merit_identity.m) shows this equals the strict metric to
         %   2.7e-9.  dK3 perturbs M3's conic.
             macos.load_rx(tc.deck);
@@ -86,8 +86,8 @@ classdef tOptFex < matlab.unittest.TestCase
             d = [sin(bx); sin(by); sqrt(max(0, 1 - sin(bx)^2 - sin(by)^2))];
             p = tc.apst - tc.stand*d;
             v3 = @(v) sprintf('%.16E  %.16E  %.16E', v(1), v(2), v(3));
-            s = regexprep(txt,'(ChfRayDir=\s*)[^\n]*',['$1' v3(d)]);
-            s = regexprep(s,  '(ChfRayPos=\s*)[^\n]*',['$1' v3(p)]);
+            s = regexprep(txt,'(?m)^(\s*ChfRayDir=\s*)[^\n]*',['$1' v3(d)]);
+            s = regexprep(s,  '(?m)^(\s*ChfRayPos=\s*)[^\n]*',['$1' v3(p)]);
             f = [tempname '.in'];
             fid = fopen(f,'w'); fprintf(fid,'%s',s); fclose(fid);
             macos.load_rx(f);  macos.stop(1);  macos.fex(1);
@@ -140,7 +140,7 @@ classdef tOptFex < matlab.unittest.TestCase
         end
 
         function test_offaxis_merit_is_wavefront_not_tilt(tc)
-        % (c) Promoted from design/rodgers1/fex_in_loop_check.m.  With
+        % (c) Promoted from challenges/rodgers1/fex_in_loop_check.m.  With
         % per-field FEX the exit-pupil OPD across the box is a WAVEFRONT
         % (1e-7 m band).  Without it the reference sphere is stuck at the
         % on-axis image and the same quantity is image-displacement TILT

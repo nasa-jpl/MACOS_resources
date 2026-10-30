@@ -1,0 +1,214 @@
+# e2e — the complete end-to-end worked example
+
+Design → instrument → segmentation → sensitivities → MET → compare →
+simulator, built from the parameterized design-layer runners and
+utilities, **for users to hack for their own systems** (Dave
+2026-07-17).  Every stage runner produces a **thorough design report**
+(saved `sN_report.txt`) **and graphics** (`macos.view_std` standard
+views + the stage's metric figures) beside this file.
+
+**The product is the general stage runners** (Dave 2026-07-19), which
+live in `design/runners/` (see its README for the pipeline and the
+`.in`-plus-declared-sidecars handoff contract); the `sN_*.m` scripts
+here are thin narrative drivers over them.  s3–s6 already work this
+way (`run_segmentation`/`run_sensitivities`/`run_met`/`run_compare`);
+s1–s2 promote to `run_design` in a later recast pass.
+
+All user knobs live in **`e2e_params.m`** — one file, commented.  Each
+stage consumes the previous stage's saved artifacts (`.in` + `.mat` +
+sidecars), so a knob change re-runs from the first stage it affects.
+
+## What is committed here, and what the scripts write
+
+The stage outputs (reports, figures, movies, `.mat` products) are NOT
+committed: the scripts are the record (Dave's run-artifact rule,
+2026-10-26).  Run s1 → s7 (below) to produce them here; the figures as
+published are in the mmacos manual, Part I chapters 1–6
+(`docs/mmacos-manual/src/01_telescope.md` … `06_closing_the_loop.md`),
+which run this thread live.  Committed: the scripts and `e2e_params.m`,
+the two Hx sidecars (`e2e_pieHx.m`, `e2e_hex2Hx.m`: s3 writes them, and they are kept as the pair of the committed s3 decks), `flat256.txt` (the s4 grid input), the two
+fingerprints (below), the two hand-picked `s2_variants/` decks, and the
+nine decks below.
+
+**The committed decks are corpus inputs of July/August 2026, not what
+the scripts write today.**  `e2e_pie.in`, `e2e_hex2.in`,
+`e2e_pie_met.in`, `e2e_pie_metopt.in`, `s1_telescope.in`,
+`s2_instrument.in`, `s4_grid.in` and the two `s2_variants/` decks are
+read by the engine's CLI corpus (`cli_tests/corpus_committed.txt` in
+the macos repo), which compares two engine builds on the same deck, and
+`tests/tE2eRmsWaves` loads the s1 and s2 decks; they stay as committed so
+those gates keep their inputs.  Re-running the scripts on the
+2026-10-27 library rewrites seven of them (the two `s2_variants/`
+decks are not written by any stage): s1 solves to new conics (M1 KcElt
+−0.989455 → −0.989716) because the ColSource ray-set fix (macos
+36a5f5aa, 2026-08-01) moved its merit (1305 → 1185 rays); s2's automatic
+field centre follows the new WFE map, 0.590′ → 0.262′ (`ChfRayDir` y
+1.717e-4 → 7.61e-5 rad); and every later deck inherits both
+(83–557 lines of each deck differ, all numeric).  Diagnosis per file:
+`cli_tests/records/run_artifacts_e2e_regen_2026-10-27.tsv` (macos repo).
+
+## The telescope case
+
+An **on-axis Korsch TMA taken slightly off-axis, back end folded
+behind the primary**: D = 4 m, **f/1.75 primary**, **f/18 system**,
+**m2 = 8** (f/14 intermediate focus), 500 nm — a VIS imager.  The
+first-order layout comes from `macos.design.tma_layout` with the f/#s
+as *free inputs* (change them in `e2e_params.m` and the radii
+re-derive).  A 90° **fold after M2** turns the feed into +x just
+behind M1, so M3, the image, and the focal plane sit on a flat bench
+BEHIND the primary; a small **extraction tilt on M3** (1.2°) takes the
+return off the feed axis so the fold clears at a small field bias (the
+sweep settles at 2′).  Conics are solved at the biased field, then
+refined with freeform Zernike departures under the sphere+Zernike
+solve doctrine (per-mirror field-zone `lMon` via `field_zone_lmon`,
+coefficient-sanity verification, guarded common-mode null).  The
+telescope alone is DIFFRACTION-LIMITED over ±1′ at 500 nm (0.016
+waves −tilt worst).  History worth knowing: the first design point
+(f/1.25, m2 = 16, no extraction tilt) forced a 5′ bias and could not
+reach VIS blur — bias was the killer (aberration ~ bias²); the fix
+was geometry (extraction tilt + gentler primary/feed), not more
+correction DOFs.
+
+## Stages
+
+| runner | consumes | produces |
+|---|---|---|
+| `s1_telescope.m` | `e2e_params.m` | telescope design: `s1_telescope.in/.mat`, `s1_views.png`, `s1_wfe_field.png`, `s1_fpmap.png`, `s1_report.txt` |
+| `s2_instrument.m` | s1 artifacts | **OFFNER ring-field 1:1 relay** (`P.inst.type="offner"`, geometry from `design/src/offner_layout`): concave R=2 m used twice + convex R/2 at the stop, ALL CONCENTRIC — no tilted powered surfaces, so the tilt-astig floor is deleted at the root and the odd aberrations (coma, distortion) cancel by symmetry.  M4 = flat routing fold + corrector station; the convex stop mirror is held out of every solve (pupil-conjugate).  Result: **DL over the FULL ±2′ field at 500 nm** — −tilt ladder 0.015/0.017/0.027/0.037/0.043, Strehl 0.99→0.93, on pure spheres (all K=0), sub-mm figures.  The ring field hosts several small-field instrument pickoffs.  The tilted-sphere `"zigzag"` variant remains selectable (DL through 1.5′; its tilt astig scales ~f₅·θ²).  The solve is JOINT (CALIB on M2/M3/M5/M6, SVD-engine stages on the dense 5×5 field grid, M1 common mode over the full set); M2/M3 keep refining with the instrument, their field-zone lMon growing with the field.  The BEST DETECTOR PLANE (tilt + despace) is re-fit through a 5×5 grid of measured field foci (`align_focal_plane`) and the ladder is scored on it.  The SCIENCE FIELD CENTER is found AUTOMATICALLY (`P.inst.field_center="auto"`, Dave 2026-07-18): sections [2]–[4e] run in a 2-pass loop — pass 1 solves at the starting guess (`field_dy_arcmin` −0.7′ off the s1 bias, from reading the WFE map), then [4g] maps ±3′ (13×13), takes the centroid of the raw-WFE<0.02 region, and if the chief sits >0.15′ off it pass 2 RE-SOLVES with the chief there.  The loop moved the chief another −0.71′ (total bias 0.59′): worst ±2′ −tilt 0.043 → 0.023 → **0.0215**, Strehl floor **0.965**, <0.02 region 31→52/169 points; the [4f] scan confirms the adopted center is the optimum (both ±0.35′ neighbors worse).  Lesson encoded in the loop: re-SCORING a shifted center undersells re-SOLVING there.  Hand-picked variants preserved in `s2_variants/dy-0.70|dy-1.05/`.  The M1 central hole is now a REAL Rx obscuration (`set_hole` emission): the trace clips the central rays and the layout views render the hole.  The remaining raw−(−tilt) gap is relay DISTORTION — not correctable by detector angle; M4 near the focus is the reflective field-corrector for it (distortion-merit solve, follow-on).  Probed and rejected: per-field patch corrector at a focus (SVD rank collapse) and a 4th weak mirror near the relayed pupil (common-mode, conditions the joint solve worse).  `s2_instrument.in/.mat`, views + field maps + `s2_report.txt` |
+| `s3_segmentation.m` | s2 | THIN DRIVER over **`design/runners/run_segmentation.m`** (2026-07-19 recast).  Segmented primary, TWO variants both kept: **pie** (1-ring PIE, 7 segments: center hexagon + 6 chorded wedges → `e2e_pie.in`) and **hex2** (2-ring HEX, 19 segments → `e2e_hex2.in`), each with PHYSICAL polygonal apertures (`emit_apertures`), the parent's solved M1 figure carried onto every segment (FF channel), and the M1 hole riding on the center segment.  Segment size auto-scales (`Aperture/(2·rings+1)`); gap 25 mm; 128-pt source grid.  `P.seg.variant` (default `"pie"`) picks the one stages 4–6 consume.  Footprint/aperture overlays + `view_std` + `s3_report.txt`.  Gotchas this stage flushed out (fixed in `segment_rx`): a Surface=Zernike parent's figure is DROPPED by SegMirMaker (now carried via FFZern), and the SegMirMaker↔engine tiling contract needs the heritage `xGrid=(−1,0,0)` + `SegXgrid=(−1,0,0)` in the merged Rx (else the ray-to-segment map is 180° off the emitted frames and every off-center segment's aperture clips its own rays) |
+| `s4_jacobians.m` | s3 (`e2e_pie.in`) | the LINEAR-MODEL substrate for s5/s6, harvested by the production `macos.dw_d*_multi` supervisors over the ±2′ science field (center + 4 corners), each in the canonical stacked form `wall = J·x + w0`: **dwdx** rigid-body 6-DOF per element (60412×90, rank 90 — the spectrum shows exactly 21 strong modes = 7 segments × piston/tip/tilt, then a 2-decade cliff), **dwdz** segment figure via the SEGMENT-LOCAL MonZernike basis, modes 4–11 (×56, cond 5.4 — NOT the FF channel, which carries the parent-aperture basis and paints full-aperture modes), **dwdgrid** per-segment grid pokes on a grid-augmented variant (`s4_grid.in`, flat 256 grids in each segment's CLOCKED Mon frame) through the G-S orthonormal `macos.segment_grid_basis` influence stack (×42, cond 1.26).  Per-segment column-norm table + SV spectra + segment-only conditioning in `s4_report.txt` (= `s4_sens_report.txt`).  THIN DRIVER over **`design/runners/run_sensitivities.m`** (2026-07-19 recast): the grid augmentation is the product `macos.design.grid_augment_rx` (grids in each segment's CLOCKED Mon frame, REPLACING any stale parent-frame lines; span = the dxGrid convention `Aperture/(ng−1)` — never lMon, whose hex-heritage value clips wedge corners), artifacts are `s4_grid.in` + `flat256.txt`, and the figures are the e5-style piston-removed per-element pages in `s4_pages/` (center + multi) plus `s4_<ch>_channels.png` overviews.  `s4_jacobians.mat` carries the three outputs (incl. per-field blocks, which s5 uses for the tilt/non-tilt metric split) |
+| `s5_met.m` | s3 (`e2e_pie.in` + `e2e_pieHx.m`) + s4 (`s4_jacobians.mat`) | THIN DRIVER over the general stage runner **`design/runners/run_met.m`**.  As-built Stewart truss: 6 launchers per segment on its TRUE wedge/hexagon boundary (5 mm clearance), 6 fiducials on the M2 rim (25 mm inset), **aft ring on the bench-side FOLD (elt 9) at the SM RADIUS (0.232 m — the stable aft structure extends to the SM radius, Dave 2026-07-19), beaming to M2 through the central hole** (a ring at M3's 2.1 m lateral has no hole line of sight; clearance is checked against the SM-SHADOW radius as the effective hole, since the real hole will be enlarged to match — queued `P.tel` change).  Sensed bodies = 7 segments + M2 + FM = 54 DOFs.  `dedx` from the SegMirMaker Hx **as-is** (edge-sensor placement is never optimized; the layout figures draw the sensors as gray dots).  **Edge-sensor model (2026-07-19, Dave's spec): per shared edge 2 sensor locations at ±0.25·width along the edge × 3 axes — piston (normal), gap (in-plane ⊥ edge), shear (in-plane ∥ edge) — purely differential, no absolute-piston anchor row; the pie = 72 rows = 24 locations × 3 axes;** `dldx` engine-FD **== analytic to 1e-7** (the gate).  **Headline metrics are DIMENSIONLESS WEMs** (Dave: MET tracks the post-WFSC drift state — HWO drift ≪ 1 nm between updates, gauge roadmap ~1 pm; the configured scenario sigmas in `P.met` only set the absolute-forecast column): each configuration is scored **full / tilt / non-tilt** (per-field piston+tilt split of the s4 blocks — tilt control absorbs tilt; note the s4 channels are harvested with focal-plane tracking, so global tilt is already out at the source and WEM_tilt ≡ 0 by convention), MET-only and edge+MET, plus the unobserved floor as a fraction of prior.  The layout optimizer (`macos.design.met_layout_opt`) solves ONE launcher pattern per segment SHAPE CLASS (polar-profile congruence in the pattern frame → center-hexagon + wedge classes) on the **MET-only, non-tilt merit** (the truss must stand alone), with the **aft↔SM leg solved FIRST** as its own coordinate block (clocking + its own fiducial map) and **6 fiducials with the ROTATIONAL assignment** (each wedge's map shifted by its clocking → congruent beam geometry, segments ~interchangeable — and it SCORES BETTER than the asymmetric nf=3 raw-merit winner).  **Result (72-row edge model): as-built WEM 15.6 MET-only / 3.92 edge+MET → optimized 3.77 MET-only / 1.78 edge+MET (≈2–4 pm sensing-limited wavefront at 1 pm gauges), unobserved floor ~0.3% of prior — the in-plane gap/shear axes make the in-plane DOFs edge-observable, cutting edge+MET from the 4.59 of the old normal-height-only model.**  Dave's manual **corner-pairs benchmark** (pairs at each class's two outermost corners + a pair on the inside edge) scores 3.97 — ties the machine — but its 15 mm corner-junction separation violates the 50 mm hardware rule (reported gate-bypassed).  Winner engine-FD-validated 0.00%; Monte-Carlo 0.7%.  Estimator products `dxde`/`dxdl`/`dwde`/`dwdl` (full-suite MMSE) saved in `e2e_pie_met.mat` for the compare/simulate stages.  **The winner is exported as a scale-free PRESET** (`e2e_pie_met_preset.mat`, promoted to `design/runners/presets/pie_met.mat`): future pie builds pass it to `run_met(..., 'preset', ...)` and their as-built truss starts as this optimized configuration realized on their own boundaries.  Artifacts: `e2e_pie_met.in`, `e2e_pie_metopt.in`, layout/metric/view figures, `s5_report.txt` |
+| `s6_compare.m` | s3–s5 | THIN DRIVER over **`design/runners/run_compare.m`** (Dave's spec 2026-07-19): linear model `w = dwdx·x + dwdz·z + dwdgrid·g + dwdu·u + w0` (u = control = segment + SM rigid DOFs), measurement `m = [l; e] = dmdx·x + dmdz·z + dmdgrid·g + m0`.  Pokes every DOF of the model in turn — the 54 rigid x DOFs (100 nrad / 100 nm) on the OPTIMIZED met Rx, then the 56 z figure modes, then the 42 grid influence DOFs (100 nm figure, on the s4 grid-augmented Rx with the basis rebuilt by the same `segment_grid_basis` call — a mismatch fails the agreement gate); per poke TWO graphics — the mmacos ENGINE response vs the LINEAR MODEL prediction — each the center-field OPD change above stacked bar charts of `l`, `e_piston`, `e_gap`, `e_shear`; dwell 1.6 s/frame (Dave: 0.25 read too fast); every pair saved in `s6_frames/` + assembled into `s6_compare.gif`.  Engine truth per channel: `w` = perturb→trace→OPD delta, `l` = METcalc (met points ride their element), `e` = FINITE-ROTATION kinematics at the Hx `SensorPos` sensor points (the sensor axis + arm ARE the measurement model; the difference vs the `dedx` row is the genuine linearization error).  **Result: engine == linear to ≤2.8e-3 (x; most ≤1e-4), ≤1.8e-3 (z), ≤1.2e-6 (l), ≤6e-8 (e; translations exact to machine)** — the linear model IS the engine at drift-scale pokes.  Grid pokes agree to ≤0.24, limited NOT by the model but by an **OPEN ENGINE QUESTION**: the grid-surface response is not proportional across sub-µm amplitudes on metre-based prescriptions (central FD at the harvest delta reproduces the Jacobian to 2e-5; forward 100 nm deviates ~15–25%, and a 10 µm poke responds 84× super-linearly — FreeForm grid intersection path, flagged 2026-07-19; the mm-based fixture agrees <5% at the same physical poke).  Null-response DOFs (segment clocking Rz through the ~flat parent, the flat fold's in-plane DOFs, FPA-class bodies) are floored (`w_floor`) and reported `null` instead of a noise ratio.  `dedx` is rebuilt from the CURRENT Hx sidecar with a stale-`.mat` cross-check (caught the gap/shear relabel leaving the s5 `.mat` one Hx generation behind).  **Figure sensing (Dave 2026-07-19): `macos.design.dmet_dfig` generates `dmdz`/`dmdgrid`** — the mode shape evaluated at each edge-sensor SensorPos and MET-launcher mount point (engine-exact `zern_seg_eval` for MonZernike, lMon-normalized un-normalized-ANSI, GATED by the grid-vs-MonZern engine-equivalence test; basis-map sampling for grid), projected on the measurement axis: the l rows and e_piston rows carry the response, gap/shear are slope-order small (in-plane axes are ⊥ the LOCAL normal while Mon sag displaces along the FACE normal — a curved segment projects a few percent).  The engine METcalc/Hx hold met and sensor points RIGID, so for z/grid pokes the engine bars read zero while the linear bars show the dmdz/dmdgrid prediction — the movie displays that model-vs-engine gap explicitly.  UNIT GOTCHA: the dwdz/dwdgrid supervisors return OPD-BaseUnits per coef-BaseUnits (no cbm scale, unlike dwdx) — run_compare converts (×cbm); invisible on e2e (metres) but 1000× on mm fixtures.  `s6_compare.mat` exports `dwdu` (u = segments + SM) + `dmdz`/`dmdgrid` for the s7 estimator H.  Agreement table in `s6_report.txt` |
+| `s7_simulate.m` | s3–s5 | THIN DRIVER over **`design/runners/run_simulator.m`**: play a 500 s disturbance history through the mmacos ENGINE, uncorrected vs corrected, with a DELAYED image-based WFC initialization ("no system starts perfect" — the first two data points stand at the ~100 µm as-deployed WFE, then control turns on at frame 2), the RBCS metrology loop holding pose, and a **WF-maintenance recontrol at 400 s** (Tesch's WF Maintenance Activity; dashed marker on the time plots).  Two scenarios, one movie each (Dave 2026-07-21): **(A) `s7A` — metrology-bias drift**: the metrology zero-point drifts (thermal), so the MET loop faithfully holds the BIASED reading while the true pose/wavefront walk off UNSEEN by the loop (`meas_bias = −dmdx·p(t)`); the 400 s image-based recontrol re-references and knocks it back — the reset visibly limits the drift (ENGINE: true WFE drifts to **44 nm by 390 s → reset → 1.0 nm**, then re-accumulates).  **(B) `s7B` — focus/astig figure drift**: a per-segment focus (MonZern 5) + astig (4,6) trend, the low-order modes that drift thermally; the truss reads RIGID POSE only (`loop_senses_figure=false`), so the figure accumulates unseen, and rigid-body control CAN counter segment focus (via piston) and astig (via the LATERAL DOFs — an x move changes a segment's local best-fit radius on the parabolic parent, y/twist add astig), so the 400 s recontrol with a TIGHT reset ridge (`wfc_reset_tol=1e-5`, engaging those weak lateral DOFs) removes the focus and most of the astig; higher orders (and the 20 nm static grid floor) it cannot (ENGINE: figure accumulates to **45.6 nm by 390 s → reset → 24.4 nm**).  Strehl is the exact aperture form `|⟨exp(i·2π·W/λ)⟩|²` (≤1; not the psf-peak ratio, which reads marginally >1); the corrected OPD panel autoscales (a shared 100 µm scale hides the nm structure).  Physics verified on the s4 `dwdx`: focus RB-residual 0.017, astig 0.31–0.49 via lateral DOFs, higher order 0.6–0.98 (uncorrectable).  Common: 100 µm initial WFE (PTT-dominant, lateral /10), aft of the SM pinned.  Each frame: OPD uncorrected \| OPD corrected (running WFE in the xlabels) + PIX psf + COMPOSE broadband psf + `m=[l;e]` sensed-drift bars, with the accumulating rms-WFE (log, both legs) and Strehl curves; frames in `s7{A,B}_sim_frames/` → `s7{A,B}_sim.gif`.  The RBCS loop is a **weighted-LS/BLUE** pose estimator `δx̂ = (Hᵀ N⁻¹ H + R_x⁻¹)⁻¹ Hᵀ N⁻¹·δm` + min-pose-error controller `u_t = u_{t−1} − k_p·δx̂` (Tesch ch 2.3+3.3); a raw pinv (basic-LS) DIVERGES (1/σ_min amplifies drift → 5.6×10⁶ nm blow-up), the R_x prior regularizes it.  Two-pass engine schedule (±u through the incremental perturb path doesn't commute); iterated ridge WFC (`wfc_iters` GN refinements for the µm-scale init).  NEXT (s7b): the steady-state Kalman form (Tesch §2.3.3, predict/update with the Riccati gain) + figure states via `dmdz`/`dmdgrid` so the loop senses and corrects the figure floor too.  Background: `MACOS_sandbox/Documents/Tesch_RBCS_algorithms.pdf`, `OSE_Eqns_2019.pdf`, `2025_JATIS_HWO_Special_Issue-2.pdf` |
+| `s8_coronagraph.m` | s2 (`s2_instrument.in`) + the CTB template's parameter block (`templates/30_instruments/bench_ctb/example_ctb.m`, read at run time) | **the coronagraph channel, folded into the shroud** (PLAN_CONSOLIDATION 3a, 2026-10-29): the CTB behind the telescope as the mmacos manual's chapter 2 drew it unfolded ("case C": OAP1 at f/# × the DM pupil, DM1 at the measured stop image) reaches 6.7 m radius against the telescope's own 2.5 m envelope; the stage adds ONE near-normal fold on the converging feed, runs the CTB's accordion in the vertical plane with its turn pattern inverted once (the drift reverses), scans the knobs in `P.coro` and picks the most compact candidate that clears every gate as a number: shroud margin (`shroud_deck`), CTB-vs-telescope and CTB-vs-itself clearance (`design/src/deck_clearance`, exact signed leg-to-body), the bench floor, every AOI under 15°, and the fold as an isometry (rays, wavefront, DM walk equal to the unfolded train).  Relay scale 1 (the template's relay) clears; products `s8_C_{ctb,full}.in`, `s8_fold_{ctb,full}.in`, `s8_views.png`, `s8_shroud.png`, `s8_report.txt`, `s8_run.mat`.  Not measured here: the dark zone (the coupled diffraction model is the next beat). |
+| `s9_diffraction.m` | s8 (`s8_fold_full.in`) + the CTB's diffraction tools (`templates/30_instruments/bench_ctb`: `ctb_prop_layout` with its `lead` option, `ctb_dm_rx`, `ctb_chain`, `ctb_dm_jacobian`, `ctb_efc`) | **the coupled telescope + CTB diffraction model** (PLAN_CONSOLIDATION 3a, 2026-10-29): the CTB's generator inserts the three focal-mask quartets, the DM1→DM2 near-field leg and the far-field terminal behind the nine telescope elements of the folded train (every reference sphere FEX'd through the whole train), and the bench's masked chain, DM layer, Jacobian and EFC run on it unchanged, given the deck and its station map.  Gates as numbers: chief ray at every optic against the bare train, the PSF on the centre pixel, the quartet audit and the NF1/NF2 round-trip identity (tCtbProp's three conventions, on the telescope), the static dark zone 3–15 λ/D against the bench's own.  What it finds: the telescope's wavefront is not the limit (0.0024 waves rms on DM1; without the secondary's obscuration the static dark zone is below the bench's) -- the secondary's shadow is (0.4 % of the pupil area, whose diffraction the occulter throws into the Lyot plane where the bench's plain disk stop passes it: 5.8×10⁻⁶ against 2.9×10⁻⁷); a central Lyot blocker (`ctb_chain` `r_lyot_inner_frac`, scanned over `P.coro.lyot_inner`) takes it, and EFC digs from there.  A model limit, reported not gated: the pupil is 4 % anamorphic (the telescope's f/17.7 × f/18.5) but the engine carries the field on the ray lattice with one spacing, so the PSF core is round; the static number is bracketed by the occulter scaled by that ratio.  Products `s9_coupled.in` (compact, 40 elements), `s9_coupled_s2s.in` (full, 53), `s9_coupled_dm.in` (grid-data DMs), `ctb_dm_jacobian_N512_e2e_coupled.fp.json` (the Jacobian's truth; the .mat regenerates), `s9_report.txt` (every number, the EFC curve among them), `s9_fields.png`, `ctb_efc_e2e_coupled.png`, `s9_run.mat`. |
+| `s10_sensing.m` | s9 (`s9_coupled_dm.in`, its station map and Lyot pick in `s9_run.mat`, the two Jacobians and the two EFC records) + the CTB's estimator (`templates/30_instruments/bench_ctb/ctb_probe_estimate`, `ctb_efc('sensing', ...)`) | **pairwise probing on the coupled model** (PLAN_CONSOLIDATION 3a, 2026-10-30, the last of Dave's four-step order): the dark-zone field ESTIMATED from intensity images taken with DM probe pairs (Give'on, Kern & Shaklan 2011), scored against the engine's true field, which the controller never sees, and EFC closed on the estimate against stage 9's perfect-sensing record.  THE FINDING: the estimator's default amplitude (probe intensity = the speckle level, 0.23 rad on the bench) is a 0.94 rad probe on the telescope's 20x brighter halo and leaves the estimate 47 % off the field; the error scales as the amplitude squared, so the stage picks the largest amplitude still in the bench's regime (0.3x, 11 nm, `probe_rel`) and runs everything there, with the default rule kept as the counter-example.  At the static state (the annular stop, flat DMs): one noiseless estimate (floor, relative field error, the per-pixel error histogram with no cut, the probe-intensity diagnostic ratios -- the model-mismatch meter -- and the per-pixel conditioning), then the probe-amplitude and photon-count sweeps of the manual's ch08d.  At stage 9's dug state (6.7×10⁻⁸): the same estimate with the Jacobian about that state and the photon sweep there, what a lab would have to see.  Then EFC from flat mirrors on the noiseless estimate (fixed G, then the relinearization round on stage 9's second Jacobian from the probed loop's own dug state) and at `P.sens.photons_efc` photons per image, every curve against stage 9's.  Gates as numbers (`P.sens`): the estimate at the pick within 10 % of the field, the smallest probe's within 1 % (the Jacobian predicts the probes; the probe-intensity ratio is not the meter here -- the symmetric probe's second-order field projected on the shadow's halo gives it an amplitude-independent 22 % offset the pairwise difference cancels), the dug-state floor under a quarter of the field, the probed EFC within 1.5× of perfect sensing, the photon loop within 2× of the noiseless one, the photon floors ordered.  The Jacobians are stage 9's, reused through `e2e_jacobian` (the reuse rule both stages share: fingerprint truth, deck, chain stamp and linearization point, else re-measured).  Products `s10_probe.png`, `s10_efc.png`, `ctb_efc_e2e_sens{,_r1,_ph}.{mat,png}`, `s10_report.txt`, `s10_run.mat` (all regenerated, none committed). |
+
+
+Run order: `s1` → `s10`, each with `run('.../sN_*.m')` after building
+mmacos (`mmacos_setup.m` or the addpath lines at the top of each
+runner).  House rules: figures + reports land in this directory; no
+`exit(0)` inside example scripts (batch wrappers supply it).
+
+## Large derived products — NOT committed, regenerate from inputs
+
+Two products exceed the ~20 MB commit threshold and are **gitignored**
+(policy: derived binaries ≥ 20 MB are rebuilt, not stored — no LFS, so
+clone-and-run users are never blocked on pointer files).  A small
+committed **`<file>.fp.json` fingerprint** (`design/src/jac_fingerprint`)
+stands in as the reviewable truth — generation stamps (`reset_xp`,
+upstream commit, rx, delta/method), array dims, and per-column norms —
+so a generation change is auditable without the blob.  `tests/tFingerprint`
+always checks that both fingerprints exist and read; it compares a
+blob against its fingerprint only when the `.mat` is on disk, and on a
+clean checkout logs `<file>.mat absent: fingerprint compared for
+presence and format only` -- a pass there is not a blob match.
+
+| product (~size) | committed fingerprint | one-command regen (~time) |
+|---|---|---|
+| `s4_jacobians.mat` (58 MB) | `s4_jacobians.fp.json` | `run('s4_jacobians.m')` — s4 rigid/figure/grid harvest, model 512 (~11 min) |
+| `e2e_pie_met.mat` (62 MB) | `e2e_pie_met.fp.json` | `run('s5_met.m')` — MET products with the LIVE layout search (~55 min); it writes `e2e_pie_met_preset.mat` and promotes it to `design/runners/presets/pie_met.mat` |
+
+Both need s3 (`e2e_pie.in` + `e2e_pieHx.m`) present; s4 also feeds s5–s7.
+
+Stage 9's Jacobian (`ctb_dm_jacobian_N512_e2e_coupled.mat`, 37 MB) follows the
+same policy: its `.fp.json` is committed, the blob regenerates with
+`run('s9_diffraction.m')` (3520 engine pokes, about an hour at model 512), and
+the stage reuses a blob on disk only when its fingerprint truth holds and its
+chain stamp is the stage's (`e2e_jacobian`, the rule stage 10 shares: it needs
+stage 9's two blobs and re-measures them when they are not on disk).
+A generation bump (e.g. the reset_xp regen, upstream `5a704fb`) rebuilds
+these two and rewrites their fingerprints — the small sidecars are what
+shows in the diff.
+
+## The design procedure — why the solves are staged this way
+
+Changing the parameters re-derives the whole design, but the SOLVE
+STAGING is load-bearing: each rule below was established by a failed
+run (the failures are documented where they happened, in the runner
+comments).  The runners implement all of them, so a parameter change
+should just work — if you restructure the chain, keep the rules:
+
+1. **First-order layout from the free f/#s** (`tma_layout`); packaging
+   stations are fractions of D, so everything scales with aperture.
+2. **Fold, extraction tilt, then bias.**  Fold the feed behind the
+   primary; a small EXTRACTION TILT on M3 (about the bench normal)
+   takes the return off the feed axis so the fold clears without
+   relying on field bias (bias was the VIS killer: aberration ~
+   bias²).  Sweep the bias and take the CLEARING candidate with the
+   BEST solved WFE -- not simply the least bias: the tilt/bias
+   interplay is non-monotonic (the walk cancels the tilt separation
+   at some bias, and a too-small bias lands the conic solve in a bad
+   basin).
+3. **Conics solve AT the bias point, with the detector at the
+   biased-field focus**: `align_focal_plane` BETWEEN two solves — the
+   biased field focuses mm from the paraxial focal plane, and that
+   defocus (1.6 waves here) otherwise poisons the conic solve.  At a
+   SMALL bias (tilt astigmatism dominant) the solve repeatably lands
+   in a bad LM basin (K3 → −3..−4): seed it by CONTINUATION — solve
+   first at the sweep's best-conditioned bias, then walk the bias to
+   the picked value and re-solve.
+4. **Hold weak/near-focus correctors OUT of ROC+conic solves** — the
+   optimizer abuses conic as high-order sag (K ~ −2000) and drags the
+   first order off spec.
+5. **Freeform prerequisites**: per-mirror FIELD-ZONE `lMon`
+   (`field_zone_lmon`) fixed ONCE before the first solve; ONE Zernike
+   type per mirror for the life of its coefficients.
+6. **Joint CALIB field solve on the strong set** (≤12 fields — CALIB's
+   FOV cap).  M1 stays OUT: it is pupil-degenerate with the relayed
+   stop.
+7. **SVD engine (`zern_jacobian_solve`) for anything degenerate**:
+   deep bases, weak correctors, M1's common mode — scored on a DENSE
+   field grid (the SVD engine has no FOV cap; more field points smooth
+   the OPD between solve samples).  NEVER give CALIB a degenerate
+   basis: the FD-LM normal matrix goes singular, figures diverge, and
+   the engine SIGSEGVs.
+8. **M1 common mode over the FULL field set**, never at a single field
+   — the tilt mode is a gauge there and the solve wanders
+   geometrically.
+9. **Order matters**: joint field solve FIRST, common-mode cleanup
+   AFTER.  Nulling the bias point first lands the joint solve in a
+   worse LM basin.
+10. **Detector plane last**: re-fit tilt + despace through a 5×5 grid
+    of measured field foci AFTER the solves, and score the field
+    ladder on that best plane.
+11. **Distortion is not blur.**  The raw−(−tilt) gap is chief-ray
+    mapping error; no detector angle corrects it.  Solve the
+    near-focus corrector (M4) against the affine-projected
+    chief-displacement metric — its per-field-tilt channel is exactly
+    the distortion knob (and exactly why it is useless for blur).
+
+12. **The relay wants to be an Offner.**  A concentric 1:1 ring-field
+    relay (spheres held — a ROC/conic solve would un-Offner the
+    concentricity; convex stop mirror out of the solves) beats any
+    tilted-sphere arrangement outright: the biased patch is a
+    ring-field arc, which is exactly the field shape the Offner
+    serves aberration-free.
+
+13. **Let the field center find itself — and RE-SOLVE there.**  After
+    the joint solve, map the WFE over a field patch wider than the
+    science field, take the centroid of the best region, and if the
+    chief is off it, re-solve WITH the chief there (the s2 [4g]
+    2-pass loop).  Merely re-scoring candidate centers on the frozen
+    design undersells them — the re-solve moved the optimum well past
+    the scan's pick.
+
+Dead ends, kept on record in `s2_instrument.m` so nobody re-walks
+them: a per-field Zernike patch corrector at a focus (SVD rank
+collapse — not a static solution); a 4th weak mirror near the relayed
+pupil (common-mode, conditions the joint solve worse); deepening
+BornWolf to the full 3:25 list (~13% — the basis, not the solver, is
+the wall).  Next real levers if the field must go wider or flatter: a
+second re-imaging stage (doubles the distinct conjugates), an ANSI
+re-solve of the relay mirrors, or the secondary-magnification trade
+(smaller m2 relaxes M2's curvature but raises the clearing bias and
+lengthens the bench).
+
+**Which stages re-run after a change**: anything in the telescope
+block of `e2e_params.m` → from `s1`; the `P.inst` block → from `s2`;
+`P.seg` → from `s3` (s4/s5 follow); `P.met` → `s5` only; `P.sim` →
+`s6`.  The bias sweep, field-center loop, lMon measurement, hole
+sizing, and detector-plane fit are all re-derived inside the runners —
+none of them are hand-tuned numbers.  The MET scenario sigmas in
+`P.met` deliberately do NOT cascade: the s5 headline metrics are
+dimensionless and scenario-invariant.

@@ -1,0 +1,27 @@
+dyson5 t3w -- the y2 continuation of the three-mirror parent, then the offset solve (addendum 23) (2026-10-02 12:43)
+NOTE: a first run with R1 FREE was stopped after step y2 0.600: S1 reached 79.0 nm only by walking R1 0.700 -> 2.615 m
+  with K1 -141 (40 iterations, capped) -- an effective y2 of ~0.89, not the screened family; carried onto the next step
+  it started at 8.7 mm.  This run holds R1.
+CONVENTIONS: the offset_imager template's S1 (on-axis box, symmetric conics + h^4/h^6/h^8 aspheres, R2/R3 eliminated by
+  EFL 126 mm + Petzval 0 on the branch held by seed_R_m) walked in y2 at t1 = 140 mm: each step's spacings and R1 are
+  telescope_seed's family point (exit pupil 16.84 m behind the slit), its conics / aspheres / FPA refit CARRIED from the
+  previous solved step; R1 HELD in S1 / S3 (y2 sets M1's power: phi1 = (1 - y2)/t1), so every step IS its family point;
+  S4 frees the radii (the template's S4).  Solve set [5 3] (across the slit x along the 0.3 deg strip); every solve runs to oi_solve's own
+  stop (a rejected step, or < 0.1 % gain) with a cap of 40 -- "CAPPED" if it ends at the cap.  A step COUNTS at S1
+  dense-map max <= 1000 nm; a failed step is halved once, then the walk ends.  Metric = the template's (strict RMS WFE at
+  1.00 um, 11 x 11 dense-map max over the 24.6 x 0.3 deg box).  Per step, at the 14 deg offset (stop posed there): M3's
+  footprint reach rho/|R3| at the box corners, the fraction of launched rays reaching the FP at the +-12.3 deg cross-track
+  edges, and the exit-chief error vs [0 0 -1].  Then S3 at 14 deg seeded from the last counted step, accepted when the gate
+  (oi_clear, disk model) reads >= 5 mm afterwards, else S4 (tilts/decenters + the clearance hinge) from it.
+
+   y2  S1 max nm     avg nm  iters R1 R2 R3 (mm)            K1 K2 K3                 |  rho/R3 edge kept exit err scr flr
+0.600      348.6      218.0    3  700.0 124.73 151.78      -4.4 0.139 0.0793        |   0.531     1.000    0.000   -10.9  counts
+0.550      423.0      271.8    3  622.2 113.66 139.07      -3.66 -0.0699 0.0851     |   0.551     1.000    0.000    -6.6  counts
+0.500      517.7      342.9    3  560.0 103.10 126.37      -3.14 -0.497 0.0968      |   0.575     1.000    0.000    -2.5  counts
+0.450      638.2      438.8    5  509.1 92.93 113.68       -2.8 -1.24 0.172         |   0.608     1.000    0.000    +1.6  counts
+0.400      786.7      561.5    7  466.7 83.03 101.00       -2.51 -2.75 0.264        |   0.889     0.984    0.000    +5.4  counts
+
+S3 at 14 deg from the counted step y2 0.400 (stop posed at y -2.27 mm):
+  S3: 4 iters, map max 1206588.2 nm avg 218783.2, clearance +5.9 mm (M3->FP x M2), exit err 0.151 deg, rho/R3 0.879, edge kept 0.986
+
+HARD STOP (beat 5c earned): the offset solve ends at 1206588.2 nm > 250 nm with the gate satisfied (+5.9 mm).

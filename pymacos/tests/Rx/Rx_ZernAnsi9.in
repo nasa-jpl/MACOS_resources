@@ -1,0 +1,175 @@
+% tst_zerndef_ansi.in -- PLAN_CONSOLIDATION item 7 (Dave 2026-10-10): every
+% Zernike-carrying surface defaults to ZernType= ANSI whatever its element
+% type.  An NS Cassegrain (= tst_zrngr_roundtrip.in) whose primary is a
+% Surface= ZrnGrData with NO grid declared (cwd-independent; the grid term is
+% inert), ZernCoef mode 9 = 2e-7 m, no nZernCoef=, and ZernType= ANSI.
+% GATE (cli_tests/cmd/ZernType_default.jou): the none and ansi twins trace to
+% the IDENTICAL OPD; the fringe twin differs (mode 9 = spherical in Fringe,
+% trefoil in ANSI).  Pre-change the none twin loads but its ZrnGrData kept
+% ZernTypeL 0 (the Zernike default is pre-empted at Surface= for any type
+% but Zernike), so its coefficients never reached the trace -- the red.
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -5.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=4.0E+00
+         Obscratn=2.4E+00
+
+         GridType=  Circular
+         nGridpts=  256
+            xGrid=  -1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  -1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  6
+
+
+             iElt=  1
+          EltName=  SecMirObs
+          Element=  Obscuring
+          Surface=  Conic
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.2E+00
+           RptElt=  0.0E+00  0.0E+00  -4.2E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  3
+          ObsType=  Circle
+           ObsVec=  5.0E-01  0.0E+00  0.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.125E-03  3.125E-03  -3.0E+00  3.0E+00
+          ObsType=  Rectangle
+           ObsVec=  -3.0E+00  3.0E+00  -3.125E-03  3.125E-03
+           ApType=  Circular
+            ApVec=  2.0E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.0E+20
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Primary
+          Element=  NSReflector
+          NSCount=  1
+          Surface=  ZrnGrData
+         ZernType=  ANSI
+         ZernCoef=  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  2.0E-07
+            KrElt=-1.08E+01
+            KcElt=-1.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             pMon=  0.0E+00  0.0E+00  0.0E+00
+             xMon=  1.0E+00  0.0E+00  0.0E+00
+             yMon=  0.0E+00  1.0E+00  0.0E+00
+             zMon=  0.0E+00  0.0E+00  -1.0E+00
+             lMon=  1.0E+00
+             xObs=  -1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  2.1E+00  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=5.4E+00
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Secondary
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=-3.526787501E+00
+            KcElt=-2.670556022E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.061145902E+00
+           RptElt=  0.0E+00  0.0E+00  -5.4E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.2E-01  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.338854098E+00
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Return1
+          Element=  Return
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  5
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt=-5.560145902E+00
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           RptElt=  0.0E+00  0.0E+00  -4.060145902E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  FarField
+             zElt=5.560145902E+00
+          nECoord= -6
+
+             iElt=  6
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.5E+00
+           RptElt=  0.0E+00  0.0E+00  1.5E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

@@ -1,0 +1,40 @@
+=== tg96_pupil_engine: tag pupileng_lens  rig lens  (2026-09-17 07:21) ===
+the engine's propagation through reference surfaces in the .in file (the CTB model); compared with /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/pupilsim_lens
+mask sandwich inserted: spheres of radius 357.43 mm (Kr -R, zElt +R) at 357.43 before and 23.86 after the mask marker; the mask carries NF2
+exit rays after the field lens cross the axis 795.9 mm from its exit face (negative = upstream, a diverging beam); pupil sphere placed 1.0 mm after the face, radius 796.90 mm; detector 34.77 mm after the face -> zElt 830.67
+  Kr -796.90: flat-DM OPD on the pupil sphere 173.234 nm rms (rays 115814)
+  Kr +796.90: flat-DM OPD on the pupil sphere 9706.835 nm rms (rays 115814)
+pupil sphere Kr -796.90 kept (OPD 173.234 nm rms: the sphere is concentric with the beam)
+
+---- engine, as built ----
+flat DM at the detector: grid 512 px at 0.0268 mm; pupil image centroid at pixel (257.0, 257.0) of centre 256.5; equivalent radius 1.139 mm -> 42.1509 DM-mm per detector-mm (the rays: 9.7623)
+array orientation: variant 2 (poke at (42.5, 0.5) lands 5.76 mm off; peak 158.129 of 100 nm)
+flat DM: |E| over the lit actuators 1.0000 mean (normalized), 2.8151 relative rms variation; outermost lit ring 1.2769
+  sinusoid f 0.5000: ENGINE gain mean 1.9889, min 0.0052, by radius [2.174 1.826 1.811 2.595 2.660 2.392 2.091 1.931 1.812 1.411 ]; cross-talk max 322.883  |  zone-PSF model: mean 0.9788, min 0.9539, by radius [0.990 0.990 0.989 0.988 0.986 0.984 0.981 0.977 0.973 0.970 ]
+  sinusoid f 0.2500: ENGINE gain mean 1.2680, min 0.0017, by radius [0.785 0.852 1.050 1.248 1.361 1.366 1.303 1.294 1.292 1.258 ]; cross-talk max 213.979  |  zone-PSF model: mean 0.9986, min 0.9966, by radius [0.999 0.999 0.999 0.999 0.999 0.999 0.999 0.998 0.998 0.998 ]
+  sinusoid f 0.1250: ENGINE gain mean 0.5752, min 0.0016, by radius [0.518 0.519 0.517 0.506 0.488 0.475 0.488 0.541 0.634 0.761 ]; cross-talk max 6.755  |  zone-PSF model: mean 0.9999, min 0.9997, by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
+  sinusoid f 0.0625: ENGINE gain mean 1.4658, min 0.1893, by radius [0.298 0.495 0.738 0.980 1.204 1.402 1.563 1.678 1.738 1.735 ]; cross-talk max 1.858  |  zone-PSF model: mean 1.0000, min 1.0000, by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
+  poke at (  0.5,   0.5): ENGINE peak 1.6853  |  zone-PSF model 0.9958
+  poke at ( 28.5,   0.5): ENGINE peak 1.6830  |  zone-PSF model 0.9926
+  poke at ( 42.5,   0.5): ENGINE peak 1.6834  |  zone-PSF model 0.9894
+  poke at ( 47.5,   0.5): ENGINE peak 1.6850  |  zone-PSF model 0.9889
+  poke at (  0.5,  47.5): ENGINE peak 0.0716  |  zone-PSF model 0.9889
+  poke at ( 33.5,  33.5): ENGINE peak 0.0253  |  zone-PSF model 0.9876
+  working surface 30.7 nm rms: ENGINE recovered - true 30.700 nm rms (piston, tilt removed)  |  zone-PSF model 1.227 nm
+
+---- engine, detector +4.32 mm downstream (the simulation's compromise plane) ----
+flat DM at the detector: grid 512 px at 0.0266 mm; pupil image centroid at pixel (257.0, 257.0) of centre 256.5; equivalent radius 0.633 mm -> 75.7729 DM-mm per detector-mm (the rays: 9.7623)
+array orientation: variant 2 (poke at (42.5, 0.5) lands 4.83 mm off; peak 158.191 of 100 nm)
+flat DM: |E| over the lit actuators 1.0000 mean (normalized), 4.3522 relative rms variation; outermost lit ring 1.5529
+  sinusoid f 0.5000: ENGINE gain mean 2.1413, min 0.0026, by radius [2.453 3.002 2.748 2.808 2.699 2.409 2.246 2.088 1.732 1.501 ]; cross-talk max 269.605  |  zone-PSF model: mean 0.9984, min 0.9929, by radius [0.997 0.997 0.997 0.998 0.999 0.999 0.999 0.999 0.998 0.998 ]
+  sinusoid f 0.2500: ENGINE gain mean 1.1518, min 0.0016, by radius [0.675 1.048 1.314 1.372 1.340 1.280 1.167 1.086 1.047 1.041 ]; cross-talk max 107.662  |  zone-PSF model: mean 0.9999, min 0.9996, by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
+  sinusoid f 0.1250: ENGINE gain mean 1.3474, min 0.6365, by radius [1.145 1.186 1.248 1.307 1.346 1.363 1.364 1.362 1.365 1.379 ]; cross-talk max 13.121  |  zone-PSF model: mean 1.0000, min 0.9999, by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
+  sinusoid f 0.0625: ENGINE gain mean 1.3579, min 0.4527, by radius [0.551 0.641 0.789 0.958 1.128 1.284 1.417 1.518 1.580 1.596 ]; cross-talk max 1.532  |  zone-PSF model: mean 1.0000, min 1.0000, by radius [1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 1.000 ]
+  poke at (  0.5,   0.5): ENGINE peak 1.6816  |  zone-PSF model 0.9973
+  poke at ( 28.5,   0.5): ENGINE peak 1.6828  |  zone-PSF model 0.9995
+  poke at ( 42.5,   0.5): ENGINE peak 1.6842  |  zone-PSF model 0.9992
+  poke at ( 47.5,   0.5): ENGINE peak 1.6854  |  zone-PSF model 1.5079
+  poke at (  0.5,  47.5): ENGINE peak 0.1027  |  zone-PSF model 1.5064
+  poke at ( 33.5,  33.5): ENGINE peak 0.0768  |  zone-PSF model 0.9986
+  working surface 30.7 nm rms: ENGINE recovered - true 30.700 nm rms (piston, tilt removed)  |  zone-PSF model 0.428 nm
+run complete

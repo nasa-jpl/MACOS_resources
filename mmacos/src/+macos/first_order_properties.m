@@ -9,8 +9,9 @@ function p = first_order_properties(srf)
 %
 %   Runs the engine EFL analysis (chief + marginal ray; the source must
 %   be at infinity).  The pixel-based fields (lamD_px, plate_arcsec_px,
-%   plate_px_rad, dx_focal_baseunits) require a prior propagation to SRF
-%   (e.g. macos.intensity(SRF)); they are 0 otherwise.
+%   plate_px_rad, dx_focal_baseunits) require a prior DIFFRACTION propagation
+%   to SRF (e.g. macos.intensity(SRF)); they are 0 otherwise, and after an
+%   opd() at SRF, which re-sets its pitch to the ray spacing (PLAN 1.2 (d)).
 %
 %   Struct fields:
 %     efl_baseunits      effective focal length (BaseUnits)

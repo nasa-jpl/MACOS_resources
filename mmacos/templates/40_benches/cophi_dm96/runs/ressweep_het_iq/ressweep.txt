@@ -1,0 +1,63 @@
+ressweep het_iq -- 13-Oct-2026 11:00:53
+px/act = camera pixels per actuator pitch (model 3.277 at NGRID 385; > 3.277 = finer source grid).
+Battery (noise-free, the 30 nm working surface, matrix on it; one-step | converged): gain / err pm / floor pm
+ px/act    lit | single 10 nm             | grid 1 nm                | dense random 10 nm      
+  4.009   6948 | 0.9943/0.9999   1.4/  0.0   1| 0.9949/1.0005   1.6/  0.3   1| 0.9951/1.0005 117.7/ 27.1   -|
+  3.277   6948 | 0.9941/1.0000   1.4/  0.1   1| 0.9950/1.0006   1.6/  0.3   1| 0.9951/1.0005 117.6/ 27.7   -|
+  2.000   6948 | 0.9914/0.9993   2.2/  0.1   2| 0.9924/1.0005   2.5/  0.4   2| 0.9928/1.0004 178.5/ 33.3   -|
+  1.500   6948 | 0.9895/0.9991   2.8/  0.3   2| 0.9907/0.9996   3.1/  0.7   3| 0.9912/0.9999 223.4/ 60.7   -|
+  1.000   6948 | 0.9617/1.0029  13.9/  3.1  13| 0.9247/0.9630  30.2/ 23.8  27| 0.9593/0.9913 1458.3/1122.5   -|
+
+Registration (camera shifted +-0.1 pitch after calibration; worst of the four shifts): gain one-step / converged, largest neighbour / dev, noise-free floor pm, wrong actuator
+  4.009 | at 0: g 0.9943, nbr 0.0036, flr 1.20 | worst (+0.00,-0.40 px): g 0.9523 / 0.9575, nbr 0.1189, flr 17.35, wrong 0 of 4
+  3.277 | at 0: g 0.9941, nbr 0.0037, flr 1.23 | worst (+0.00,+0.33 px): g 0.9446 / 0.9499, nbr 0.1199, flr 17.02, wrong 0 of 4
+  2.000 | at 0: g 0.9914, nbr 0.0064, flr 1.96 | worst (+0.00,+0.33 px): g 0.9597 / 0.9673, nbr 0.1052, flr 15.87, wrong 0 of 4
+  1.500 | at 0: g 0.9895, nbr 0.0082, flr 2.46 | worst (+0.33,+0.00 px): g 0.9645 / 0.9736, nbr 0.1154, flr 17.62, wrong 0 of 4
+  1.000 | at 0: g 0.9617, nbr 0.0337, flr 13.16 | worst (+0.00,-0.33 px): g 0.8704 / 0.8897, nbr 0.2241, flr 46.29, wrong 0 of 4
+
+Noise (one reading; pm per reading = piston-free robust floor; s per pm = floor^2 / readings per s) and data:
+ px/act camera       binning   read e-  pm/read  s per pm     out px      Gb/s   pupil px
+  4.009 lockin       digital         0     57.9      3.36   1.64e+05      2.62   1.16e+05
+  4.009 lockin       onchip          0     57.9      3.36   1.64e+05      2.62   1.16e+05
+  4.009 lockin_r     digital       133     62.9      3.96   1.64e+05      2.62   1.16e+05
+  4.009 lockin_r     onchip        100     62.4       3.9   1.64e+05      2.62   1.16e+05
+  3.277 lockin       digital         0     58.9      3.47    1.1e+05      1.76   7.79e+04
+  3.277 lockin       onchip          0     58.9      3.47    1.1e+05      1.76   7.79e+04
+  3.277 lockin_r     digital       163     62.9      3.96    1.1e+05      1.76   7.79e+04
+  3.277 lockin_r     onchip        100     62.2      3.87    1.1e+05      1.76   7.79e+04
+  2.000 lockin       digital         0     73.7      5.44   4.09e+04     0.655    2.9e+04
+  2.000 lockin       onchip          0     73.7      5.44   4.09e+04     0.655    2.9e+04
+  2.000 lockin_r     digital       266     86.9      7.55   4.09e+04     0.655    2.9e+04
+  2.000 lockin_r     onchip        100       85      7.23   4.09e+04     0.655    2.9e+04
+  1.500 lockin       digital         0     79.2      6.28    2.3e+04     0.368   1.63e+04
+  1.500 lockin       onchip          0     79.2      6.28    2.3e+04     0.368   1.63e+04
+  1.500 lockin_r     digital       355     90.9      8.27    2.3e+04     0.368   1.63e+04
+  1.500 lockin_r     onchip        100     89.8      8.06    2.3e+04     0.368   1.63e+04
+  1.000 lockin       digital         0      126      15.9   1.02e+04     0.164   7.25e+03
+  1.000 lockin       onchip          0      126      15.9   1.02e+04     0.164   7.25e+03
+  1.000 lockin_r     digital       533      165      27.3   1.02e+04     0.164   7.25e+03
+  1.000 lockin_r     onchip        100      161      25.9   1.02e+04     0.164   7.25e+03
+
+Loop (linear instrument = this sampling's matrix + the camera's noise; g 0.5, K 60, seed 77; digital binning): hold ss pm (piston-free)
+  4.009 lockin       M  125 (0.125 s) none     ss 3.08 (pf 3.08)  sig_n 5.3  theory 3.06  gG 0.500
+  4.009 lockin       M  125 (0.125 s) thermal  ss 10.5 (pf 10.5)  sig_n 5.3  theory 10.5  gG 0.500
+  4.009 lockin_r     M  125 (0.125 s) none     ss 3.14 (pf 3.14)  sig_n 5.4  theory 3.12  gG 0.500
+  4.009 lockin_r     M  125 (0.125 s) thermal  ss 10.5 (pf 10.5)  sig_n 5.4  theory 10.5  gG 0.500
+  3.277 lockin       M  125 (0.125 s) none     ss 3.09 (pf 3.09)  sig_n 5.3  theory 3.06  gG 0.500
+  3.277 lockin       M  125 (0.125 s) thermal  ss 10.5 (pf 10.5)  sig_n 5.3  theory 10.5  gG 0.500
+  3.277 lockin_r     M  125 (0.125 s) none     ss 3.15 (pf 3.15)  sig_n 5.4  theory 3.12  gG 0.500
+  3.277 lockin_r     M  125 (0.125 s) thermal  ss 10.5 (pf 10.5)  sig_n 5.4  theory 10.5  gG 0.500
+  2.000 lockin       M  125 (0.125 s) none     ss 4.02 (pf 4.02)  sig_n 6.86  theory 3.96  gG 0.500
+  2.000 lockin       M  125 (0.125 s) thermal  ss 10.8 (pf 10.8)  sig_n 6.86  theory 10.8  gG 0.500
+  2.000 lockin_r     M  125 (0.125 s) none     ss 4.62 (pf 4.62)  sig_n 7.92  theory 4.57  gG 0.500
+  2.000 lockin_r     M  125 (0.125 s) thermal  ss 11 (pf 11)  sig_n 7.92  theory 11  gG 0.500
+  1.500 lockin       M  125 (0.125 s) none     ss 4.26 (pf 4.26)  sig_n 7.27  theory 4.2  gG 0.500
+  1.500 lockin       M  125 (0.125 s) thermal  ss 10.9 (pf 10.9)  sig_n 7.27  theory 10.8  gG 0.500
+  1.500 lockin_r     M  125 (0.125 s) none     ss 5.25 (pf 5.25)  sig_n 8.96  theory 5.17  gG 0.500
+  1.500 lockin_r     M  125 (0.125 s) thermal  ss 11.3 (pf 11.3)  sig_n 8.96  theory 11.3  gG 0.500
+  1.000 lockin       M  125 (0.125 s) none     ss 8.65 (pf 8.65)  sig_n 12.3  theory 7.08  gG 0.500
+  1.000 lockin       M  125 (0.125 s) thermal  ss 13.2 (pf 13.2)  sig_n 12.3  theory 12.3  gG 0.500
+  1.000 lockin_r     M  125 (0.125 s) none     ss 18 (pf 18)  sig_n 17.2  theory 9.9  gG 0.500
+  1.000 lockin_r     M  125 (0.125 s) thermal  ss 20.6 (pf 20.6)  sig_n 17.2  theory 14.1  gG 0.500
+
+Wall: het_iq_s400 12 min; het_iq_s328 12 min; het_iq_s200 12 min; het_iq_s150 12 min; het_iq_s100 13 min; 

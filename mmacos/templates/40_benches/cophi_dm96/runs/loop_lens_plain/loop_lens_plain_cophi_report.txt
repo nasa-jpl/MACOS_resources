@@ -1,0 +1,37 @@
+
+=== COPHI loop (lens rig, the plain splitter): 204.4 min ===
+  ss / bias / sig_n: the record's metric (rms over lit, piston included) | the same PISTON-FREE
+  camera      row      estimator       ss     bias    sig_n |    ss_pf  bias_pf   sig_pf  cycle s
+  baseline    none     onestep       2.75     0.86     4.72 |     2.75     0.86     4.72    16.00
+  baseline    none     converged     2.80     0.86     4.84 |     2.80     0.86     4.84    16.00
+  baseline    walk     onestep       3.60     1.11     4.72 |     3.60     1.11     4.72    16.00
+  baseline    walk     converged     3.63     1.11     4.84 |     3.63     1.11     4.84    16.00
+  baseline    thermal  onestep      10.30     9.97     4.72 |    10.30     9.97     4.72    16.00
+  baseline    thermal  converged    10.31     9.96     4.84 |    10.31     9.96     4.84    16.00
+  baseline    cam      onestep       2.85     0.90     4.84 |     2.85     0.90     4.84    16.00
+  baseline    cam      converged     2.89     0.90     4.96 |     2.89     0.90     4.96    16.00
+  baseline    lo       onestep      29.55    28.87     4.72 |    29.54    28.86     4.72    16.00
+  baseline    lo       converged    29.56    28.87     4.84 |    29.55    28.86     4.84    16.00
+  baseline    fiber1   onestep      12.76     1.84    21.77 |     7.78     1.35    13.08    16.00
+  baseline    fiber1   converged    12.81     1.85    21.90 |     7.85     1.35    13.27    16.00
+  baseline    fiber3   onestep      37.49     4.95    63.94 |    22.00     3.21    36.89    16.00
+  baseline    fiber3   converged    37.61     4.95    64.26 |    22.19     3.21    37.39    16.00
+  baseline    delay    onestep       3.65     0.89     4.72 |     3.65     0.89     4.72    16.00
+  baseline    delay    converged     3.74     0.89     4.84 |     3.74     0.89     4.84    16.00
+  photonfocus none     onestep       2.60     0.82     4.46 |     2.60     0.82     4.46     1.60
+  photonfocus none     converged     2.64     0.82     4.57 |     2.64     0.82     4.57     1.60
+  photonfocus walk     onestep       3.48     1.09     4.46 |     3.48     1.09     4.46     1.60
+  photonfocus walk     converged     3.51     1.08     4.57 |     3.51     1.08     4.57     1.60
+  photonfocus thermal  onestep      10.27     9.96     4.46 |    10.27     9.96     4.46     1.60
+  photonfocus thermal  converged    10.27     9.96     4.57 |    10.27     9.96     4.57     1.60
+  photonfocus cam      onestep       2.66     0.85     4.53 |     2.66     0.85     4.53     1.60
+  photonfocus cam      converged     2.71     0.85     4.64 |     2.71     0.85     4.64     1.60
+  photonfocus lo       onestep      29.54    28.88     4.46 |    29.53    28.86     4.46     1.60
+  photonfocus lo       converged    29.55    28.88     4.57 |    29.54    28.87     4.57     1.60
+  photonfocus fiber1   onestep      17.82     2.44    30.40 |    10.62     1.67    17.83     1.60
+  photonfocus fiber1   converged    17.88     2.44    30.56 |    10.72     1.67    18.08     1.60
+  photonfocus fiber3   onestep      52.95     6.94    90.30 |    30.99     4.44    51.95     1.60
+  photonfocus fiber3   converged    53.12     6.94    90.75 |    31.26     4.44    52.65     1.60
+  photonfocus delay    onestep       3.44     0.84     4.46 |     3.44     0.84     4.46     1.60
+  photonfocus delay    converged     3.53     0.84     4.57 |     3.53     0.84     4.57     1.60
+wall 204.4 min

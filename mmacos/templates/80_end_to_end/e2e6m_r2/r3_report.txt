@@ -1,0 +1,26 @@
+==================== e2e6m R3 -- sensitivities, DM-bearing train
+deck   /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_prop.in
+metric OPD at the CORONAGRAPH exit pupil (ox.wf_elt), per-field FEX;
+       field set = centre + 4 corners of the +-0.35' box, 500 nm
+optics 31 perturbed (19 segments + 12 rest incl. DM1/DM2 + 8 OAPs);
+       PM group = 19 members
+
+[runner] /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_sens_report.txt
+    segments: 19
+    dwdxall 170286 x 192 over 5 fields
+    + 6 group channel(s) appended after the per-element block
+    dwdzall 170286 x 152
+    dwdgall 170286 x 114 (influence basis saved in og.sgb)
+    [conditioning] finite rows only:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdx     segment-only: 170286x114  cond+ 1.964e+06
+    channel          size   rank     sv_max    sv_min+      cond+
+
+[group exhibit] appended to /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_sens_report.txt (members [1 2 8])
+
+[closure] jacobian_check at wf_elt 46 on elts [2 23 30]:
+    worst rel 0.00349 over 18 pairs (4 null)  [PASS]
+
+[fingerprint] /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_sens.fp.json (the .mat is 269 MB and gitignored)
+
+R3 sensitivities DONE in 38.5 min

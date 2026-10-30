@@ -23,8 +23,7 @@ classdef tSegmentRx < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));            % mmacos/tests
             res_root = fileparts(fileparts(here));              % MACOS_resources
             tc.tin = fullfile(res_root, 'segmirmaker', 'test_in');
-            tc.bin = fullfile(res_root, 'segmirmaker', ...
-                              'build_release_ifx', 'SegMirMaker');
+            tc.bin = segmirmaker_bin();   % any built tree, not ifx only
             tc.assumeTrue(isfile(tc.bin), ...
                 'SegMirMaker binary not built (source ./makesegmirmaker.sh)');
             tc.seg = macos.design.segment_rx( ...

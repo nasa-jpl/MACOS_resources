@@ -1,0 +1,29 @@
+=== ZWFS runner: tag pdi_dev  (2026-09-12 07:47) ===
+model 512, NGRID 65, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench | readings: L S V P PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck pdi_dev_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 11.88 px at the mask plane; msk 3209 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.253e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.994e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9553 0.9520 0.9467 0.9385 0.9279 0.9138 0.8972 0.8793 0.8568 0.8338 0.8088 0.7818 0.7534 0.7216 0.6906 0.6584 0.6238 0.5882 0.5526 0.5179 
+frame: ray magnification 10.1584 DM-mm per detector-mm, detector px 1.1739e-01 mm -> 1.1925 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 11.88 px across at the mask plane (min 6)  -> PASS
+  pinhole 11.88 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 48x48: 1.68 detector px per actuator (min 2)  -> NOT MET
+G3 30 nm rms working state (DM 48x48, lit 812): detector |E|/|E_flat| on msk std 3.015e-16   (gate < 1e-12: A = |E0| is exact)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (11846 pm rms on msk, peak 1.88 rad; 2.93% of msk beyond the one-frame fold): V rms error 0.296 pm (gate < 0.1% of the figure), one-frame exact I 9198 pm (non-vacuity: must exceed 10x)   -> PASS
+P: pinhole 2.00 lam/D, surround t 0.7215, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6925; throughput (detected/incident, flat) 0.8358; visibility on the flat 0.5462; surrogate vs engine reference 1.99e-15; the flat reads 1.99e-15 rad rms, amplitude 3.48e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (11846 pm rms on msk, 2.93% of msk beyond the one-frame fold): rms error 1.866 pm (gate < 0.1% of the figure)   -> PASS
+PF: fiber reference (pinhole 2.00 lam/D shape), pickoff 0.50, a 0.009007 (match 0.01248, budget 0.009007), 4 steps; frames per measurement 4; eta_pin 0.6925; throughput (detected/incident, flat) 0.8462; visibility on the flat 0.9249; surrogate vs engine reference 1.99e-15; the flat reads 2.73e-16 rad rms, amplitude 1.62e-16 rel
+G5 PF on 100 nm single-actuator pokes every 8th actuator (11846 pm rms on msk, 2.93% of msk beyond the one-frame fold): rms error 0.000 pm (gate < 0.1% of the figure)   -> PASS
+G6 reference motion under the 30 nm rms working state, |b_state - b_flat|/|b_flat| on msk, pinhole diameter [0.5 1 1.5 2 3] lam/D: 0.1417 0.1444 0.1485 0.1539 0.1669    (the dimple, 2.00 lam/D: 0.1539)
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 5.35e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (256.18, 256.18) <-> DM (-1.05, -1.05) mm
+  parity [1  2  1  1] sign +1 taken from P.reg (mode record)
+  center poke in the DM frame: raw peak gain 0.7161, corr(map, truth) 0.9881
+bench stage 0.2 min
+run complete in 0.2 min

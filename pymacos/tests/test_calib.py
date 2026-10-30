@@ -68,8 +68,12 @@ def test_calib_returns_expected_schema(rx_path):
     expected_keys = {
         'converged', 'rtn_flag', 'n_fov', 'n_wavelength',
         'old_wfe', 'new_wfe',
+        'n_iter', 'merit', 'stop_reason',   # PLAN 3.3, 2026-10-11
+        'n_rejected', 'n_failed',           # PLAN 3.4, 2026-10-11
     }
     assert set(result.keys()) == expected_keys
+    assert isinstance(result['n_iter'], int) and result['n_iter'] >= 1
+    assert result['stop_reason'] in ('converged', 'floor', 'cap')
     assert isinstance(result['converged'], bool)
     assert isinstance(result['rtn_flag'], int)
     n_fov = result['n_fov']
@@ -130,11 +134,15 @@ def test_calib_set_iter_and_tol(rx_path):
 
 
 def test_calib_set_target_accepts_names(rx_path):
-    """All five named targets dispatch without errors."""
+    """The four named targets dispatch without errors.  ('OPL', the fifth, was
+    REMOVED 2026-10-10 -- PLAN 3.1: it had no objective behind it; the name now
+    raises ValueError and the engine refuses target 5, test_calib_targets.py.)"""
     m.init(256)
     m.load(str(rx_path))
-    for name in ('WFE', 'BEAM', 'SPOT', 'OPL'):
+    for name in ('WFE', 'BEAM', 'SPOT'):
         m.calib_set_target(name)
+    with pytest.raises(ValueError):
+        m.calib_set_target('OPL')
     # WFE_ZMODE requires modes -- exercise that path too.
     m.calib_set_target('WFE_ZMODE', wf_zern_modes=[4, 5, 11])
     # Aliases

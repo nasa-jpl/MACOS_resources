@@ -1,0 +1,142 @@
+=== ZWFS runner: tag oapsens22  (2026-09-15 10:50) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench battery | readings: S V P
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+OAP coating: bareAl on L1 (elt 2) and L2 (elt 12), 1 layer(s); active under polarization (the vector reading's arm maps)
+deck oapsens22_test.in: TO elt 6, FocalMask 14, Detector 18; mask sandwich spheres zElt 364.286 / 364.286 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 8.44 px at the mask plane; msk 28917 px
+focal spot: 0.625 um per px at the mask plane, 4.22 px per lam F/D; the dimple encloses 74.1% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.829e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.977e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 1.0311 1.0277 1.0208 1.0109 0.9978 0.9813 0.9618 0.9396 0.9148 0.8873 0.8570 0.8249 0.7912 0.7556 0.7181 0.6797 0.6406 0.6005 0.5601 0.5194 
+frame: ray magnification 10.1044 DM-mm per detector-mm, detector px 4.1704e-02 mm -> 0.4214 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 8.44 px across at the mask plane (min 6)  -> PASS
+  pinhole 8.44 px across at the mask plane (min 6; the dimple's rule)  -> PASS
+  DM 96x96: 2.37 detector px per actuator (min 2)  -> PASS
+  DM 48x48: 4.75 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3648): detector |E|/|E_flat| on msk std 3.918e-16   (gate < 1e-12: A = |E0| is exact)
+V3 arm (engine Jones pupil at elt 13, the mask sandwich's entrance sphere; laser 45.0 deg from the source x): exit axis [0.0872 -0.9962 0.0000], beam half-cone 5.6 deg, longitudinal residual 8.6e-17, common-phase slope vs the pupil phase -276.7797 (resid 4.4e-05; -2 = the vector trace is the scalar's conjugate), transmittance 0.6513
+  diattenuation mean 4.00e-02, rms 6.15e-04, max 4.11e-02; retardance mean 1.01e-01 rad, rms 1.76e-02, max 1.47e-01
+  per channel: |qL| 1.03985 (rms 1.6e-03), |qR| 0.95849 (rms 1.8e-03); phase about mean L 2.84e-02 rad rms, R 3.36e-02; channel DIFFERENCE: phase 6.20e-02 rad rms (PV 2.47e-01), amplitude ratio 3.5e-03 rms (PV 1.4e-02)
+G8 chained pupil-map + dimple apodization: unit map vs the plain frame 0.0e+00 (gate < 1e-12); channel map vs the surrogate |qE0 + c b(qE0)|^2 on msk 4.0e-15 (gate < 1e-10)   -> PASS
+  solver arm model: ideal (knows nothing of the arm: the raw size of the term)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12079 pm rms on msk, peak 1.94 rad; 3.00% of msk beyond the one-frame fold): V rms error 633.972 pm (gate < 0.1% of the figure), one-frame exact I 9116 pm (non-vacuity: must exceed 10x)   -> FAIL
+  (G4 not asserted: an uncalibrated metasurface / arm / analyzer error is being priced -- the V error above IS the number)
+stations figure oapsens22_stations_S.png: residual vs the engine's field on msk 0.00 pm (flat), 4700.40 pm (30 nm rms working surface)
+stations figure oapsens22_stations_V.png: residual vs the engine's field on msk 166.33 pm (flat), 1116.70 pm (30 nm rms working surface)
+stations figure oapsens22_stations_P.png: residual vs the engine's field on msk 0.00 pm (flat), 193.68 pm (30 nm rms working surface)
+P: pinhole 2.00 lam/D, surround t 0.7567, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.7185; throughput (detected/incident, flat) 0.8542; visibility on the flat 0.5044; surrogate vs engine reference 1.98e-15; the flat reads 1.87e-15 rad rms, amplitude 3.51e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12079 pm rms on msk, 3.00% of msk beyond the one-frame fold): rms error 0.269 pm (gate < 0.1% of the figure)   -> PASS
+G6 reference motion under the 30 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.1262   0.8752   0.0004
+    1.00   0.1289   0.8725   0.0013
+    1.50   0.1331   0.8684   0.0030
+    2.00   0.1389   0.8628   0.0062
+    3.00   0.1519   0.8515   0.0225
+    2.00   0.1389   0.8628   0.0062   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 2.26e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (511.83, 514.17) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1 -1] sign +1, |corr| 0.990, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: -0.00 -0.01 0.99 -0.00 -0.00 -0.00 -0.01 -0.00 
+  center poke in the DM frame: raw peak gain 0.7487, corr(map, truth) 0.9879
+bench stage 1.4 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+calibration: surface base (30 nm rms, seed 7), kernel measured at actuator (NaN,NaN); test actuator (60,40)
+MATRIX calibration: 64 multiplexed states (grid step 8), 3648 actuators poked once each, windows +/-9 px; J built in 7.7 min; 0 clipped windows
+lit actuators 3648; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  S [0.769 0.000 0.048]  V [0.921 0.000 0.066]  P [0.922 0.000 0.036]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       S       V       P
+  ( 1, 0)     0.5 |  0.5909  1.0671  0.9890
+  ( 2, 0)     1.0 |  1.0048  1.0647  1.0657
+  ( 4, 0)     2.0 |  0.9542  1.0142  0.9982
+  ( 8, 0)     4.0 |  1.0212  1.0884  1.0656
+  (16, 0)     8.0 |  0.9930  1.0594  1.0409
+  (24, 0)    12.0 |  1.0032  1.0452  1.0367
+  (32, 0)    16.0 |  1.0032  1.0437  1.0377
+  (40, 0)    20.0 |  1.0071  1.0447  1.0374
+  (48, 0)    24.0 |  1.0148  1.0470  1.0377
+  (56, 0)    28.0 |  1.0180  1.0483  1.0369
+  (64, 0)    32.0 |  1.0160  1.0420  1.0296
+  (72, 0)    36.0 |  1.0102  1.0280  1.0188
+  (80, 0)    40.0 |  0.9952  1.0103  1.0039
+  ( 8, 8)     5.7 |  1.0421  1.0734  1.0585   (separability row)
+  (24,24)    17.0 |  1.0243  1.0416  1.0358   (separability row)
+min |g| over the (p,0) rows:  S 0.591  V 1.010  P 0.989
+matrix mode: no modal correction applied (cor columns and the ladder = raw estimates)
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+  [rand30/single10] differential map on the surface vs the same change on the flat, over the changed actuator's window (rel rms diff / amplitude ratio):  S 0.238 / 0.765  V 0.070 / 0.948  P 0.051 / 0.968
+rand30/single10   S   |  0.9897        5        5 2188.17 |  0.9897        5        5 2188.17
+                  V   |  1.0022        4        4 2490.09 |  1.0022        4        4 2490.09
+                  P   |  0.9939        3        3 3400.44 |  0.9939        3        3 3400.44
+rand30/grid@1nm   S   |  0.9980        4        3  286.88 |  0.9980        4        3  286.88
+                  V   |  1.0100        5        4  280.69 |  1.0100        5        4  280.69
+                  P   |  0.9979        3        3  371.10 |  0.9979        3        3  371.10
+rand30/rand10     S   |  0.9811      689        -       - |  0.9811      689        -       -
+                  V   |  1.0086      633        -       - |  1.0086      633        -       -
+                  P   |  0.9961      301        -       - |  0.9961      301        -       -
+break scale (10 nm differential on the hold-out actuator (60,40), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | S: g flr SNR          | V: g flr SNR          | P: g flr SNR          |
+   30 nm    NaN    NaN |  0.9928      5  2149.7|  1.0027      4  2490.9|  0.9942      3  3302.4|
+   40 nm    NaN    NaN |  0.8548      3  2824.2|  0.9784      5  1990.5|  0.9682      2  4266.4|
+   50 nm    NaN    NaN |  0.7210      5  1450.0|  0.9491      7  1373.2|  0.9202      7  1395.8|
+   60 nm    NaN    NaN |  0.5967     10   601.6|  0.9037     10   922.1|  0.8410     11   755.8|
+  120 nm    NaN    NaN |  0.1724     17   101.6|  0.1205     15    80.3|  0.1479     14   105.3|
+  240 nm    NaN    NaN | -0.1418     38   -37.2| -0.1348     33   -40.4| -0.1153     31   -36.9|
+  480 nm    NaN    NaN | -0.0459     14   -32.4| -0.0298     12   -25.7| -0.0389     12   -33.2|
+capture range to 10% (largest base rms with the gain within 0.9..1.1; matrix on the 30 nm surface; log-interpolated crossing):  S 36 nm |  V 60 nm |  P 52 nm |
+SPEC: grid-on-base SNR, reading S : raw 286.88 / corrected 286.88 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading V : raw 280.69 / corrected 280.69 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading P : raw 371.10 / corrected 371.10 -> DETECTED (>= 5)
+DM 96x96 battery 12.3 min
+
+---- battery: DM 48x48, pitch 2.0 mm ----
+calibration: surface base (30 nm rms, seed 7), kernel measured at actuator (NaN,NaN); test actuator (30,20)
+MATRIX calibration: 64 multiplexed states (grid step 8), 912 actuators poked once each, windows +/-18 px; J built in 7.4 min; 0 clipped windows
+lit actuators 912; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  S [0.813 0.000 0.038]  V [0.973 0.000 0.051]  P [0.974 0.000 0.011]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       S       V       P
+  ( 1, 0)     0.5 |  0.6132  1.1241  1.0390
+  ( 2, 0)     1.0 |  1.0441  1.0920  1.0968
+  ( 4, 0)     2.0 |  0.9676  1.0363  1.0194
+  ( 8, 0)     4.0 |  1.0385  1.1098  1.0915
+  (12, 0)     6.0 |  1.0261  1.0812  1.0683
+  (16, 0)     8.0 |  1.0219  1.0672  1.0577
+  (24, 0)    12.0 |  1.0262  1.0563  1.0474
+  (32, 0)    16.0 |  1.0244  1.0437  1.0319
+  (40, 0)    20.0 |  0.9742  0.9855  0.9772
+  ( 8, 8)     5.7 |  1.0589  1.0932  1.0822   (separability row)
+  (16,16)    11.3 |  1.0420  1.0586  1.0503   (separability row)
+min |g| over the (p,0) rows:  S 0.613  V 0.986  P 0.977
+matrix mode: no modal correction applied (cor columns and the ladder = raw estimates)
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+  [rand30/single10] differential map on the surface vs the same change on the flat, over the changed actuator's window (rel rms diff / amplitude ratio):  S 0.217 / 0.784  V 0.073 / 1.063  P 0.012 / 0.995
+rand30/single10   S   |  0.9971        9        9 1168.89 |  0.9971        9        9 1168.89
+                  V   |  1.0097        8        7 1474.58 |  1.0097        8        7 1474.58
+                  P   |  0.9952        4        4 2708.30 |  0.9952        4        4 2708.30
+rand30/grid@1nm   S   |  0.9928        3        3  371.92 |  0.9928        3        3  371.92
+                  V   |  1.0052        5        3  327.40 |  1.0052        5        3  327.40
+                  P   |  0.9957        1        1  714.41 |  0.9957        1        1  714.41
+rand30/rand10     S   |  0.9845      586        -       - |  0.9845      586        -       -
+                  V   |  1.0092      565        -       - |  1.0092      565        -       -
+                  P   |  0.9954      143        -       - |  0.9954      143        -       -
+break scale (10 nm differential on the hold-out actuator (30,20), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | S: g flr SNR          | V: g flr SNR          | P: g flr SNR          |
+   30 nm    NaN    NaN |  1.0007      9  1169.7|  1.0093      7  1469.5|  0.9956      4  2720.2|
+   40 nm    NaN    NaN |  0.8639      9   919.7|  1.0107      9  1188.7|  0.9713      5  2126.9|
+   50 nm    NaN    NaN |  0.7335     17   438.8|  0.9856     15   650.3|  0.9270     10   969.5|
+   60 nm    NaN    NaN |  0.6070     36   170.7|  0.9347     26   363.2|  0.8491     25   337.5|
+  120 nm    NaN    NaN |  0.0178     64     2.8|  0.0503     52     9.7|  0.0166     57     2.9|
+  240 nm    NaN    NaN | -0.2393     57   -42.3| -0.2001     51   -39.6| -0.1942     47   -41.4|
+  480 nm    NaN    NaN |  0.0899     18    49.5|  0.0875     20    43.1|  0.0731     15    48.2|
+capture range to 10% (largest base rms with the gain within 0.9..1.1; matrix on the 30 nm surface; log-interpolated crossing):  S 37 nm |  V 62 nm |  P 53 nm |
+SPEC: grid-on-base SNR, reading S : raw 371.92 / corrected 371.92 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading V : raw 327.40 / corrected 327.40 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading P : raw 714.41 / corrected 714.41 -> DETECTED (>= 5)
+DM 48x48 battery 11.1 min
+run complete in 24.8 min

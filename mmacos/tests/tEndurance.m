@@ -8,8 +8,8 @@ classdef tEndurance < matlab.unittest.TestCase
 %     (2) memory plateaus (no linear leak) — a generous guard against
 %         a future regression, tolerant of one-time arena events.
 %
-%   On-demand only (~30 s): `./run_mmacos_tests.sh tEndurance`.  Not in
-%   the fast suite or the `all` run.
+%   SUITE_MEMORY (with tEngineMemory; the full run's last batch), ~30 s;
+%   alone: `./run_mmacos_tests.sh tEndurance`.  Not in the fast suite.
 %
 %   Measured 2026-06-12 (model_size 128, Rx_Cass_FarField, 500 iters):
 %   unique rmsWFE = 1 (max|diff| = 0); RSS warm-up through ~iter 175,

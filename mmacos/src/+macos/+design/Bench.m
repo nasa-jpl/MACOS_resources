@@ -13,7 +13,7 @@ classdef Bench < handle
 %   The result is a folded 3-D bench prescription with real angles of
 %   incidence (no unfolded paraxial fiction) that loads and traces with
 %   zero vignetting, ready for staged optimization (collimate / focus /
-%   conjugate placement).  See examples/design/bench_layout.
+%   conjugate placement).  See templates/40_benches/bench_layout.
 %
 %   Constructor options (name-value):
 %     'pos'       source point (3x1, BaseUnits=mm).  Default [0;0;0].
@@ -69,6 +69,9 @@ classdef Bench < handle
 %                                       add_bs_transmit per pass.
 %     add_fold(dist, out)               fold mirror (OUT required).
 %     add_oap(dist, out, ...)           off-axis parabola section
+%                                       (vertex != pole -- ask
+%                                       Bench.station(e) for its beam
+%                                       position, never .vpt)
 %                                       (RptElt=pole, VptElt=parent
 %                                       vertex); 'mode' 'collimate' or
 %                                       'focus', 'focus_dist' sets the
@@ -79,6 +82,16 @@ classdef Bench < handle
 %                                       'side').  See method help.
 %     add_reference(dist, name)         passive Reference plane marker
 %                                       (e.g. a focal-mask site).
+%     add_polarizer(dist, axis)         ideal linear polarizer (TrPolarizer);
+%                                       AXIS = transmission axis (3-vector).
+%                                       Transmissive + geometrically inert;
+%                                       use in a collimated normal-incidence
+%                                       leg.  Requires ifPol.
+%     add_waveplate(dist, axis, R)      linear retarder (WavePlate); AXIS =
+%                                       fast axis, R = retardance in WAVES at
+%                                       the bench Wavelen (0.25 QWP / 0.5 HWP).
+%                                       A double-passed plate is TWO WavePlate
+%                                       elements sharing one global fast axis.
 %     add_detector(dist, name)          FocalPlane (last element).
 %
 %   Output / inspection:
@@ -119,7 +132,16 @@ classdef Bench < handle
 
 properties
     name     (1,:) char   = 'bench'
-    wavelen  (1,1) double = 6.328e-4    % mm (HeNe)
+    baseunits (1,:) char  = 'mm'        % Rx BaseUnits/WaveUnits.  Every
+                                        % LENGTH handed to this builder --
+                                        % distances, radii, thicknesses,
+                                        % wavelen -- is in these units; the
+                                        % builder never converts.  Default
+                                        % 'mm' keeps every existing bench
+                                        % bit-identical.  Set 'm' to build a
+                                        % bench that splices onto a
+                                        % metre-based telescope deck.
+    wavelen  (1,1) double = 6.328e-4    % baseunits (HeNe in mm)
     aperture (1,1) double = 0.1         % FULL cone angle, radians (point src)
     zsource  (1,1) double = 25
     ngridpts (1,1) double = 63
@@ -141,8 +163,11 @@ methods
             opts.aperture (1,1) double {mustBePositive} = 0.1
             opts.ngridpts (1,1) double {mustBeInteger, mustBePositive} = 63
             opts.zsource  (1,1) double = 25
+            opts.baseunits (1,:) char {mustBeMember(opts.baseunits, ...
+                              {'m','cm','mm','um','nm','in','ft'})} = 'mm'
         end
         b.name     = name;
+        b.baseunits = opts.baseunits;
         b.src_pos  = opts.pos;
         b.src_dir  = macos.design.Bench.unit(opts.dir);
         b.pos      = b.src_pos;
@@ -323,13 +348,13 @@ methods
         dout = macos.design.Bench.refract(dr, psi, n, 1.0);
 
         e1 = b.blank([bs.name 'bin' opts.tag], 'Refractor');
-        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 1e22;
+        e1.psi = psi;  e1.vpt = Pin;   e1.indref = n;    e1.extinc = 0;
         b.path_len = b.path_len + sB;   i1 = b.push(e1);
         e2 = b.blank([bs.name 'cref' opts.tag], 'Reflector');
         e2.psi = psi;  e2.vpt = Pr;    e2.indref = n;    e2.extinc = 1e22;
         b.path_len = b.path_len + sf;   i2 = b.push(e2);
         e3 = b.blank([bs.name 'bout' opts.tag], 'Refractor');
-        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 1e22;
+        e3.psi = psi;  e3.vpt = Pout;  e3.indref = 1.0;  e3.extinc = 0;
         b.path_len = b.path_len + sb2;  i3 = b.push(e3);
         idx = [i1, i2, i3];
         b.pos = Pout;  b.dir = dout;
@@ -341,24 +366,56 @@ methods
         %   An off-axis section in MACOS is the SAME parent conic with
         %   RptElt (the section POLE, where the beam hits) different
         %   from VptElt (the parent VERTEX); psiElt is the parent AXIS.
-        %   The pole is placed DIST along the chief; the parent is
-        %   constructed from the conjugate:
+        %   The pole is placed DIST along the chief.  Specify the parent
+        %   EITHER by its focal length ('f', the usual optical spec) OR by
+        %   the conjugate distance ('focus_dist'):
         %     'mode','collimate' -- the incoming chief diverges from a
         %        focus 'focus_dist' BACK along the incoming chief (for
         %        a source-fed OAP that is the source distance); the
         %        reflected beam is collimated along OUT.
         %     'mode','focus'     -- incoming collimated; the reflected
         %        chief focuses 'focus_dist' ahead along OUT.
+        %
         %   Parent focal length from the polar equation of the parabola
-        %   r = 2f/(1+cos(theta)):  f_parent = focus_dist*(1+cos th)/2,
-        %   with th the full turn angle (cos th = d_in . d_out).
+        %   with the focus at the origin, r = 2f/(1 - cos(theta_polar)),
+        %   where theta_polar is measured from the focus->vertex direction
+        %   (-axis) to the focus->pole direction; since axis is +/-d_in and
+        %   the turn is cth = d_in.OUT, this gives  f_parent = r*(1-cth)/2
+        %   and, inverting, the conjugate that realizes a desired f is
+        %   focus_dist = 2f/(1-cth) = f/cos^2(AOI)  (AOI = angle of
+        %   incidence; turn theta = 180 - 2*AOI).  ARBITRARY fold angles
+        %   are supported -- near-normal (small AOI, e.g. 5 deg) gives a
+        %   nearly on-axis section (pole ~= vertex), 90-deg folds throw the
+        %   vertex fully lateral.
+        %
+        %   HISTORY: through 2026-07 this used (1+cth) -- correct ONLY at
+        %   theta=90 deg (cth=0), the sole regime the OAP tests exercised;
+        %   wrong for every other fold.  Fixed to (1-cth); 90-deg results
+        %   are bit-identical so back-compat holds.
+        %
+        %   'aprad' is kept as metadata (sketch footprint + a builder-side
+        %   vignetting note) but is NOT emitted as a hard aperture: a
+        %   Circular ApVec is applied about VptElt (the parent vertex),
+        %   which for an off-axis section sits far from the beam at the
+        %   pole, so it would block the whole bundle.  Put functional stops
+        %   on flat marker planes (add_reference/add_baffle), whose
+        %   vertex == pole.
+        %
+        %   CONSUMERS: this element's position ON THE BEAM is .rpt, NOT
+        %   .vpt -- ask macos.design.Bench.station(e), which returns vpt
+        %   for every ordinary element and the pole here.  Reading .vpt
+        %   puts a layout body, a label anchor or a clearance test
+        %   133-149 mm off the beam on the TG96 reflective rig
+        %   (measured 2026-09-15).
+        %
         %   Returns struct O: .i .f_parent .pole .vertex .focus.
         arguments
             b
             dist (1,1) double {mustBePositive}
             out  (3,1) double
             opts.mode (1,:) char {mustBeMember(opts.mode,{'collimate','focus'})} = 'collimate'
-            opts.focus_dist (1,1) double {mustBePositive}
+            opts.focus_dist (1,1) double = NaN   % conjugate distance (mm)
+            opts.f          (1,1) double = NaN   % parent focal length (mm)
             opts.name (1,:) char = 'OAP'
             opts.aprad (1,1) double = 0
         end
@@ -367,8 +424,17 @@ methods
         P = b.step(dist);
         cth = dot(d_in, out);
         assert(cth > -1 + 1e-9, 'Bench.add_oap: retro OAP is degenerate.');
-        r = opts.focus_dist;
-        f_par = r*(1 + cth)/2;
+        % conjugate r: from a pinned focal length 'f', else explicit focus_dist
+        if ~isnan(opts.f)
+            assert(opts.f > 0, 'Bench.add_oap: f must be positive.');
+            r = 2*opts.f/(1 - cth);          % = f/cos^2(AOI)
+        elseif ~isnan(opts.focus_dist)
+            assert(opts.focus_dist > 0, 'Bench.add_oap: focus_dist must be positive.');
+            r = opts.focus_dist;
+        else
+            error('Bench.add_oap: provide ''f'' (parent focal length) or ''focus_dist''.');
+        end
+        f_par = r*(1 - cth)/2;               % parabola polar eqn (see help)
         switch opts.mode
             case 'collimate'    % axis = collimated output direction
                 a = out;   Fpt = P - r*d_in;
@@ -381,7 +447,9 @@ methods
         e.psi = a;            % engine convention: psi = parent axis toward the
                               % open/focus side, paired with KrElt=-|R|
         e.vpt = V;  e.rpt = P;  e.extinc = 1e22;
-        if opts.aprad > 0, e.aptype = 'Circular';  e.aprad = opts.aprad; end
+        e.aprad = opts.aprad; % metadata only (sketch/vignetting); aptype stays
+                              % 'None' -- a vertex-framed Circle would block the
+                              % off-axis beam (see help).
         O.i = b.push(e);
         O.f_parent = f_par;  O.pole = P;  O.vertex = V;  O.focus = Fpt;
         b.dir = out;
@@ -534,11 +602,11 @@ methods
         d2 = macos.design.Bench.refract(d1, psi, bs.n, 1.0);
 
         e1 = b.blank([bs.name 'txf' opts.tag], 'Refractor');
-        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 1e22;
+        e1.psi = psi;  e1.vpt = P1;  e1.indref = bs.n;  e1.extinc = 0;
         b.path_len = b.path_len + ss(1);       % geometric path bookkeeping
         i1 = b.push(e1);
         e2 = b.blank([bs.name 'txb' opts.tag], 'Refractor');
-        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 1e22;
+        e2.psi = psi;  e2.vpt = P2;  e2.indref = 1.0;   e2.extinc = 0;
         b.path_len = b.path_len + s2;
         i2 = b.push(e2);
         idx = [i1, i2];
@@ -546,17 +614,274 @@ methods
     end
 
     % -----------------------------------------------------------------
-    function i = add_reference(b, dist, name)
+    function tok = pbs_cube(b, dist, out, opts)
+        %PBS_CUBE  Define a CEMENTED polarizing beam-splitter cube token.
+        %   TOK = B.PBS_CUBE(DIST, OUT) defines a cube whose CENTRE (the
+        %   centre of the cemented diagonal) sits DIST along the current
+        %   chief, and whose diagonal turns the current chief into OUT.  No
+        %   element is added and the chief is NOT advanced -- feed the token
+        %   to add_pbs_pass, once per traversal, from any port.
+        %
+        %   WHY A CUBE AND NOT A PLATE.  A plate beamsplitter offsets the
+        %   transmitted beam and unbalances the glass path, which is what the
+        %   compensator in the plate rig exists to undo.  A cube has ONE
+        %   cemented interface between two prisms of the SAME glass, so the
+        %   transmitted chief is not displaced at all, and the four ports are
+        %   symmetric: every traversal is (a/2 in glass) -> diagonal ->
+        %   (a/2 in glass), whichever port you enter by.  Two arms that enter
+        %   by different ports therefore balance EXACTLY, by construction,
+        %   with no compensator.
+        %
+        %   The four port axes are +/-d_in and +/-OUT.  Faces are normal to
+        %   their own beams, so every face crossing is at exactly normal
+        %   incidence: no deviation, no walk-off, and (the reason this matters
+        %   for polarization) no face diattenuation at all.  ALL of the
+        %   polarization physics is in the diagonal.
+        %
+        %   OPTIONS
+        %     'side'  cube edge, BaseUnits (default 60 -- must clear the beam)
+        %     'n'     prism glass index (default 1.6554, the MacNeille index
+        %             of the default ZnS/cryolite pair -- a dense flint)
+        %     'coat'  the diagonal's Model-A stack, L-by-3 [n k thk_waves],
+        %             OUTERMOST first, thickness in waves at the deck Wavelen.
+        %             Use macos.design.pbs_macneille.  Empty = a bare cemented
+        %             interface, which with n_in == n_sub is optically NOTHING
+        %             (the cube then splits nothing -- useful as a null).
+        %     'ar'    the four faces' AR stack, same form.  Empty = bare glass.
+        %     'name'  element-name stem (default 'PBS')
+        %
+        %   USE A SYMMETRIC STACK.  r of a multilayer depends on which side it
+        %   is approached from unless the stack is symmetric, and both arms
+        %   use the diagonal from BOTH sides.  pbs_macneille returns H(LH)^N.
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            out  (3,1) double
+            opts.side (1,1) double {mustBePositive} = 60
+            opts.n    (1,1) double {mustBePositive} = 1.6554
+            opts.coat (:,3) double = zeros(0,3)
+            opts.ar   (:,3) double = zeros(0,3)
+            opts.name (1,:) char = 'PBS'
+        end
+        d   = b.dir;
+        out = macos.design.Bench.unit(out);
+        assert(abs(dot(d,out)) < 1e-9, ...
+            ['Bench.pbs_cube: the diagonal must turn the chief by 90 deg ' ...
+             '(a cube''s ports are orthogonal); got %.4f deg.'], acosd(dot(d,out)));
+        tok = struct('ctr', b.pos + dist*d, ...
+                     'psi', macos.design.Bench.unit(out - d), ...
+                     'f1', d, 'f2', out, 'side', opts.side, 'n', opts.n, ...
+                     'coat', opts.coat, 'ar', opts.ar, 'name', opts.name);
+    end
+
+    % -----------------------------------------------------------------
+    function idx = add_pbs_pass(b, tok, opts)
+        %ADD_PBS_PASS  One traversal of the cube in token TOK: entrance face
+        %   -> the coated diagonal -> exit face.  Three elements, returned as
+        %   [i_in i_diag i_out].
+        %
+        %     'mode','transmit'  the diagonal is a coated Refractor with the
+        %                        SAME index on both sides, so it is
+        %                        geometrically inert (no bend, no offset) and
+        %                        purely a Jones element.  The chief carries on.
+        %     'mode','reflect'   the diagonal is a coated Reflector; the chief
+        %                        turns onto the other port axis.  Its IndRef is
+        %                        the prism glass (NOT the conductor idiom): the
+        %                        stack's substrate is the second prism, which
+        %                        is what makes it a cemented interface rather
+        %                        than a mirror.
+        %     'tag'              suffix for the element names (distinguish the
+        %                        forward and return traversals).
+        %
+        %   The chief must be running along one of the four port axes; that is
+        %   asserted, not assumed.  A normal-incidence face refraction returns
+        %   the incoming direction EXACTLY (Bench.refract is algebraically
+        %   exact at cos = 1), so a return traversal is still on-axis to the
+        %   last bit.
+        arguments
+            b
+            tok (1,1) struct
+            opts.mode (1,:) char {mustBeMember(opts.mode,{'transmit','reflect'})} = 'transmit'
+            opts.tag  (1,:) char = ''
+        end
+        w  = b.dir;   a2 = tok.side/2;
+        ax = [tok.f1, -tok.f1, tok.f2, -tok.f2];
+        assert(max(w.'*ax) > 1 - 1e-9, ...
+            'Bench.add_pbs_pass: the chief is not on a cube port axis.');
+
+        % --- entrance face (normal incidence, air -> prism glass) ---------
+        s1 = dot(tok.ctr - a2*w - b.pos, w);
+        assert(s1 > 0, 'Bench.add_pbs_pass: the cube is behind the beam.');
+        e1 = b.blank([tok.name 'in' opts.tag], 'Refractor');
+        e1.psi = w;  e1.vpt = b.step(s1);  e1.indref = tok.n;  e1.extinc = 0;
+        e1.coat = tok.ar;
+        i1 = b.push(e1);
+
+        % --- the cemented diagonal ---------------------------------------
+        Pd = b.step(a2);
+        switch opts.mode
+        case 'transmit'
+            e2 = b.blank([tok.name 'tx' opts.tag], 'Refractor');
+            nd = tok.psi;  if dot(nd, w) < 0, nd = -nd; end   % along the beam
+            e2.psi = nd;  e2.indref = tok.n;                  % glass -> glass
+            wout = w;
+        case 'reflect'
+            e2 = b.blank([tok.name 'rf' opts.tag], 'Reflector');
+            wout = macos.design.Bench.reflect(w, tok.psi);
+            e2.psi = macos.design.Bench.unit(wout - w);       % faces the beam
+            e2.indref = tok.n;                                % the 2nd prism
+        end
+        e2.vpt = Pd;  e2.extinc = 0;  e2.coat = tok.coat;
+        i2 = b.push(e2);
+        b.dir = wout;
+
+        % --- exit face (normal incidence, prism glass -> air) -------------
+        e3 = b.blank([tok.name 'out' opts.tag], 'Refractor');
+        e3.psi = wout;  e3.vpt = b.step(a2);  e3.indref = 1.0;  e3.extinc = 0;
+        e3.coat = tok.ar;
+        i3 = b.push(e3);
+
+        idx = [i1, i2, i3];
+    end
+
+    % -----------------------------------------------------------------
+    function i = add_reference(b, dist, name, opts)
         %ADD_REFERENCE  Passive Reference plane (e.g. focal-mask site).
+        %   Options (all default to the legacy plane emission, so existing
+        %   decks are bit-identical):
+        %     'surface'  'Flat' (default) | 'Conic' -- a Conic with 'kr'
+        %                = -d is a reference SPHERE concentric with a focus
+        %                d downstream (the NF1/NF2 sandwich idiom; see
+        %                bench_ctb/ctb_dcr.in FPM_EPreturn1/2).
+        %     'kr'       KrElt (default -1e22 = flat)
+        %     'proptype' PropType= for the leg FROM this element (default
+        %                'Geometric'; 'NF1' sphere->plane, 'NF2'
+        %                plane->sphere -- prop_defs.inc names)
+        %     'zelt'     zElt= (default 0, the legacy reference emission;
+        %                the NF sandwich wants the sphere-to-focus distance
+        %                on spheres and 1e22 on the focal flat)
         arguments
             b
             dist (1,1) double {mustBePositive}
             name (1,:) char = 'Ref'
+            opts.surface (1,:) char {mustBeMember(opts.surface, {'Flat','Conic'})} = 'Flat'
+            opts.kr (1,1) double = -1e22
+            opts.proptype (1,:) char = 'Geometric'
+            opts.zelt (1,1) double = 0
         end
         P = b.step(dist);
         e = b.blank(name, 'Reference');
-        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.psi = b.dir;  e.vpt = P;  e.zelt = opts.zelt;
+        e.surface = opts.surface;  e.Kr = opts.kr;
+        e.proptype = opts.proptype;
         i = b.push(e);
+    end
+
+    % -----------------------------------------------------------------
+    function i = add_polarizer(b, dist, axis, opts)
+        %ADD_POLARIZER  Ideal linear polarizer (TrPolarizer element).
+        %   add_polarizer(DIST, AXIS) places a TrPolarizer a distance DIST
+        %   along the current chief ray.  AXIS is the TRANSMISSION axis as a
+        %   3-vector in global coordinates (need not be unit; the engine
+        %   projects it into each ray's transverse plane).  Transmissive and
+        %   geometrically inert (RefSrf geometry) -- the chief passes
+        %   straight through, so it belongs in a COLLIMATED, NORMAL-INCIDENCE
+        %   leg (psi = the current chief direction), where the off-normal
+        %   material-axis question is identically absent (packet
+        %   REVIEW_POL_ELEMENTS_2026-07-27.md).  Requires ifPol; the .in
+        %   default axis is what emit() writes (the harness may override at
+        %   runtime with macos.polarizer).
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            axis (:,1) double
+            opts.name (1,:) char = 'Polarizer'
+            opts.substrate (1,:) double = []
+        end
+        assert(numel(axis) == 3 && norm(axis) > 0, ...
+            'Bench.add_polarizer: axis must be a non-zero 3-vector.');
+        b.substrate_face_(opts.substrate, 'Bench.add_polarizer', dist, 1);
+        if isempty(opts.substrate), P = b.step(dist); else, P = b.step(opts.substrate(2)/2); end
+        e = b.blank(opts.name, 'TrPolarizer');
+        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.polaxis = axis(:) / norm(axis);
+        i = b.push(e);
+        b.substrate_face_(opts.substrate, 'Bench.add_polarizer', dist, 2);
+    end
+
+    % -----------------------------------------------------------------
+    function i = add_waveplate(b, dist, axis, retardance, opts)
+        %ADD_WAVEPLATE  Linear retarder (WavePlate element).
+        %   add_waveplate(DIST, AXIS, R) places a WavePlate a distance DIST
+        %   along the chief.  AXIS is the FAST axis (3-vector, global).  R is
+        %   the retardance in WAVES at the bench Wavelen (0.25 = quarter-wave,
+        %   0.5 = half-wave) -- emit() writes Retardance= in waves and the
+        %   parser scales by Wavelen on load, so the plate is fixed glass and
+        %   a wavelength sweep is chromatic (same treatment as Coating=).
+        %   Transmissive and geometrically inert; belongs in a collimated
+        %   normal-incidence leg.  A double-passed physical plate is TWO
+        %   WavePlate elements (one each side of the retro) sharing this axis,
+        %   the same way the compensator is add_bs_transmit'd twice.
+        arguments
+            b
+            dist (1,1) double {mustBePositive}
+            axis (:,1) double
+            retardance (1,1) double
+            opts.name (1,:) char = 'WavePlate'
+            opts.substrate (1,:) double = []
+        end
+        assert(numel(axis) == 3 && norm(axis) > 0, ...
+            'Bench.add_waveplate: axis must be a non-zero 3-vector.');
+        b.substrate_face_(opts.substrate, 'Bench.add_waveplate', dist, 1);
+        if isempty(opts.substrate), P = b.step(dist); else, P = b.step(opts.substrate(2)/2); end
+        e = b.blank(opts.name, 'WavePlate');
+        e.psi = b.dir;  e.vpt = P;  e.zelt = 0;
+        e.polaxis = axis(:) / norm(axis);
+        e.retard = retardance;
+        i = b.push(e);
+        b.substrate_face_(opts.substrate, 'Bench.add_waveplate', dist, 2);
+    end
+
+    % -----------------------------------------------------------------
+    function idx = add_substrate(b, dist, n, t, opts)
+        %ADD_SUBSTRATE  A plane-parallel window: two refracting faces.
+        %   B.ADD_SUBSTRATE(DIST, N, T) puts the ENTRANCE face DIST along the
+        %   current chief and the exit face T further, both normal to the
+        %   chief, so the chief is not deviated and the plate is
+        %   plane-parallel by construction.  The chief advances DIST + T.
+        %
+        %   This is the real glass a "thin" element is made on, or a window
+        %   in its own right.  In a COLLIMATED leg it is pure path; in a
+        %   CONVERGING one it carries a focus shift t*(1-1/n) and spherical
+        %   aberration t*(n^2-1)*NA^4/(8 n^3), which is exactly why the mask
+        %   plate has to be in the model (BRIEF_ccmac_bench_realism item 3).
+        %
+        %   The faces are named Sub<k>f / Sub<k>b and NOT after whatever they
+        %   bracket: every arm descriptor in the gauge lane picks its wave
+        %   plates out with contains(name,'QWP'), so a face called
+        %   'QWPtestInf' would be handed to macos.waveplate.
+        arguments
+            b
+            dist (1,1) double {mustBeNonnegative}
+            n    (1,1) double {mustBeGreaterThan(n,1)}
+            t    (1,1) double {mustBePositive}
+            opts.name (1,:) char = ''
+        end
+        if isempty(opts.name)
+            k = 1 + floor(sum(strncmp({b.E.name}, 'Sub', 3)) / 2);
+            nm = sprintf('Sub%d', k);
+        else
+            nm = opts.name;
+        end
+        e1 = b.blank([nm 'f'], 'Refractor');
+        e1.psi = b.dir;  e1.vpt = b.step(dist);  e1.indref = n;  e1.extinc = 0;
+        e1.zelt = 0;
+        i1 = b.push(e1);
+        e2 = b.blank([nm 'b'], 'Refractor');
+        e2.psi = b.dir;  e2.vpt = b.step(t);  e2.indref = 1.0;  e2.extinc = 0;
+        e2.zelt = 0;
+        i2 = b.push(e2);
+        idx = [i1, i2];
     end
 
     % -----------------------------------------------------------------
@@ -586,8 +911,8 @@ methods
         ln{end+1} = sprintf('        ChfRayDir=  %s', F(d0));
         ln{end+1} = sprintf('        ChfRayPos=  %s', F(b.src_pos));
         ln{end+1} = sprintf('          zSource=  %.10G', b.zsource);
-        ln{end+1} =         '        BaseUnits=  mm';
-        ln{end+1} =         '        WaveUnits=  mm';
+        ln{end+1} = sprintf('        BaseUnits=  %s', b.baseunits);
+        ln{end+1} = sprintf('        WaveUnits=  %s', b.baseunits);
         ln{end+1} =         '           IndRef=  1.0D+00';
         ln{end+1} =         '           Extinc=  0.0D+00';
         ln{end+1} = sprintf('          Wavelen=  %.9E', b.wavelen);
@@ -611,9 +936,35 @@ methods
             ln{end+1} = sprintf('           psiElt=  %s', F(e.psi));
             ln{end+1} = sprintf('           VptElt=  %s', F(e.vpt));
             ln{end+1} = sprintf('           RptElt=  %s', F(e.rpt));
+            % pol-element keywords (ChkDf2 REQUIRES PolAxis= on both types and
+            % Retardance= on WavePlate, or the load is rejected) -- written in
+            % waves at the bench Wavelen, matching the Rx_PolElt fixture order
+            if strcmp(e.element, 'TrPolarizer') || strcmp(e.element, 'WavePlate')
+                ln{end+1} = sprintf('          PolAxis=  %s', F(e.polaxis));
+            end
+            if strcmp(e.element, 'WavePlate')
+                ln{end+1} = sprintf('       Retardance=  %.10E', e.retard);
+            end
             ln{end+1} = sprintf('           IndRef=  %.6E', e.indref);
             ln{end+1} = sprintf('           Extinc=  %.6E', e.extinc);
             ln{end+1} =         '            nCoat=  0';
+            % Model-A thin-film stack (the polarization path).  MUST follow
+            % IndRef=/Extinc= above: the parser snapshots IndRef(iElt-1) and
+            % IndRef(iElt) as the stack's boundary media when it reads
+            % Coating=.  Thickness is written as OPTICAL thickness in waves
+            % at the deck's own Wavelen (the parser multiplies by
+            % Wavelen/IndRef to recover the physical thickness), so the
+            % emitted deck is self-contained -- no runtime coat_set needed.
+            % NB 'nCoat' above is the OTHER coating model (nCoatElt, the
+            % non-sequential refractive path); the two are unrelated and the
+            % parser keys them apart at 5 vs 6 characters.
+            if ~isempty(e.coat)
+                ln{end+1} = sprintf('          Coating=  %d', size(e.coat,1));
+                for q = 1:size(e.coat,1)
+                    ln{end+1} = sprintf('                    %.15E  %.15E  %.15E', ...
+                        e.coat(q,1), e.coat(q,2), e.coat(q,3));
+                end
+            end
             ln{end+1} = sprintf('             xObs=  %s', F(macos.design.Bench.perp(e.psi)));
             ln{end+1} =         '             nObs=  0';
             if ~isempty(e.gridfile)
@@ -630,7 +981,7 @@ methods
             if strcmp(e.aptype, 'Circular')
                 ln{end+1} = sprintf('            ApVec=  %.10E  0.0D+00  0.0D+00', e.aprad);
             end
-            ln{end+1} =         '         PropType=  Geometric';
+            ln{end+1} = sprintf('         PropType=  %s', e.proptype);
             ln{end+1} = sprintf('             zElt=  %.6G', e.zelt);
             ln{end+1} =         '          nECoord=  -6';
         end
@@ -747,6 +1098,57 @@ end
 
 % =====================================================================
 methods (Access = private)
+    function substrate_face_(b, sub, who, dist, which)
+        %SUBSTRATE_FACE_  One face of a thin element's real SUBSTRATE.
+        %   A polarizer, wave plate or mask is not a mathematical plane: it
+        %   is a film or an etch on a slab of glass, and in a converging beam
+        %   that slab carries spherical aberration and a focus shift the
+        %   layouts and the trace must show (BRIEF_ccmac_bench_realism item
+        %   3).  SUB = [n t]: index and PHYSICAL thickness in bench units.
+        %   WHICH 1 = entrance face (glass), 2 = exit face (back to air).
+        %   The ideal element sits MID-GLASS: the caller steps to dist - t/2
+        %   for the entrance face, t/2 to the element, t/2 to the exit face.
+        %   So the element keeps its own station exactly, and the chief comes
+        %   out t/2 further along than it would have -- measured on the
+        %   twyman_green test arm with five 2 mm plates: PolIn does not move,
+        %   and every station after it shifts by t/2 per UPSTREAM plate
+        %   (BSrefl +1.0, TestOptic +2.0, Analyzer +4.0, FocalMask +5.0 mm).
+        %   That is the glass being real; the tail retune absorbs the rest
+        %   (the detector leg re-solves, +0.59 mm).
+        %
+        %   NORMAL INCIDENCE ONLY, which is where these elements belong
+        %   anyway (add_polarizer's own doc): psi = the chief direction, so
+        %   the chief is not deviated and the two faces are plane-parallel by
+        %   construction.  In a converging beam the faces still refract the
+        %   MARGINAL rays -- that is the whole point, and it is what the
+        %   engine's Refractor computes.
+        %
+        %   NAMING, and why the faces are not named after their element.
+        %   Every arm descriptor in the gauge lane selects the wave plates
+        %   with `contains(name,'QWP')` (dmg_arm_desc and six local copies),
+        %   so a face called 'QWPtestInf' would be picked up as a WAVE PLATE
+        %   and handed to macos.waveplate.  The faces therefore carry a
+        %   neutral 'Sub<k>' name that no such lookup matches; the parts list
+        %   pairs them with what they bracket by position.
+        if isempty(sub), return; end
+        assert(numel(sub) == 2 && sub(1) > 1 && sub(2) > 0, ...
+            '%s: substrate must be [n t] with n > 1 and t > 0.', who);
+        assert(dist > sub(2)/2, ...
+            '%s: dist %g is inside the %g-thick substrate.', who, dist, sub(2));
+        k = 1 + floor(sum(strncmp({b.E.name}, 'Sub', 3)) / 2);
+        if which == 1
+            P = b.step(dist - sub(2)/2);
+            e = b.blank(sprintf('Sub%df', k), 'Refractor');
+            e.psi = b.dir;  e.vpt = P;  e.indref = sub(1);  e.extinc = 0;
+        else
+            P = b.step(sub(2)/2);
+            e = b.blank(sprintf('Sub%db', k), 'Refractor');
+            e.psi = b.dir;  e.vpt = P;  e.indref = 1.0;  e.extinc = 0;
+        end
+        e.zelt = 0;
+        b.push(e);
+    end
+
     function P = step(b, dist)
         b.pos = b.pos + dist*b.dir;
         b.path_len = b.path_len + dist;
@@ -759,6 +1161,9 @@ methods (Access = private)
             'rpt', [NaN;NaN;NaN], ...   % NaN = same as vpt (resolved in push)
             'indref', 1.0, 'extinc', 0.0, 'aptype', 'None', 'aprad', 0, ...
             'gridfile', '', 'gridn', 0, 'griddx', 0, ...
+            'polaxis', [1;0;0], 'retard', 0.0, ...   % pol-element fields (TrPolarizer/WavePlate)
+            'coat', zeros(0,3), ...   % Model-A stack, OUTERMOST first: [n k thk_waves]
+            'proptype', 'Geometric', ...   % per-element PropType= (leg FROM this element)
             'zelt', 1e22, 's', b.path_len);
     end
 
@@ -772,6 +1177,32 @@ end
 
 % =====================================================================
 methods (Static)
+    function p = station(e)
+        %STATION  Where element E sits ON THE BEAM: its pole (RptElt).
+        %   For every ordinary element the pole IS the vertex -- push()
+        %   resolves rpt = vpt -- so this returns vpt and nothing changes.
+        %   For an OFF-AXIS SECTION (add_oap) the vertex is the PARENT
+        %   conic's vertex, which sits far off the beam: 149 mm (OAP1)
+        %   and 133 mm (OAP2) on the TG96 reflective rig.  The beam meets
+        %   the mirror at the POLE.
+        %
+        %   Anything that asks "where is this element on the bench" --
+        %   a layout symbol, a label anchor, a crop box, a clearance
+        %   test, a beam-segment endpoint -- must ask THIS, not .vpt.
+        %   Measured 2026-09-15 (the defect this closes): reading .vpt
+        %   made dmg_bench_clearance model the source leg as ending
+        %   149 mm off OAP1 plus a 150 mm PHANTOM leg from that vertex
+        %   down to the input polarizer, and that phantom was the beam
+        %   three node parts were then scored against.  Bench's own
+        %   sketch() has always drawn mirrors at rpt; the downstream
+        %   consumers are what drifted.
+        p = e.vpt(:);
+        if isfield(e, 'rpt') && numel(e.rpt) == 3 && all(isfinite(e.rpt)) ...
+                && (any(e.rpt(:) ~= 0) || all(e.vpt(:) == 0))
+            p = e.rpt(:);
+        end
+    end
+
     function u = unit(v)
         n = norm(v);  assert(n > 0, 'Bench: zero vector.');
         u = v(:)/n;

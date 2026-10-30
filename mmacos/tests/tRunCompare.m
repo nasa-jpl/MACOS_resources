@@ -20,6 +20,7 @@ classdef tRunCompare < matlab.unittest.TestCase
         ox        % real single-field dw_dx_multi harvest
         oz        % real single-field dw_dz (monzern) harvest
         og        % real single-field dw_dgrid harvest (augmented Rx)
+        hv = struct()   % chief / mean harvests for the piston tests, made once
     end
 
     methods (TestClassSetup)
@@ -174,6 +175,180 @@ classdef tRunCompare < matlab.unittest.TestCase
             tc.verifySize(art.dmdgrid, [size(M.dldx, 1) + es.nmeas, ng]);
         end
 
+        function test_compare_runs_at_the_harvest_reference(tc)
+            % PLAN 1.2 (kkk), ruled 2026-10-26: the engine truth is read at
+            % the reference the Jacobian was harvested at.  run_compare set
+            % none, so after the engine's 2026-10-10 'chief' default a
+            % 'mean' harvest read a chief-ray piston on every segment poke
+            % (worst rel w 0.945 on the e2e chain).  A 'mean' harvest must
+            % agree as the default ('chief') one does.
+            M = load(tc.met5.mat);
+            m = macos.Session(512);
+            oxm = macos.dw_dx_multi(m, char(tc.met5.met_in), ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'grid', '1x1', 'fp_mode', 'none', 'ngridpts', 15, ...
+                'reset_xp', false, 'opd_ref', 'mean');
+            jacs = {tc.ox, 'chief'; oxm, 'mean'};
+            for k = 1:2
+                art = run_compare(fullfile(tc.wd, 'pie.in'), ...
+                    'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', jacs{k, 1}, ...
+                    'met', M, 'channels', "x", 'bodies', [1 2 8], ...
+                    'dofs', [2 6], 'dwell', 0, 'visible', false, ...
+                    'gif', false, 'ngridpts', 15, 'verbose', false, ...
+                    'out_dir', tc.wd, 'name', "ref_" + jacs{k, 2});
+                T = art.table;
+                tc.verifyLessThan(max([T.w_rel]), 0.05, ...
+                    sprintf('harvest at %s', jacs{k, 2}));
+                txt = fileread(art.report);
+                tc.verifySubstring(txt, ['OPD reference: ' jacs{k, 2}]);
+            end
+            tc.verifyEqual(tc.ox.opd_ref, 'chief');
+            tc.verifyEqual(oxm.opd_ref, 'mean');
+        end
+
+        function test_simulator_chief_equals_mean_harvest(tc)
+            % PLAN 1.2 (www), ruled 2026-10-27 (piston removal is essential
+            % in an imager analysis): a chief-referenced harvest carries the
+            % chief ray's own piston in every column, and run_simulator
+            % solves its control against a piston-removed engine wavefront.
+            % The same history from a chief and a mean harvest must give the
+            % same control and the same corrected wavefront.
+            M = load(tc.met5.mat);
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = 5e-6;                   % Seg 2 Tz: 5 um (SI)
+            ts.x(46, :) = 3e-6;                   % hub Tx: 3 um
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            r = {'chief', 'mean'};  a = cell(1, 2);
+            for k = 1:2
+                a{k} = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                    'jac', struct('ox', tc.harvest_(r{k}, '1x1')), 'name', "pf_" + r{k});
+            end
+            tc.verifyEqual(a{1}.u, a{2}.u, 'AbsTol', 1e-6 * max(abs(a{2}.u)), ...
+                'the control from a chief harvest differs from a mean harvest''s');
+            tc.verifyEqual(a{1}.rms_wfe_corr, a{2}.rms_wfe_corr, 'RelTol', 1e-6);
+            tc.verifyLessThan(a{1}.rms_wfe_corr(2), 0.2 * a{1}.rms_wfe_unc(2), ...
+                'the control loop bites');
+        end
+
+        function test_s7_scale_chief_equals_mean_harvest(tc)
+            % PLAN 1.2 (www): e2e/s7_simulate.m sizes its initial pose and its
+            % drift to a wavefront-error target by rms_(B*x) on the center-
+            % field columns.  That rms must be about the mean, so a chief and
+            % a mean harvest set the same scale.  The helper is cut from the
+            % template itself.
+            here = fileparts(mfilename('fullpath'));
+            s7 = fullfile(fileparts(here), 'templates', '80_end_to_end', 'e2e', 's7_simulate.m');
+            L = regexp(fileread(s7), '^\s*rms_ = @[^\n]*', 'match', 'lineanchors');
+            tc.assertNumElements(L, 2, ...
+                's7_simulate.m must define rms_ for P.piston "remove" and "keep"');
+            eval(L{1});                          % the "remove" branch (the default)
+            rms_keep = str2func(regexprep(strtrim(L{2}), '^rms_ = |;$', ''));
+            tc.verifyEqual(e2e_params_piston_(fileparts(s7)), "remove", ...
+                'the e2e thread is an imager: P.piston defaults to "remove"');
+            B = cell(1, 2);  r = {'chief', 'mean'};
+            for k = 1:2
+                o = macos.dwdx_trans_per_metre(tc.harvest_(r{k}, '1x1'));
+                B{k} = o.per_field_dwdx{strcmp(o.field_names, 'C')};
+            end
+            tc.assertGreaterThan(max(abs(mean(B{1}, 1) - mean(B{2}, 1))), ...
+                1e-3 * max(abs(B{2}(:))), 'the fixture must carry a chief piston');
+            rng(7);  x = randn(size(B{1}, 2), 1);
+            tc.verifyEqual(rms_(B{1} * x), rms_(B{2} * x), 'RelTol', 1e-6);
+            for j = 1:size(B{1}, 2)
+                tc.verifyEqual(rms_(B{1}(:, j)), rms_(B{2}(:, j)), 'RelTol', 1e-6, ...
+                    sprintf('column %d', j));
+            end
+            % "keep" (1.2 (www) option): the rms about ZERO -- equal to
+            % "remove" on the mean harvest (no piston), larger on the chief
+            tc.verifyEqual(rms_keep(B{2} * x), rms_(B{2} * x), 'RelTol', 1e-6);
+            tc.verifyGreaterThan(rms_keep(B{1} * x), (1 + 1e-3) * rms_(B{1} * x), ...
+                '"keep" must count the chief harvest''s piston');
+        end
+
+        function test_met_prior_chief_equals_mean_harvest(tc)
+            % PLAN 1.2 (www): run_met's Gram (the prior, the post-sensing
+            % residuals, the WEM rows) and its tilt / non-tilt split come
+            % from piston-free columns, each field over its own pupil, so a
+            % chief and a mean MULTI-FIELD harvest give the same merits (the
+            % chief's per-field piston once read as a 0.19 nm "tilt" prior).
+            % (no 'aft': the harvest's fp_mode 'none' gives the FPA no columns)
+            r = {'chief', 'mean'};  a = cell(1, 2);
+            for k = 1:2
+                lastwarn('');
+                a{k} = run_met(fullfile(tc.wd, 'pie.in'), ...
+                    'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', tc.harvest_(r{k}, '3x3'), ...
+                    'hub', 8, 'r_extra', 100, 'min_sep', 30, ...
+                    'ngridpts', 15, 'optimize', false, 'mc', 0, 'verbose', false, ...
+                    'out_dir', tc.wd, 'name', "pf_" + r{k});
+                [~, wid] = lastwarn();
+                tc.verifyNotEqual(wid, 'macos:piston:rows', ...
+                    'the stacked rows must be assigned to their fields');
+            end
+            for f = ["prior", "edge", "met", "edge_met", "wem", "wem_dt", "floor_frac_dt"]
+                tc.verifyEqual(a{1}.merits.(f), a{2}.merits.(f), 'RelTol', 1e-6, char(f));
+            end
+            % the tilt WEM is a numerical zero on this fixture (8e-14 against
+            % a WEM of 1.2e3): a bound, not a match -- before the fix the
+            % chief harvest's per-field piston read 649 here
+            for k = 1:2
+                tc.verifyLessThan(abs(a{k}.merits.wem_tilt), 1e-9 * a{k}.merits.wem, ...
+                    sprintf('wem_tilt (%s harvest)', r{k}));
+            end
+        end
+
+        function test_base_and_legacy_si_jac_compare_identically(tc)
+            % run_compare / run_simulator work in SI (pokes in m, X/U
+            % histories in m), so each converts the harvest with
+            % dwdx_trans_per_metre at its ox load.  tc.ox is a per-BaseUnit
+            % harvest (the default since 2026-10-06) on the e5mono mm deck;
+            % its legacy twin (per metre, no trans_output field -- what
+            % every pre-change jac .mat holds) must give the SAME linear
+            % prediction (w_rel), the same exported dwdu, and the same
+            % simulator control u / corrected wavefront.  Without the
+            % adapter the Tz rows read w_rel = 1/cbm - 1 = 999.
+            tc.verifyEqual(tc.ox.trans_output, 'base');
+            M = load(tc.met5.mat);
+            lg = rmfield(macos.dwdx_trans_per_metre(tc.ox), 'trans_output');
+            a = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, ...
+                'channels', "x", 'bodies', [2 8], 'dofs', [2 6], ...
+                'dwell', 0, 'gif', false, 'visible', false, ...
+                'ngridpts', 15, 'verbose', false, 'out_dir', tc.wd};
+            ab = run_compare(fullfile(tc.wd, 'pie.in'), a{:}, ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), 'name', 'cbu');
+            al = run_compare(fullfile(tc.wd, 'pie.in'), a{:}, ...
+                'jac', struct('ox', lg, 'oz', tc.oz, 'og', tc.og), 'name', 'clg');
+            Tb = ab.table;  Tl = al.table;
+            tc.verifyEqual([Tb.w_rms_t], [Tl.w_rms_t], 'RelTol', 1e-12);
+            tc.verifyEqual([Tb.w_rel], [Tl.w_rel], 'AbsTol', 1e-9);
+            tc.verifyLessThan(max([Tb.w_rel]), 0.05, ...
+                'the per-BaseUnit harvest predicts the engine (Ry and Tz)');
+            tc.verifyEqual(ab.dwdu, al.dwdu, 'RelTol', 1e-12);
+            % simulator: one static um-scale state, 2 frames
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = 5e-6;                   % Seg 2 Tz: 5 um (SI)
+            ts.x(46, :) = 3e-6;                   % hub Tx: 3 um
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            sb = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                'jac', struct('ox', tc.ox, 'oz', tc.oz, 'og', tc.og), 'name', 'sbu');
+            sl = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                'jac', struct('ox', lg, 'oz', tc.oz, 'og', tc.og), 'name', 'slg');
+            tc.verifyEqual(sb.u, sl.u, 'RelTol', 1e-9, 'AbsTol', 1e-15);
+            tc.verifyEqual(sb.rms_wfe_unc, sl.rms_wfe_unc, 'RelTol', 1e-12);
+            tc.verifyEqual(sb.rms_wfe_corr, sl.rms_wfe_corr, 'RelTol', 1e-8);
+            tc.verifyLessThan(sb.rms_wfe_corr(2), 0.2 * sb.rms_wfe_unc(2), ...
+                'the control loop bites with the per-BaseUnit harvest');
+        end
+
         function test_run_simulator_time_history(tc)
             % Simulate stage (design/runners/run_simulator): a history
             % that opens with um-scale misalignments and drifts with
@@ -300,6 +475,270 @@ classdef tRunCompare < matlab.unittest.TestCase
             cc = corrcoef(dg(sel), dz(sel));
             tc.verifyGreaterThan(cc(1, 2), 0.995);
         end
+
+        function test_zern_grid_conventions_engine_equivalence(tc)
+            % WS3 ACCEPTANCE GATE (CCL 2026-09-14, strengthened round 2).
+            % A grid poke of each non-ANSI convention's mode map (through
+            % elt_grid_add / GridChannel) must reproduce the engine's
+            % MonZernCoef poke of the same mode under the matching
+            % MonZernType (NormNoll / NormBornWolf) -- ordering AND per-mode
+            % normalization, against the engine itself.
+            %
+            % Modes {4,7,8}: Noll and Born & Wolf DIFFER at 4 and 7 (Noll 7
+            % = ANSI 8 coma, B&W 7 = ANSI 10 trefoil) and COINCIDE at 8 (both
+            % -> ANSI 9), so 8 alone cannot see a convention swap.  Mode 7
+            % also drives the NEGATIVE control below.  ng 256 with sampling
+            % 31 puts the rays coarser than the grid pixel, so the bilinear
+            % facets vanish and every mode agrees to 1% / corr 1.0000 (CCL's
+            % discretization sweep) -- hence the 1% / 0.999 thresholds.
+            old = cd(tc.wd); restore = onCleanup(@() cd(old));
+            ga = macos.design.grid_augment_rx(fullfile(tc.wd, 'pie.in'), ...
+                fullfile(tc.wd, 'pie_grid256.in'), 'ng', 256);
+            base = fileread(fullfile(tc.wd, 'pie_grid256.in'));
+            s = 2;  elt = tc.seg.seg_elts(s);  f = tc.seg.frames(s);
+            N = ga.ng;  gdx = ga.gdx(min(s, numel(ga.gdx)));
+            ap_frac = f.lmon / (((N - 1)/2) * gdx);
+            modes = [4 7 8];
+
+            % Retyped decks + the grid maps for BOTH conventions (built once).
+            decks = struct('noll', 'NormNoll', 'bornwolf', 'NormBornWolf');
+            convs = fieldnames(decks);
+            vin = struct();  mp = struct();
+            for ci = 1:numel(convs)
+                conv = convs{ci};
+                vtxt = regexprep(base, 'MonZernType=\s*\w+', ...
+                    ['MonZernType=  ' decks.(conv)]);
+                p = fullfile(tc.wd, sprintf('pie_grid256_%s.in', conv));
+                fid = fopen(p, 'w');  fwrite(fid, vtxt);  fclose(fid);
+                vin.(conv) = p;
+                for mode = modes
+                    mp.(conv).(sprintf('m%d', mode)) = ...
+                        macos.zernike_grid_basis(N, mode, ap_frac, conv);
+                end
+            end
+
+            for ci = 1:numel(convs)
+                conv = convs{ci};  other = convs{3 - ci};
+                m = macos.Session(512);
+                m.load_rx(vin.(conv));
+                m.set_src_sampling(31);
+                wf = m.num_elt() - 1;
+                for mode = modes
+                    % engine poke of this MonZernType, and the matching map
+                    dz = tc.poke_delta_(m, ...
+                        macos.channels.MonZernChannel(m, elt, mode), wf);
+                    dg = tc.poke_delta_(m, macos.channels.GridChannel(m, ...
+                        elt, mp.(conv).(sprintf('m%d', mode))), wf);
+                    [sc, cc] = tc.disk_compare_(dg, dz);
+                    tc.verifyEqual(sc, 1, 'AbsTol', 1e-2, sprintf( ...
+                        '%s mode %d vs %s poke: scale', conv, mode, decks.(conv)));
+                    tc.verifyGreaterThan(cc, 0.999, sprintf( ...
+                        '%s mode %d vs %s poke: corr', conv, mode, decks.(conv)));
+                end
+                % NEGATIVE control: the OTHER convention's map at mode 7 must
+                % NOT match this deck's poke (Noll 7 coma vs B&W 7 trefoil),
+                % proving the gate can see a convention swap.
+                dz7 = tc.poke_delta_(m, ...
+                    macos.channels.MonZernChannel(m, elt, 7), wf);
+                dgo = tc.poke_delta_(m, macos.channels.GridChannel(m, ...
+                    elt, mp.(other).m7), wf);
+                [~, ccx] = tc.disk_compare_(dgo, dz7);
+                tc.verifyLessThan(abs(ccx), 0.5, sprintf( ...
+                    ['negative control: %s map vs %s poke at mode 7 must ' ...
+                     'NOT correlate (a convention swap is visible)'], ...
+                    other, decks.(conv)));
+            end
+        end
+        function test_piston_helper_contract(tc)
+            % PLAN 1.2 (www), Dave 2026-10-27: macos.piston is the one
+            % switch.  'remove' zeroes every column's mean over each field's
+            % pupil, in the per-field cells and the stacked rows; 'keep'
+            % changes nothing; both stamp opd_piston; a second 'remove' is a
+            % no-op; a stacked harvest whose rows cannot be assigned to
+            % fields warns by name.
+            o = tc.harvest_('chief', '3x3');
+            tc.assertGreaterThan(max(abs(mean(o.per_field_dwdx{1}, 1, 'omitnan'))), ...
+                1e-3 * max(abs(o.per_field_dwdx{1}(:))), 'the fixture must carry a chief piston');
+            r = macos.piston(o, 'remove');
+            tc.verifyEqual(r.opd_piston, 'removed');
+            for f = 1:numel(r.per_field_dwdx)
+                c = r.per_field_dwdx{f};  c = c(all(isfinite(c), 2), :);
+                tc.verifyLessThan(max(abs(mean(c, 1))), 1e-12 * max(abs(c(:))), ...
+                    sprintf('field %d column means', f));
+            end
+            A = r.dwdxall(all(isfinite(r.dwdxall), 2), :);
+            tc.verifyLessThan(max(abs(mean(A, 1))), 1e-12 * max(abs(A(:))), ...
+                'the stacked rows, field by field');
+            tc.verifyEqual(macos.piston(r, 'remove'), r, 'a second remove is a no-op');
+            k = macos.piston(o, 'keep');
+            tc.verifyEqual(k.opd_piston, 'kept');
+            tc.verifyEqual(k.dwdxall, o.dwdxall);
+            tc.verifyEqual(k.per_field_dwdx, o.per_field_dwdx);
+            M = macos.piston([1 2; 3 4; 5 6; 7 9], 'remove', [1; 1; 2; 2]);
+            tc.verifyEqual(M, [-1 -1; 1 1; -1 -1.5; 1 1.5], 'AbsTol', 1e-15);
+            bad = rmfield(o, 'field_table');
+            tc.verifyWarning(@() macos.piston(bad, 'remove'), 'macos:piston:rows');
+        end
+
+        function test_generator_emits_and_records_piston(tc)
+            % PLAN 1.2 (www): the dw_d* generators take 'piston' too
+            % ('keep' default, lossless), and record it beside opd_ref.
+            o = tc.harvest_('chief', '1x1');
+            tc.verifyEqual(o.opd_piston, 'kept', 'the default harvest keeps piston');
+            m = macos.Session(512);
+            g = macos.dw_dx_multi(m, char(tc.met5.met_in), ...
+                'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                'grid', '1x1', 'fp_mode', 'none', 'ngridpts', 15, ...
+                'reset_xp', false, 'opd_ref', 'chief', 'piston', 'remove');
+            tc.verifyEqual(g.opd_piston, 'removed');
+            tc.verifyEqual(g.opd_ref, 'chief');
+            r = macos.piston(o, 'remove');
+            tc.verifyEqual(g.dwdxall, r.dwdxall, 'AbsTol', 1e-9 * max(abs(r.dwdxall(:))), ...
+                'emitting piston-free equals removing it afterwards');
+        end
+
+        function test_simulator_keep_is_consistent(tc)
+            % PLAN 1.2 (www) option: 'keep' keeps piston on BOTH sides (the
+            % harvested columns and the engine truth).  So on a mean harvest
+            % (no piston) 'keep' equals 'remove'; on a chief harvest it
+            % differs (piston now counts) yet the engine and the linear model
+            % still agree and the loop still bites.  The inconsistent mix --
+            % piston-carrying columns against a piston-removed engine -- read
+            % 175.2 nm on ch06b; this guards against rebuilding it.
+            M = load(tc.met5.mat);
+            nb = numel(M.bodies);
+            ts = struct('dt', 2);
+            ts.x = zeros(6*nb, 2);
+            ts.x(12, :) = [5e-6 6e-6];            % Seg 2 Tz, a ramp so frame 2's
+            ts.x(46, :) = [3e-6 3.5e-6];          % increment check is not 0/0
+            s = {'hx', fullfile(tc.wd, 'pieHx.m'), 'met', M, 'ts', ts, ...
+                'npix', 32, 'psf_crop', 32, 'dwell', 0, 'gif', false, ...
+                'ngridpts', 15, 'visible', false, 'verbose', false, ...
+                'out_dir', tc.wd};
+            cases = {'chief', 'keep'; 'chief', 'remove'; 'mean', 'keep'; 'mean', 'remove'};
+            a = cell(1, 4);
+            for k = 1:4
+                a{k} = run_simulator(fullfile(tc.wd, 'pie.in'), s{:}, ...
+                    'jac', struct('ox', tc.harvest_(cases{k, 1}, '1x1')), ...
+                    'piston', cases{k, 2}, 'name', "pk_" + cases{k, 1} + "_" + cases{k, 2});
+                tc.verifySubstring(fileread(a{k}.report), ...
+                    ['piston ' stamp_(cases{k, 2}) ' on both sides'], sprintf('case %d', k));
+            end
+            tc.verifyEqual(a{3}.u, a{4}.u, 'AbsTol', 1e-6 * max(abs(a{4}.u)), ...
+                'on a mean harvest ''keep'' must equal ''remove''');
+            tc.verifyEqual(a{3}.rms_wfe_corr, a{4}.rms_wfe_corr, 'RelTol', 1e-6);
+            tc.verifyGreaterThan(abs(a{1}.rms_wfe_unc(2) - a{2}.rms_wfe_unc(2)), ...
+                1e-3 * a{2}.rms_wfe_unc(2), 'on a chief harvest ''keep'' must count piston');
+            tc.verifyLessThan(a{1}.rms_wfe_corr(2), 0.2 * a{1}.rms_wfe_unc(2), ...
+                'the loop bites under ''keep''');
+            tc.verifyLessThan(a{1}.table(end).w_rel, 0.05, ...
+                'engine and linear model agree under ''keep''');
+        end
+
+        function test_met_keep_counts_piston_as_tilt(tc)
+            % PLAN 1.2 (www) option on run_met: under 'keep' the chief
+            % harvest's per-field piston is counted, in the TILT part of the
+            % split (the projection onto piston+tilt), and the non-tilt part
+            % is unchanged; on a mean harvest 'keep' equals 'remove'.
+            cases = {'chief', 'keep'; 'chief', 'remove'; 'mean', 'keep'; 'mean', 'remove'};
+            a = cell(1, 4);
+            for k = 1:4
+                a{k} = run_met(fullfile(tc.wd, 'pie.in'), ...
+                    'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', tc.harvest_(cases{k, 1}, '3x3'), ...
+                    'hub', 8, 'r_extra', 100, 'min_sep', 30, ...
+                    'ngridpts', 15, 'optimize', false, 'mc', 0, 'verbose', false, ...
+                    'piston', cases{k, 2}, ...
+                    'out_dir', tc.wd, 'name', "pk_" + cases{k, 1} + "_" + cases{k, 2});
+            end
+            for f = ["prior", "edge", "met", "edge_met", "wem", "wem_dt", "floor_frac_dt"]
+                tc.verifyEqual(a{3}.merits.(f), a{4}.merits.(f), 'RelTol', 1e-6, ...
+                    "mean harvest, " + f);
+            end
+            tc.verifyEqual(a{1}.merits.wem_dt, a{2}.merits.wem_dt, 'RelTol', 1e-6, ...
+                'the non-tilt part does not see piston');
+            tc.verifyGreaterThan(a{1}.merits.wem_tilt, 1e-3 * a{1}.merits.wem, ...
+                '''keep'' counts the chief piston in the tilt part');
+            tc.verifyGreaterThan(a{1}.merits.prior, (1 + 1e-3) * a{2}.merits.prior, ...
+                '''keep'' counts the chief piston in the prior');
+        end
+
+        function test_compare_keep_is_consistent(tc)
+            % PLAN 1.2 (www) option on run_compare: piston kept or removed on
+            % BOTH sides of every poke, so engine and model agree either way,
+            % on a chief or a mean harvest; the report prints the choice.
+            M = load(tc.met5.mat);
+            jacs = {tc.harvest_('chief', '1x1'), 'chief'; tc.harvest_('mean', '1x1'), 'mean'};
+            for k = 1:2
+                for pm = ["keep", "remove"]
+                    art = run_compare(fullfile(tc.wd, 'pie.in'), ...
+                        'hx', fullfile(tc.wd, 'pieHx.m'), 'jac', jacs{k, 1}, ...
+                        'met', M, 'channels', "x", 'bodies', [1 2 8], ...
+                        'dofs', [2 6], 'dwell', 0, 'visible', false, ...
+                        'gif', false, 'ngridpts', 15, 'verbose', false, ...
+                        'piston', char(pm), ...
+                        'out_dir', tc.wd, 'name', "pc_" + jacs{k, 2} + "_" + pm);
+                    tc.verifyLessThan(max([art.table.w_rel]), 0.05, ...
+                        sprintf('%s harvest, piston %s', jacs{k, 2}, pm));
+                    tc.verifySubstring(fileread(art.report), ...
+                        "piston " + stamp_(pm) + " on both sides");
+                end
+            end
+        end
+
+        function test_budget_piston_option(tc)
+            % PLAN 1.2 (www) option on macos.budget.assemble: under 'remove'
+            % (default) a chief and a mean harvest give the same Gram; under
+            % 'keep' the chief harvest's piston is in it.
+            c = tc.harvest_('chief', '1x1');  m = tc.harvest_('mean', '1x1');
+            Mc = macos.budget.assemble(c);  Mm = macos.budget.assemble(m);
+            tc.verifyEqual(Mc.opd_piston, 'removed');
+            tc.verifyEqual(Mc.G, Mm.G, 'AbsTol', 1e-6 * max(abs(Mm.G(:))), ...
+                'the budget must not depend on the OPD reference');
+            Kc = macos.budget.assemble(c, 'piston', 'keep');
+            Km = macos.budget.assemble(m, 'piston', 'keep');
+            tc.verifyEqual(Kc.opd_piston, 'kept');
+            tc.verifyEqual(Km.G, Mm.G, 'AbsTol', 1e-6 * max(abs(Mm.G(:))), ...
+                'a mean harvest carries no piston to keep');
+            tc.verifyGreaterThan(trace(Kc.G), (1 + 1e-3) * trace(Mc.G), ...
+                '''keep'' counts the chief piston');
+        end
+
+    end
+
+    methods (Access = private)
+        function o = harvest_(tc, ref, grid)
+            % a center-field-anchored dw_dx_multi harvest on the met Rx at
+            % opd_ref REF over GRID ('1x1' / '3x3'), made once per class
+            key = sprintf('%s_%s', ref, strrep(grid, 'x', '_'));
+            if ~isfield(tc.hv, key)
+                m = macos.Session(512);
+                tc.hv.(key) = macos.dw_dx_multi(m, char(tc.met5.met_in), ...
+                    'field_x_rad', 1e-4, 'field_y_rad', 1e-4, ...
+                    'grid', grid, 'fp_mode', 'none', 'ngridpts', 15, ...
+                    'reset_xp', false, 'opd_ref', ref);
+            end
+            o = tc.hv.(key);
+        end
+
+        function d = poke_delta_(~, m, ch, wf)
+            % OPD change (2-D) from a single channel poke, restored after.
+            m.trace(wf);  W0 = m.opd();
+            ch.apply(1e-4);  m.trace(wf);  W1 = m.opd();  ch.restore();
+            d = W1 - W0;
+        end
+
+        function [sc, cc] = disk_compare_(~, dg, dz)
+            % Compare a grid-map poke dg to an engine poke dz WITHIN the map's
+            % confined disk (rho<=lMon): zernike_grid_basis zeros the mode
+            % outside rho=1 while the engine's MonZern grows across the grid,
+            % so select on the grid map's own support.  Returns dz-per-dg
+            % scale and correlation.
+            mk = dg ~= 0 & dz ~= 0;
+            sel = mk & (abs(dg) > 0.1 * max(abs(dg(mk))));
+            sc = dg(sel) \ dz(sel);
+            c  = corrcoef(dg(sel), dz(sel));
+            cc = c(1, 2);
+        end
     end
 end
 
@@ -309,4 +748,15 @@ function rmdir_if_exists(tc)
     if ~isempty(tc.wd) && (isfolder(tc.wd) || isfolder(char(tc.wd)))
         rmdir(tc.wd, 's');
     end
+end
+
+function v = e2e_params_piston_(e2edir)
+% P.piston from the e2e thread's parameter file (it is a function on that path)
+old = addpath(e2edir);  cl = onCleanup(@() path(old));
+P = e2e_params();  v = string(P.piston);
+end
+
+function w = stamp_(mode)
+% the word a report prints for a 'piston' mode (macos.piston's opd_piston)
+w = 'kept';  if strcmp(mode, 'remove'), w = 'removed'; end
 end

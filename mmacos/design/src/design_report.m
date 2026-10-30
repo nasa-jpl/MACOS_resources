@@ -31,7 +31,8 @@ function rep = design_report(t, opts)
 %     'file'         also write rep.text to this path.
 %     'quiet'        suppress printing (default false).
 %
-%   Returns rep with: .D_m .lambda_m .EFL_m .fno_m1 .fno_fp
+%   Returns rep with: .D_m .lambda_m .EFL_m (the plate-scale EFL at the
+%   field point) .EFL_sys_m (the engine's system EFL, SYSPROP) .fno_m1 .fno_fp
 %   .plate_um_per_arcsec .lamD_mas .bias_arcmin .rings_arcmin
 %   .wfe_raw/.wfe_tilt (per row, waves @ design lambda) .strehl (per
 %   row; NaN rows when disabled/no pupil) .fp_tilt_deg .pupil (struct
@@ -88,14 +89,22 @@ function rep = design_report(t, opts)
             EFL = t.spec.derived.EFL;
         end
     end
+    EFLs = NaN;                                    % the engine's system EFL (SYSPROP)
+    try
+        fo = macos.first_order_properties(fk);
+        EFLs = fo.efl_baseunits * macos.cbm();
+        t.trace_at_field([]);
+    catch
+    end
     ip     = find(abs([e.Kr]) < 1e21, 1);          % first powered mirror
     fno_m1 = abs(e(ip).Kr) / 2 / D;
     fno_fp = EFL / D;                              % working f/# at the FP
     plate  = EFL * 4.8481368e-6 * 1e6;             % um per arcsec
     lamD   = lam / D * 206264.806 * 1e3;           % mas
     L{end+1} = ' -- first order --';
-    L{end+1} = sprintf('   EFL %.2f m | f/# at M1 %.2f | f/# at FP %.2f', ...
-                       EFL, fno_m1, fno_fp);
+    L{end+1} = sprintf(['   plate-scale EFL at the field point %.2f m ' ...
+                        '(system EFL %.2f m) | f/# at M1 %.2f | f/# at FP %.2f'], ...
+                       EFL, EFLs, fno_m1, fno_fp);
     L{end+1} = sprintf('   plate scale %.1f um/arcsec | lambda/D %.2f mas', ...
                        plate, lamD);
 
@@ -210,7 +219,7 @@ function rep = design_report(t, opts)
     end
     L{end+1} = '=======================================================';
 
-    rep = struct('D_m',D, 'lambda_m',lam, 'EFL_m',EFL, ...
+    rep = struct('D_m',D, 'lambda_m',lam, 'EFL_m',EFL, 'EFL_sys_m',EFLs, ...
         'fno_m1',fno_m1, 'fno_fp',fno_fp, ...
         'plate_um_per_arcsec',plate, 'lamD_mas',lamD, ...
         'bias_arcmin',bias, 'rings_arcmin',rows, ...

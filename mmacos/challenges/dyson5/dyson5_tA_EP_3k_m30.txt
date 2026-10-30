@@ -1,0 +1,16 @@
+dyson5 tEP -- addendum 42 checkpoint 1: the strict reference-sphere merit vs the FP-OPD merit, per field (2026-10-05 10:02)
+CONVENTIONS: the -4 deg / 180 mm section of the telecentric parent F/1.7135, secondary_mag 3.00 (R [366.7 120.3 185.8] mm); fields in CALIB order (1 = the bias, then
+  the strip [-4.688 -3.125 -1.563 1.563 3.125 4.688] deg); lambda 633 nm.  FP = rms OPL to each ray's own detector intercept (CALIB's WFE target);
+  STRICT = rms OPL on a 1.00 m sphere about the field's least-squares best-focus point (rays carried back along their
+  final leg); SPOT = best-focus rms radius (the trace helper).  um of wavefront / um at the image.
+
+B1:    field  CALIB WFE     FP OPD     STRICT       spot  nPass  STRICT@chief
+        +0.000     35.729     35.337      5.671       68.1   1184       10.112
+        -4.688     83.517     82.950     94.554     1085.7   1184      110.988
+        -3.125     47.018     46.018     39.783      486.4   1184       49.871
+        -1.563     35.964     35.232      8.444      132.3   1184       11.577
+        +1.563     35.964     35.232      8.444      132.3   1184       11.577
+        +3.125     47.018     46.018     39.783      486.4   1184       49.871
+        +4.688     83.517     82.950     94.554     1085.7   1184      110.988
+       rank by spot: [1 4 5 6 3 7 2] | by STRICT: [1 5 4 3 6 2 7] | by FP: [4 5 1 3 6 7 2]   (Spearman STRICT~spot 1.00, FP~spot 0.89)
+

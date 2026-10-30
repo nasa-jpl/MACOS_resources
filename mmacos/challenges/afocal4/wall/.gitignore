@@ -1,0 +1,6 @@
+# Per-run engine stdout: ~730 MB of trace chatter for 17 points, and entirely
+# redundant -- every number the record quotes (rounds, exitflags, evaluation
+# counts, merits, gains, the gate and the score) is in the wall_*.mat
+# checkpoints, which ARE committed.  Keep them locally while a fleet is live;
+# do not carry them in the history.
+logs/

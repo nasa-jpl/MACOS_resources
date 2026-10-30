@@ -1,0 +1,19 @@
+dyson5 t2 -- telescope + spectrometer, end to end (2026-10-01 19:21)
+CONVENTIONS: the telescope of record (t1, rung T3) prepended to each spectrometer of record as ONE prescription
+  (e2e_geom): sky -> M1 -> M2 -> M3 -> fold -> slit (a pass-through Reference) -> the spectrometer's surfaces -> FPA.
+  COLLIMATED source of 70.0 mm (1.00 x the 70 mm), the GRATING declared the STOP (macos.stop): per (field, lambda) the
+  chain's own launch whose chief passes the grating vertex is written as the source; the telescope's apertures are its
+  footprints + 5 mm, the spectrometer's its own record apertures, the grating's its F/1.8 footprint + 0.2 mm (the stop).
+  Scored by spectrometer_score in the FPA frame (u along the slit, v along the dispersion, px): smile, keystone, SRF,
+  CRF, ensquared energy, and PASS = the fraction of the launched bundle the grating admits (the pupil match in energy)
+  over 7 fields x 7 wavelengths; the clearance gate on the combined chain; the engine renders.
+
+deck      smile    keyst     CRF     SRF     EE   pass    clear  worst pair
+R4       3.1354   0.5865  15.537  15.717  0.000  1.000    +0.75  BlockSphereIn -> BlockFaceOut vs FPApackage (PASS); 16 elements; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t2_r4.in
+        pass fraction per field: 1.000 1.000 1.000 1.000 1.000 1.000 1.000 
+        smile per lambda (px): 3.1354 2.6968 2.5712 2.4742 2.3706 2.2507 2.1100 
+        keystone per field (px): 0.5865 0.1053 0.1803 0.0000 0.1803 0.1053 0.5865 
+R5       3.1251   0.5901  15.563  15.717  0.000  1.000    -0.11  BODY FPApackage vs FoldMirror (FAIL); 19 elements; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t2_r5.in
+        pass fraction per field: 1.000 1.000 1.000 1.000 1.000 1.000 1.000 
+        smile per lambda (px): 3.1251 2.6873 2.5619 2.4650 2.3616 2.2419 2.1014 
+        keystone per field (px): 0.5901 0.1020 0.1785 0.0000 0.1786 0.1020 0.5901 

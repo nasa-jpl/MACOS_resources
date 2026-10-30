@@ -211,9 +211,9 @@ pre(igt) = regexprep(pre(igt), '(GridType=\s*)\S+', "$1" + seg_gridtype);
 % recomputes yGrid/zGrid from it).
 ix = find(startsWith(strtrim(pre), "xGrid="), 1);
 if ~isempty(ix)
-    xg = sscanf(char(regexprep(pre(ix), '.*xGrid=', '')), '%f');
+    xg = sscanf(char(regexprep(pre(ix), '^\s*xGrid=', '')), '%f');
     if numel(xg) == 3 && abs(xg(1) - 1) < 1e-9 && all(abs(xg(2:3)) < 1e-9)
-        pre(ix) = regexprep(pre(ix), '(xGrid=\s*)\S+', "$1-1.0");
+        pre(ix) = regexprep(pre(ix), '(?m)^(\s*xGrid=\s*)\S+', "$1-1.0");
     end
 end
 % Optional sampling bump: the parent's nGridpts rides through the

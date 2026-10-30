@@ -1,0 +1,22 @@
+=== OAP conjugate probe: is the fold coma the FOLD, or a 25 mm conjugate error? ===
+bare two-mirror train at the rig scale: F1 857.1, F2 428.6, beam radius 51.4 mm, lambda 0.0006328 mm
+lambda F/D at the OAP2 focus = 0.0026 mm (2.64 um); zSource = 25 mm
+
+  AOI |  spread rec    focus m |  spread cor    focus m |  blur rec  blur cor
+  deg |    urad rms      (rec) |    urad rms      (cor) |   lam F/D   lam F/D
+    1 |      925.53       28.8 |        0.00        Inf |     0.128     0.000
+    3 |      925.53       28.8 |        0.00        Inf |     0.236     0.000
+    5 |      925.53       28.8 |        0.00        Inf |     0.367     0.000
+    7 |      925.54       28.8 |        0.00        Inf |     0.504     0.000
+    9 |      925.54       28.8 |        0.00        Inf |     0.645     0.000
+   15 |      925.57       28.7 |        0.00        Inf |     1.081     0.000
+   20 |      925.60       28.6 |        0.00        Inf |     1.465     0.000
+   25 |      925.65       28.6 |        0.00        Inf |     1.879     0.000
+   30 |      925.72       28.5 |        0.00        Inf |     2.322     0.000
+   37 |      925.85       28.4 |        0.00        Inf |     3.028     0.000
+   45 |      926.10       28.2 |        0.00        Inf |     4.018     0.000
+
+longitudinal trim the focus needed (mm): record 6.46 6.46 6.46 6.46 6.46 6.46 6.46 6.46 6.46 6.46 6.46 
+                                       corrected -0.00 -0.00 0.00 -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 -0.00 0.00 
+
+wrote conj_conj.{txt,mat,png} in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/conj

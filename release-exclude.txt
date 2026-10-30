@@ -1,0 +1,31 @@
+DEV_FILES.md
+release-exclude.txt
+segmirmaker/.vscode/launch.json
+segmirmaker/.vscode/tasks.json
+doc/STYLE_REPORTS.md
+mmacos/design/PLAN_AFOCAL4.md
+mmacos/design/PLAN_TMA_E2E2.md
+mmacos/challenges/afocal4/STATUS_S4B.md
+mmacos/challenges/afocal4/STATUS_S4C.md
+mmacos/challenges/rodgers1/OPTFEX_REDO_LIST.md
+mmacos/challenges/rodgers1/SESSION_STATE_2026-07-30.md
+mmacos/templates/40_benches/vsg_wip/PLAN_VSG2_MODELS.md
+mmacos/templates/40_benches/vsg_wip/VSG2_review.md
+mmacos/templates/30_instruments/bench_ctb/CTB_PROP_STATUS.md
+mmacos/templates/40_benches/bench_ifo_dm/l2_trade/PLAN_IFO_PUPIL_RELAY.md
+mmacos/templates/90_polarization/bench_ifo_pol/CURRENT_SLICE.md
+mmacos/BRIEF_ep_dome_ccmac_handback.md
+mmacos/PLAN_EXAMPLES_REORG.md
+mmacos/templates/30_instruments/bench_ctb/BRIEF_dst_defects.md
+# 2026-10-21 (Dave): the per-package CLAUDE.md files, the optical_design agent guides / rules / references / fixtures and doc/mmacos_pymacos_parity.md SHIP; plans, status, briefs and .vscode stay on dev
+# 2026-10-27 (CC, release-gate dry run): the lane process files by PATTERN, as macos's list
+# does -- a glob without '/' matches the basename anywhere.  The dry run found 17 dyson5
+# BRIEF_*.md, 2 NOTE_*.md and design/PLAN_CONFIGURATIONS.md that the named lines above missed.
+BRIEF_*.md
+NOTE_*.md
+PLAN_*.md
+STATUS_*.md
+SESSION_STATE_*.md
+CURRENT_SLICE.md
+# 2026-10-27 (Dave): the six template REPORT_*.md (bench_ctb/REPORT_field_servo, pdi_dm96/REPORT_gauge_pdi, tg_psi_dm96_oap/REPORT_{bench_realism,gauge_ifo,oap,reflective}) do NOT ship; they stay on dev-candidate and in the local clones.  The README links to them break on the release surface; to rethink before the re-clone.
+REPORT_*.md

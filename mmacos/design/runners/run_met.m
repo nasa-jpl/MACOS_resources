@@ -129,6 +129,14 @@ arguments
     opts.name (1,1) string = ""
     opts.visible (1,1) logical = false
     opts.verbose (1,1) logical = true
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                % wavefront piston in the dwdx columns the
+                                % merit, the estimator products, the tilt
+                                % split and the Monte-Carlo all use
+                                % (macos.piston, per field): 'remove'
+                                % (default; an imager cannot see it) |
+                                % 'keep' (an interferometer reads it).
+                                % PLAN 1.2 (www), Dave 2026-10-27
 end
 assert(isfile(seg_in), 'run_met: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_met: Hx sidecar %s not found', opts.hx);
@@ -264,11 +272,14 @@ art = struct('met_in', am.in, 'metopt_in', '', 'mat', pth("_met.mat"), ...
     'report', pth("_met_report.txt"), 'figs', {{}});
 D = [];  keep = [];  optout = [];  merits = [];  mcres = [];
 K = [];  dxde = [];  dxdl = [];  dwde = [];  dwdl = [];  rfd = NaN;
-ox = jac_struct_(opts.jac);
+ox = macos.dwdx_trans_per_metre(jac_struct_(opts.jac));   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 if ~isempty(ox)
+    ox = macos.piston(ox, opts.piston);  % per field, every use below (1.2 (www))
     [D, missing, colidx] = dwdx_cols_(ox, belts);
     say('\n[3] dwdx: %d columns for bodies [%s] from the sensitivities .mat\n', ...
         size(D, 2), num2str(belts));
+    say('    OPD reference %s (the harvest''s), piston %s\n', ...
+        harvest_ref_(ox), ox.opd_piston);
     if ~isempty(missing)
         error('run_met:jac', 'missing dwdx channels for elements: %s', ...
             num2str(missing));
@@ -553,11 +564,22 @@ if ~isempty(merits)
         labs{end+1} = 'edge+MET opt';
     end
     bar(vals);  set(gca, 'XTickLabel', labs, 'YScale', 'log');
+    % the axis spans every bar: a log floor left where it falls hid the
+    % 'edge+MET opt' bar on e2e (PLAN 1.2 (hhh)); each bar is labelled
+    yl = [10^floor(log10(min(vals)) - 0.25), 10^ceil(log10(max(vals)) + 0.25)];
+    ylim(yl);
+    text(1:numel(vals), vals, compose('%.3g', vals), ...
+        'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
     ylabel('w_{post} / w_{prior}  (dimensionless)');  grid on;
     title(sprintf('%s MET metric: WEM %.2f (%d segs, %d edge + %d MET meas)', ...
         name, merits.wem, nseg, es.nmeas, dm.nmeas), 'Interpreter', 'none');
     print(f, pth("_met_metric.png"), '-dpng', '-r120');  close(f);
     figs{end+1} = pth("_met_metric.png");
+    art.metric = struct('labels', {labs}, 'values', vals, 'ylim', yl);
+    say('metric chart (w_post / w_prior):\n');
+    for k = 1:numel(vals)
+        say('    %-13s %.4g\n', labs{k}, vals(k));
+    end
 end
 art.figs = figs;
 say('\n[6] figures: %s\n', strjoin(string(figs), ', '));
@@ -682,12 +704,22 @@ end
 missing = unique(missing);
 end
 
+function r = harvest_ref_(ox)
+% the OPD reference the harvest recorded (dw_d*_multi stamp, 1.2 (kkk))
+r = 'unrecorded';
+if isfield(ox, 'opd_ref') && ~isempty(ox.opd_ref), r = char(ox.opd_ref); end
+end
+
 function [Gdt, Gt, nwdt] = detilt_gram_(ox, idx)
 %DETILT_GRAM_  Split the sensed dwdx columns' Gram into the NON-TILT
 %   part (per-field piston+tip/tilt projected OUT -- tilt control
 %   absorbs tilt, so this is the design driver; Dave 2026-07-19) and
 %   the TILT part (projection ONTO piston+tilt -- what the tilt loop
-%   must absorb).  The split is orthogonal: G_full = Gdt + Gt.  Works
+%   must absorb).  Under opts.piston = 'remove' (the default, PLAN 1.2
+%   (www)) the columns arrive piston-free, so a chief-referenced
+%   harvest's per-field constant lands in neither part and Gt is tilt
+%   only; under 'keep' the piston is counted in Gt.  The split is
+%   orthogonal: G_full = Gdt + Gt.  Works
 %   from the multi-field supervisor's per-field blocks; only Grams are
 %   needed downstream (row order is irrelevant to a trace).
 nz = numel(idx);
@@ -707,7 +739,8 @@ for f = 1:numel(ox.per_field_dwdx)
              ri - mean(ri), ci - mean(ci)];
     end
     Bf = Bf(ok, :);
-    Bp = T*(T \ Bf);                            % piston+tilt component
+    Bp = T*(T \ Bf);                            % piston+tilt component (piston
+                                                % is already 0 under 'remove')
     Bt = Bf - Bp;
     Gdt = Gdt + Bt'*Bt;
     Gt  = Gt + Bp'*Bp;

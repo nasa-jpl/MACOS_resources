@@ -1,0 +1,35 @@
+dyson5 tFF -- addendum 44: the freeform ladder on the strict merit (2026-10-05 11:18)
+CONSTRUCTION (the way around the emitter's refused asphere+Zernike co-emit): Surface=FreeForm on M1-M3, two channels on one
+  surface -- Mon about the parent VERTEX carries the even asphere exactly (held), FF about the section POLE carries the
+  freeform modes (solved).  Rungs are cumulative and warm-started.
+R0 = dyson5_tA_EP_3k_m30_B1.in: K [-1.0154 -9.4528 -40.926], h4/h6 [-0.7136 1.781;43.83 -168.7;630.3 -7.377e+04].  Mon: lMon [304.1 78.6 47.3] mm about the vertices (held); FF: lFF [120.9 54.5 47.6] mm about the poles; modes [4 6 7 8 9 10 5 13 25 11 12 14 15 16 17 18 19 20 21] (ANSI, MACOS 1-based)
+
+R0 (free []): the reference: R0' (FreeForm, FF = 0) re-traced; its per-field spots must equal the source deck's (1.5k gate: rays to 7.8e-15 m)
+     field  strict@chf  strict@foc    spot bf spot asplc     FP OPD  nPass     T mm     S mm
+    +0.000      10.112       5.671       68.1       77.3     35.337   1184   +0.197   -0.007
+    -4.688     110.988      94.554     1085.7     1441.9     82.950   1184   -9.016   -0.102
+    -3.125      49.871      39.783      486.4      625.2     46.018   1184   -3.773   +0.185
+    -1.563      11.577       8.444      132.3      152.8     35.233   1184   -0.588   +0.132
+    +1.563      11.577       8.444      132.3      152.8     35.232   1184   -0.588   +0.132
+    +3.125      49.871      39.783      486.4      625.2     46.018   1184   -3.773   +0.185
+    +4.688     110.988      94.553     1085.7     1441.9     82.950   1184   -9.017   -0.102
+   EDGE: strict@chief 110.99 / @focus 94.55 um, spot 1085.7 um (60.3 px), T-S -8.915 mm; CENTRE spot 68.1 um; plate pos err max 1.370 mm; K [-1.0154 -9.4528 -40.926]
+
+RESUME from dyson5_tA_FF_3k.mat rung R4 (free [4 6 7 8 9 10 5 13 25 11 12 14 15]): continue with R5; MaxFunctionEvaluations 3000, OptimalityTolerance 1.0e-06
+
+R5 (free [4 6 7 8 9 10 5 13 25 11 12 14 15 16 17 18 19 20 21]): lsqnonlin exitflag 0, 3018 evaluations, 880 s
+     field  strict@chf  strict@foc    spot bf spot asplc     FP OPD  nPass     T mm     S mm
+    +0.000      11.712      13.386      177.7      224.2    103.956   1184   +0.404   -0.288
+    -4.688      26.758      55.460      469.0      680.4    316.999   1184   -3.226   -0.409
+    -3.125       9.208      12.563      157.7      198.3    116.755   1184   +0.368   +0.106
+    -1.563      14.943      13.348      177.2      230.2     87.754   1184   +0.803   -0.069
+    +1.563      14.806      13.272      175.4      228.2     86.598   1184   +0.797   -0.062
+    +3.125       9.016      12.022      153.0      188.8    106.360   1184   +0.372   +0.114
+    +4.688      26.513      54.356      466.0      670.0    306.177   1184   -3.180   -0.392
+   convergence: lm-jac: exitflag 0, 48 iterations, 3018 evaluations, first-order optimality 1.067e+06 (tol 1.0e-06), cost 7.7226e+05 um^2; FunctionTolerance 1e-12, StepTolerance 1e-10
+   EDGE: strict@chief 26.64 / @focus 54.91 um, spot 467.5 um (26.0 px), T-S -2.803 mm; CENTRE spot 177.7 um; plate pos err max 0.247 mm; K [-1.0728 -10.73 -45.48]
+   FF coefficient norm (all freed modes, M1-M3): 788.11 um (Tikhonov watch: modes growing while the edge stalls)
+   M1 FF (um at rho=1, lFF 120.9 mm): Z4 -2.715 Z6 -109.941 Z7 -67.027 Z8 +36.375 Z9 +0.058 Z10 -0.488 Z5 +0.858 Z13 +3.968 Z25 +1.128 Z11 -1.452 Z12 -0.079 Z14 -14.091 Z15 +47.993 Z16 -4.501 Z17 +1.018 Z18 -0.064 Z19 -0.039 Z20 -0.087 Z21 +0.860
+   M2 FF (um at rho=1, lFF 54.5 mm): Z4 -9.063 Z6 -140.446 Z7 -253.709 Z8 -15.974 Z9 +0.315 Z10 +1.246 Z5 +13.713 Z13 -0.555 Z25 -7.667 Z11 -2.650 Z12 -0.344 Z14 +14.004 Z15 +274.007 Z16 -89.920 Z17 -0.106 Z18 +2.580 Z19 +0.068 Z20 +0.044 Z21 -1.689
+   M3 FF (um at rho=1, lFF 47.6 mm): Z4 -4.565 Z6 -584.245 Z7 -207.679 Z8 -129.315 Z9 +2.139 Z10 +4.161 Z5 -10.890 Z13 -62.817 Z25 +26.704 Z11 -2.797 Z12 -0.730 Z14 -37.045 Z15 -158.063 Z16 -10.665 Z17 +6.959 Z18 +7.537 Z19 -0.159 Z20 -0.307 Z21 -0.451
+   fwd_root_flips_get after the rung's trace: 351

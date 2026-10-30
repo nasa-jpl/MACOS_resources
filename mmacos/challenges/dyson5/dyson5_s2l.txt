@@ -1,0 +1,15 @@
+dyson5 s2l -- slit-width diffraction loss (2026-10-01 07:59)
+CONVENTIONS: a uniformly illuminated rectangular slit 36 um x 0 mm (the telescope cone is not modelled -- the
+  partially coherent case is the ~10% the paper cites), far-field leg (flat Return, radius 1e22, zElt = z) to the
+  grating plane at z = 0.700 m; loss = 1 - energy inside |y| <= z tan(u), u = asin(1/(2 F)), F = 1.8; closed form =
+  1 - energy of sinc^2(w sin(theta)/lambda) inside |sin(theta)| <= 1/(2F).  Model 1024, 255-pt grid, pitch at the
+  grating plane lambda z / (N dx_slit); the acceptance must sit inside the window (checked).
+  RESOLVED (dyson5_s2l_tests.txt, addendum 9): a window of 1.11 x the acceptance aliased the tail back inside (0.30 x
+  at 380 nm); the planar FFT far field carries energy at |sin theta| > 1 that no physical far field does (1.36 x at
+  2500 nm) -- the record now uses a window >= 2 x the acceptance and normalises to the propagating region; the
+  residual few % is the pitch across a 4-sidelobe acceptance at 2500 nm.
+      nm  loss engine  loss sinc^2   ratio   pitch um    win/acc evanesc.   energy
+     380      0.00291      0.00281   1.037     791.82       2.00   0.0000 7.46e-08
+     700      0.00593      0.00521   1.138    1458.61       3.69   0.0004  2.2e-08
+    1440      0.00936      0.01045   0.896    3000.56       7.59   0.0048  5.2e-09
+    2500      0.01570      0.01830   0.858    5209.31      13.18   0.0095 1.72e-09

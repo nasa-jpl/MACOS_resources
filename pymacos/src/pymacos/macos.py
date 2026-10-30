@@ -4,6 +4,7 @@
 #
 # ------------------------------------------------------------------------------
 import functools
+import math
 import warnings
 from pathlib import Path
 from typing import Any, List, NewType, Tuple, TypeVar, TypeVarTuple
@@ -13,6 +14,7 @@ import numpy as np
 from numpy._typing import ArrayLike, NDArray
 
 from . import pymacosf90 as lib
+from . import api_gen as _gen
 
 _T = TypeVar("_T", bound=np.generic, covariant=True)
 Vector = np.ndarray[Tuple[int], np.dtype[_T]]
@@ -303,15 +305,19 @@ def model_size() -> int:
         int: model size -1, 128, 256, 512, 1024, 2048 or 4096
              where -1 indicates that MACOS has not yet been initialised
     """
-    return lib.api.currrent_macos_model_size()
+    # currrent_macos_model_size is a FUNCTION and was never wrapped for
+    # f2py (imported but no shim), so call the model_size_get subroutine
+    # wrapper instead.
+    return int(lib.api.model_size_get())
 
 
-def init(model_size: int = 512) -> None:
+def init(model_size: int = 256) -> None:
     """Initialises MACOS and defines model size
 
     Args:
         model_size (int, optional): must be: 128, 256, 512, 1024, 2048 or 4096.
-                                    Defaults to 512.
+                                    Defaults to 256, the engine's (SMACOS with no
+                                    size) and mmacos's (Dave 2026-10-16; was 512).
 
     Raises:
         ValueError: if model_size was invalid
@@ -345,10 +351,14 @@ def init(model_size: int = 512) -> None:
 def load(macos_rx: Path | str) -> int:
     """Load an optical prescription (Rx) into MACOS.
 
+    Session modes (POLARIZATION, VECTOR, CENTROID, LNEG, CIR) SURVIVE load
+    (2026-10-11); load warns (RuntimeWarning) when any is in force -- read them
+    with :func:`modes`, set them per deck with :func:`polarization` etc.
+
     Args:
         macos_rx (Path | str):
           file (path + file name) where total length cannot exceed
-          128 characters (MACOS limit). The MACOS extension '.in'
+          255 characters (the api argument length; was 128 until 2026-10-19 -- the engine never had that limit). The MACOS extension '.in'
           is inherently assumed, i.e., can be left out.
 
     Raises:
@@ -370,8 +380,8 @@ def load(macos_rx: Path | str) -> int:
 
     if not macos_rx.is_file():
         raise FileExistsError(f"Rx file '{macos_rx}' not found")
-    elif len(macos_rx_str) > 128:
-        raise ValueError("Path + FileName greater than max. permitted by MACOS (>128)")
+    elif len(macos_rx_str) > 255:
+        raise ValueError("Path + FileName greater than max. permitted by MACOS (>255)")
 
     # MACOS Bug Tmp Fix: ensure file name does NOT contain extension '.in'
     #                    ==> otherwise we exercise a MACOS Bug (endless loop)
@@ -380,13 +390,74 @@ def load(macos_rx: Path | str) -> int:
     ok, n_srf = lib.api.load_rx(macos_rx_str)
 
     if (not ok) or n_srf == 0:
-        raise Exception('MACOS was unable to load Rx')
+        # the engine's own reason (its message buffer, PLAN_CONSOLIDATION 1.2 (ee)); left in the
+        # buffer for messages()
+        why = [l.strip() for l in messages(clear=False) if '**' in l]
+        raise Exception('MACOS was unable to load Rx' + (': ' + ' | '.join(why[-4:]) if why else ''))
 
     # update status
     _NELT = n_srf
     _isRx = True
 
+    # Session modes survive load (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2):
+    # say so when any is in force, as the CLI's LOAD does.
+    _md = modes()
+    if _md['in_force']:
+        warnings.warn('load: session modes in force: ' + ', '.join(_md['in_force']),
+                      category=RuntimeWarning, stacklevel=2)
+
     return n_srf
+
+
+def modes() -> dict:
+    """The five SESSION modes as the engine holds them.
+
+    Returns a dict: ``pol`` (polarization), ``vecdif`` (vector diffraction),
+    ``centroid`` (the FEX/SXP centroid axis), ``lneg`` (negative ray lengths
+    allowed; default True), ``cir`` (colour image rendering; always False in
+    the bindings' engine), ``obs`` (the OBS option: 'all', 'positive' (default)
+    or 'negative'; NOT a session mode: :func:`load` resets it to POSITIVE,
+    Dave 2026-10-28) and ``in_force``, the list of modes NOT at their
+    defaults, named as the CLI's LOAD notice names them.  Set ``centroid`` /
+    ``lneg`` with :func:`modes_set`.  These modes SURVIVE
+    :func:`load` (Dave 2026-10-11, PLAN_CONSOLIDATION 4 item 2); ``load`` warns
+    (RuntimeWarning) when any is in force.
+    """
+    ok, p, v, c, l, r = lib.api.modes_get()
+    md = {'pol': bool(p), 'vecdif': bool(v), 'centroid': bool(c),
+          'lneg': bool(l), 'cir': bool(r)}
+    f = []
+    if md['pol']:
+        f += ['POLARIZATION', 'VECTOR' if md['vecdif'] else 'SCALAR']
+    if md['centroid']:
+        f.append('CENTROID')
+    if not md['lneg']:
+        f.append('NOLNEG')
+    if md['cir']:
+        f.append('CIR')
+    o = int(_gen.obs_opt_get())
+    md['obs'] = {0: 'all', 1: 'positive', 2: 'negative'}[o]
+    md['in_force'] = f
+    return md
+
+
+def modes_set(centroid: bool | None = None, lneg: bool | None = None) -> dict:
+    """Set the two SESSION modes that have no setter of their own (api
+    modes_set, Dave 2026-10-28): ``centroid`` True = CENTROID, False =
+    CHIEFRAY (the FEX / SXP pupil-sphere axis); ``lneg`` True = LNEG, False =
+    NOLNEG (negative ray lengths at reference surfaces).  ``None`` leaves a
+    mode as it is.  Needs :func:`init`, not a loaded Rx: a mode set before
+    :func:`load` stays (the modes survive loads).  Polarization has
+    :func:`polarization_set`; the OBS option :func:`obs_set`.  Returns
+    :func:`modes` after the change.
+
+    Raises:
+        Exception: the engine is not allocated, or MACOS rejected the call.
+    """
+    code = lambda v: -1 if v is None else int(bool(v))
+    if not lib.api.modes_set(np.int32(code(centroid)), np.int32(code(lneg))):
+        raise Exception('MACOS: modes_set failed (init first)')
+    return modes()
 
 
 def save(rx: Path | str,
@@ -396,7 +467,7 @@ def save(rx: Path | str,
     Args:
         rx (Path | str):
           file (path + file name) where total length cannot exceed
-          128 characters (MACOS limit). The MACOS extension '.in'
+          255 characters (the api argument length; was 128 until 2026-10-19 -- the engine never had that limit). The MACOS extension '.in'
           is inherently assumed, i.e., can be left out.
 
         overwrite (bool):
@@ -418,7 +489,7 @@ def save(rx: Path | str,
             raise FileExistsError(f"{rx.with_suffix('.in')} exists")
 
     rx = Path(rx).with_suffix('')  # macos will add the suffix
-    if len(str(rx)) > 128:
+    if len(str(rx)) > 255:
         raise ValueError("Path + FileName greater than >128 (MACOS))")
 
     if not lib.api.save_rx(str(rx)):
@@ -827,8 +898,9 @@ def first_order_properties(srf: int | np.int32 = -1) -> dict:
 
     The pixel-based entries (``lamD_px``, ``plate_arcsec_px``,
     ``plate_px_rad``, ``dx_focal_baseunits``) require a prior
-    propagation to ``srf`` (e.g. ``intensity(srf)``) to have set the
-    diffraction grid pitch; they are 0.0 otherwise.
+    DIFFRACTION propagation to ``srf`` (e.g. ``intensity(srf)``) to have
+    set the diffraction grid pitch; they are 0.0 otherwise, and after an
+    ``opd()`` at ``srf``, which re-sets it to the ray spacing (PLAN 1.2 (d)).
 
     Returns:
         dict with keys:
@@ -2076,10 +2148,10 @@ def elt_zrn_type(srf: int | np.int32,
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 
         zrn_type (None | int | np.int32):
-            1) ANSI         4) Norm. ANSI         7) Norm. Hex
+            1) ANSI         4) Norm. ANSI         7) Norm. Hex (45 modes)
             2) Born & Wolf  5) Norm. Born & Wolf  8) Norm. Noll
-            3) Fringe       6) Norm. Fringe       9) Norm. AnnularNoll
-           10) Noll        11) Ext. Fringe
+            3) Fringe       6) Norm. Fringe       9) Norm. AnnularNoll (refused)
+           10) Noll        11) Ext. Fringe        (manual Appendix E)
 
         reset (bool, optional): Defaults to False.
             When reset is set and when setting Zernike Type, all Zernike
@@ -2122,10 +2194,11 @@ def getEltSrfZern(iElt):
     :param   iElt:               [1xN,I]: Elt. ID ( -nElt < iElt[i] <= nElt )
 
     :return  lMon:               [1xN,D]: = Zernike Radius
-    :return  ZernType:           [1xN,I]: 1) Malacara  4) NormMalacara  7) NormHex
+    :return  ZernType:           [1xN,I]: 1) ANSI      4) NormANSI      7) NormHex
                                           2) BornWolf  5) NormBornWolf  8) NormNoll
                                           3) Fringe    6) NormFringe    9) NormAnnularNoll
-    :return  ZernCoef:           [MxN,D]: = [C_1,C_2,...,C_N] Zernike Coefficients  (M=45)
+                                         10) Noll     11) ExtFringe   (manual Appendix E)
+    :return  ZernCoef:           [MxN,D]: = [C_1,C_2,...,C_N] Zernike Coefficients  (M=66)
     :return  ZernAnnularRatio:   [1xN,D]: = inner/outer radius ratio (0,...,1)
                                             only important for ZernType = NormAnnularNoll (9)
 
@@ -2143,15 +2216,16 @@ def getEltSrfZern(iElt):
         return lmon, zernType, zernCoef, zernAnnularRatio
 
 
-def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zernAnnularRatio=0):
+def setEltSrfZern(iElt, lMon, zernType, zernMode=None, zernCoef=None, zernAnnularRatio=0):
     """
     Define Zernike Srf. settings of equal Zernike Srf. element(s)
 
     :param iElt:                [Mx1,I]: Elt. ID ( -nElt < iElt[i] <= nElt )
     :param lMon:                [1x1,D]: = Zernike Radius
-    :param zernType:            [1x1,I]: 1) Malacara  4) NormMalacara  7) NormHex
+    :param zernType:            [1x1,I]: 1) ANSI      4) NormANSI      7) NormHex
                                          2) BornWolf  5) NormBornWolf  8) NormNoll
                                          3) Fringe    6) NormFringe    9) NormAnnularNoll
+                                        10) Noll     11) ExtFringe   (manual Appendix E)
     :param zernMode:            [1xN,I]: [Optional] = [Z_1,Z_2,...,Z_N] Zernike Modes
     :param zernCoef:            [1xN,D]: [Optional] = [C_1,C_2,...,C_N] Zernike Coefficients
     :param zernAnnularRatio:    [1x1,D]: [Optional] = inner/outer radius ratio (0,...,1)
@@ -2174,13 +2248,19 @@ def setEltSrfZern(iElt, lMon, zernType, zernMode=45, zernCoef=np.zeros(45), zern
         raise ValueError("Expecting: 0 < lMon")
 
     zernType = _chk_values_1d(zernType, 1)   # scalar
-    if zernType<1 or zernType>9:
-        raise ValueError("Expecting: 0 < ZernType <= 9")
+    if zernType<1 or zernType>_gen.MZERNTYPE:
+        raise ValueError(f"Expecting: 0 < ZernType <= {_gen.MZERNTYPE}")
 
+    # the documented defaults (1:45, zeros); the literal zernMode=45 was ONE mode, [45], and
+    # its 45 default coefficients then failed the size check (veneer-default audit, 2026-10-23)
+    if zernMode is None:
+        zernMode = np.arange(1, 46)
     zernMode = _chk_values_1d(zernMode, -1, row=False).flatten()   # vector
-    if np.any(zernMode<1) or np.any(zernMode>45):
-        raise ValueError("Expecting: 0 < ZernMode values <= 45")
+    if np.any(zernMode<1) or np.any(zernMode>_gen.MZERNMODES):
+        raise ValueError(f"Expecting: 0 < ZernMode values <= {_gen.MZERNMODES}")
 
+    if zernCoef is None:
+        zernCoef = np.zeros(zernMode.size)
     zernCoef =  _chk_values_1d(zernCoef, zernMode.size, row=False).flatten()   # vector
 
     zernAnnularRatio = _chk_values_1d(zernAnnularRatio, 1)   # scalar
@@ -2200,8 +2280,9 @@ def setEltSrfZernMode(iElt, izernMode=None, zernCoef=None) -> None:
         raise ValueError("'elt_srf_zrn_mode_set' undefined input")
 
     zernMode = _chk_values_1d(izernMode, -1, row=False).flatten()   # vector
-    if np.any(zernMode<1) or np.any(zernMode>45):
-        raise ValueError("'elt_srf_zrn_mode_set 'Expecting: 0 < ZernMode values <= 45")
+    if np.any(zernMode<1) or np.any(zernMode>_gen.MZERNMODES):
+        raise ValueError("'elt_srf_zrn_mode_set' Expecting: 0 < ZernMode values"
+                         f" <= {_gen.MZERNMODES}")
 
     if not lib.api.elt_srf_zrn_mode_set(iElt, zernMode, zernCoef):
         raise Exception("'elt_srf_zrn_mode_set' threw an exception")
@@ -2801,14 +2882,14 @@ class ZernikeData:
         if self.norm_rad <= 0:
             raise ValueError("Normalization radius must be > 0")
 
-        if not (1 <= self.zern_type <= 9):
-            raise ValueError("Zernike type must be in range [1-9]")
+        if not (1 <= self.zern_type <= _gen.MZERNTYPE):
+            raise ValueError(f"Zernike type must be in range [1-{_gen.MZERNTYPE}]")
 
         if self.modes.shape != self.coefs.shape:
             raise ValueError("Modes and coefficients must have same shape")
 
-        if np.any(self.modes < 1) or np.any(self.modes > 66):
-            raise ValueError("Zernike modes must be in range [1-66]")
+        if np.any(self.modes < 1) or np.any(self.modes > _gen.MZERNMODES):
+            raise ValueError(f"Zernike modes must be in range [1-{_gen.MZERNMODES}]")
 
         if self.zern_type in [3, 6] and np.any(self.modes > 37):
             raise ValueError("Fringe Zernike types limited to 37 modes")
@@ -3506,15 +3587,38 @@ def opd_val(nGridPts) -> Matrix[np.float64]:
     return opd()
 
 
-def opd() -> Matrix[np.float64]:
+def opd(orient: str = "raw", sign: str = "opl") -> Matrix[np.float64]:
     """Retrieve Optical Path Difference (OPD) at last ray-traced state.
 
     Requirement:
         The OPD can be obtained _after_ running a trace_rays(srf).
         For the OPD at the Exit Pupil, run a 'trace_rays(-2)'.
 
+    Conventions (see mmacos/doc/opd_conventions.md for the full story):
+        The raw array is OPD[i, j] with FIRST index i = global X and
+        SECOND index j = global Y -- identical in the CLI, mmacos and
+        pymacos.  Sign: a ray LONGER than the reference is POSITIVE
+        (optical path difference).  The reference is the CHIEF ray by
+        default (engine 2026-10-10; until then always the bundle mean)
+        and falls back to the bundle mean (the map comes back
+        mean-removed) when the chief ray is geometrically lost;
+        ``opd_ref('mean')`` or the deck's ``UseChfRay4OPD= N`` selects
+        the mean.
+
+    Args:
+        orient: "raw" (default) -- the engine array as stored,
+            [i, j] = (X, Y).  "xy" -- transposed so ROWS run along Y
+            and COLUMNS along X (standard image convention); display
+            with plt.imshow(W, origin="lower") for an x-right / y-up
+            view matching the CLI plot.  (Equivalent to W_raw.T)
+        sign: "opl" (default) -- engine convention, longer path
+            positive.  "wavefront" -- negated: the interferometer-
+            style wavefront-error map, and the sign PROPER's
+            prop_add_phase expects.
+
     Raises:
         Exception: MACOS Triggered error
+        ValueError: bad orient / sign value
 
     Returns:
         Matrix[np.float64]:
@@ -3522,8 +3626,13 @@ def opd() -> Matrix[np.float64]:
 
     Example:
         __ = pymacos.trace_rays(-2)  # Trace rays to XP
-        pymacos.opd()                # get OPD map
+        pymacos.opd()                # get OPD map (raw, OPL sign)
+        pymacos.opd(orient="xy", sign="wavefront")
     """
+    if orient not in ("raw", "xy"):
+        raise ValueError(f"opd: orient must be 'raw' or 'xy', got {orient!r}")
+    if sign not in ("opl", "wavefront"):
+        raise ValueError(f"opd: sign must be 'opl' or 'wavefront', got {sign!r}")
     _chk_macos_and_rx_loaded()
 
     # OPD map
@@ -3533,11 +3642,17 @@ def opd() -> Matrix[np.float64]:
     if not ok:
         raise Exception("MACOS: 'opd' threw an exception")
 
+    if orient == "xy":
+        opd = opd.T
+    if sign == "wavefront":
+        opd = -opd
+
     return opd
 
 
 def complex_field(srf: int | np.int32,
-                  reset_trace: bool = True) -> Matrix[np.complex128]:
+                  reset_trace: bool = True,
+                  plane: int = 0) -> Matrix[np.complex128]:
     """Retrieve the diffraction-grid complex field at element `srf`.
 
     Triggers macos's full propagation chain (via the 'INT' command),
@@ -3552,6 +3667,20 @@ def complex_field(srf: int | np.int32,
              values index from the end.
         reset_trace: If True (default), runs MODIFY first so the trace
              starts from the source.
+        plane: 0 (default) returns the element's own wavefront -- the
+             historical behaviour.  1, 2 or 3 returns a single Cartesian
+             FIELD COMPONENT Ex, Ey or Ez.  In vector-diffraction mode
+             the three wavefront storage planes are repurposed as the
+             components of one wavefront, so this is the only way to see
+             how they contribute to a propagated intensity (which sums
+             them).  Requesting 1..3 with vector diffraction OFF raises:
+             in scalar mode plane k is an unrelated wavefront, not a
+             field component, and returning it would invite exactly the
+             misreading the option exists to prevent.
+
+             The planes add in INTENSITY, not amplitude:
+             ``sum(abs(complex_field(s, plane=k))**2 for k in (1,2,3))``
+             equals ``intensity(s)``.
 
     Returns:
         2D complex128 ndarray (N x N) of the complex amplitude at the
@@ -3583,11 +3712,14 @@ def complex_field(srf: int | np.int32,
         raise Exception("MACOS: 'complex_field' propagation failed at "
                         f"Elt {iElt}")
 
-    ok, re_arr, im_arr = lib.api.cfield_get(n, int(iElt))
+    if plane not in (0, 1, 2, 3):
+        raise ValueError(f"complex_field: plane must be 0..3, got {plane}")
+    ok, re_arr, im_arr = lib.api.cfield_plane_get(n, int(iElt), int(plane))
     if not ok:
         raise Exception(
             f"MACOS: complex-field buffer retrieval failed at Elt "
-            f"{iElt} (element may have no diffraction wavefront slot)")
+            f"{iElt} (element may have no diffraction wavefront slot; "
+            f"plane 1..3 additionally requires vector diffraction ON)")
 
     return re_arr + 1j * im_arr
 
@@ -3945,7 +4077,7 @@ def apodize_complex(srf: int | np.int32, mask: np.ndarray) -> None:
             "that a propagation has populated WFElt at this element")
 
 
-def sxp(mode: int = 1) -> Tuple[np.float64,
+def sxp(mode: int | None = None) -> Tuple[np.float64,
                                 Vector[np.float64], Vector[np.float64]]:
     """SXP -- Set eXit Pupil.  FEX variant with one geometry fix:
     the EP radius is set to the chief-ray distance from the EP
@@ -3965,8 +4097,8 @@ def sxp(mode: int = 1) -> Tuple[np.float64,
     macos_ops.F.
 
     Args:
-        mode: 1 (default) -> chief-ray-centered; 0 -> centroid-centered
-              (same convention as :func:`fex`).
+        mode: 1 -> chief-ray-centered; 0 -> centroid-centered; None
+              (default) -> the session's axis, as :func:`fex`.
 
     Returns:
         (rad, psi, vpt) of the updated XP surface at ``nElt-1``.
@@ -3980,6 +4112,8 @@ def sxp(mode: int = 1) -> Tuple[np.float64,
     if lib.api.n_elt() <= 3:
         raise Exception("'sxp': not more than 3 surfaces defined")
 
+    if mode is None:
+        mode = _session_axis_mode()
     ok, xp = lib.api.sxp_fnd(np.int32(mode))
     if not ok:
         raise Exception("'sxp' threw an exception - stop set?")
@@ -4040,9 +4174,11 @@ def srs(slave: int | np.int32,
         slave:  element id whose pose is computed from the chief ray.
         master: element id the chief ray is traced through.
                 Must differ from ``slave``.
-        link:   if True (default), establish a persistent SRS link
-                that re-evaluates on subsequent traces.  If False,
-                the slave's pose is set once but not maintained.
+        link:   SRS's answer to its "Accept the new element?" prompt:
+                True (default, the CLI's [YES]) applies the new pose;
+                False computes and prints it without applying it.  Not a
+                persistent link: SRS re-poses the slave once -- call it
+                again after the master moves.
 
     Raises:
         Exception: Rx not loaded, either id out of range, slave ==
@@ -4066,7 +4202,8 @@ CALIB_TARGET_WFE       = 1
 CALIB_TARGET_WFE_ZMODE = 2
 CALIB_TARGET_BEAM      = 3
 CALIB_TARGET_SPOT      = 4
-CALIB_TARGET_OPL       = 5
+# (5 was OPL: no objective behind it; removed 2026-10-10, PLAN 3.1 -- the
+#  engine refuses it by name)
 
 _CALIB_TARGET_NAMES = {
     'WFE':       CALIB_TARGET_WFE,
@@ -4074,7 +4211,6 @@ _CALIB_TARGET_NAMES = {
     'ZWF':       CALIB_TARGET_WFE_ZMODE,
     'BEAM':      CALIB_TARGET_BEAM,
     'SPOT':      CALIB_TARGET_SPOT,
-    'OPL':       CALIB_TARGET_OPL,
 }
 
 # Position order matches dopt_mod's DOF_NameList:
@@ -4186,17 +4322,187 @@ def calib_set_tol(tol: float) -> None:
         raise Exception(f"MACOS: calib_set_tol({t}) failed")
 
 
+def calib_set_beam(kind, srf: int, target=None, on: bool = True) -> None:
+    """Beam rows for the next CALIB, on ANY target (engine 2026-10-03).
+
+    Args:
+        kind:   'dir' (chief-ray direction at ``srf`` driven to the unit
+                vector ``target`` -- a telecentric image: the detector
+                normal), 'pos' (beam position at ``srf`` driven to the
+                3-vector ``target``, base units; per-field targets via
+                :func:`calib_set_beam_pos_fov`), or 'size' (beam radius,
+                ``target[0]``).  Integers 1/2/3 are accepted.
+        srf:    the element the quantity is read at.
+        target: 3-vector (ignored when ``on`` is False).
+        on:     False switches that row group off.
+
+    The rows ride on the WFE / SPOT / WFE_ZMODE target (before 2026-10-03
+    only on ``OptTarget= BEAM``) and are weighted against it by
+    :func:`calib_set_beam_wt`.  Mirrors the Rx keywords ``OptBeamDir=`` /
+    ``OptBeamPos=`` / ``OptBeamSize=`` in element ``srf``'s block.
+    """
+    kinds = {'dir': 1, 'pos': 2, 'size': 3}
+    k = kinds[kind.strip().lower()] if isinstance(kind, str) else int(kind)
+    if k not in (1, 2, 3):
+        raise ValueError(f"calib_set_beam: kind must be 'dir', 'pos' or 'size' (got {kind!r})")
+    t = np.zeros(3, dtype=np.float64)
+    if on:
+        if target is None:
+            raise ValueError("calib_set_beam: target required when on=True")
+        v = np.asarray(target, dtype=np.float64).ravel()
+        t[:v.size] = v
+    if not lib.api.calib_set_beam(k, int(srf), t, bool(on)):
+        raise Exception(f"MACOS: calib_set_beam({kind!r}, {srf}) failed")
+
+
+def calib_set_beam_pos_fov(pos) -> None:
+    """Per-field beam position targets for CALIB (``OptBeamPosFov=``).
+
+    ``pos`` is 3 x n (or n x 3): the target position of the beam (see
+    :func:`calib_set_beam` 'pos') for CALIB field 1..n in the order of the
+    deck's field list (n <= 12).  Fields beyond n use the 'pos' target.
+    An empty ``pos`` clears the table.  NOTE: CALIB's field 1 is the source
+    as CURRENTLY set (the handler copies ChfRayDir/Pos into field 1).
+    """
+    P = np.asarray(pos, dtype=np.float64)
+    if P.size == 0:
+        if not lib.api.calib_set_beam_pos_fov(np.zeros((3, 1), order='F'), 0):
+            raise Exception("MACOS: calib_set_beam_pos_fov(clear) failed")
+        return
+    if P.ndim == 1:
+        P = P.reshape(3, 1)
+    if P.shape[0] != 3 and P.shape[1] == 3:
+        P = P.T
+    if P.shape[0] != 3:
+        raise ValueError("calib_set_beam_pos_fov: pos must be 3 x n or n x 3")
+    n = P.shape[1]
+    if n > 12:
+        raise ValueError(f"calib_set_beam_pos_fov: at most 12 fields (got {n})")
+    if not lib.api.calib_set_beam_pos_fov(np.asfortranarray(P), n):
+        raise Exception("MACOS: calib_set_beam_pos_fov failed")
+
+
+def calib_set_beam_wt(wt: float, centroid: bool = False) -> None:
+    """Weight of the CALIB beam rows against the WFE / SPOT rows (the row
+    sigma is divided by sqrt(wt)), and the centroid option: with
+    ``centroid`` True the beam position is the centroid of the rays that
+    pass the train, not the chief ray (``OptBeamWt=`` / ``OptBeamCentroid=``).
+    """
+    w = float(wt)
+    if w <= 0.0:
+        raise ValueError(f"calib_set_beam_wt: wt must be > 0 (got {w})")
+    if not lib.api.calib_set_beam_wt(w, bool(centroid)):
+        raise Exception(f"MACOS: calib_set_beam_wt({w}) failed")
+
+
+def ffcut(on: bool | None = None):
+    """The far-field evanescent cut (engine 2026-10-03, dyson5 addendum 15).
+
+    ``ffcut(True)`` makes every far-field leg zero the output pixels with
+    x^2 + y^2 > dz^2 -- |sin theta| > 1, spatial frequencies above
+    1/lambda, which carry no propagating energy but which a wide output
+    window (a pupil sampled finer than lambda/2) otherwise hands to an
+    energy-fraction metric.  ``ffcut(False)`` restores the default.
+    ``ffcut()`` returns ``(on, n_pixels_zeroed_by_the_last_far_field_leg)``.
+    Session state (not reset by a load); setting it dirties the cached
+    propagation.
+    """
+    if on is None:
+        ok, state, npix = lib.api.ffcut_get()
+        return bool(state), int(npix)
+    if not lib.api.ffcut_set(bool(on)):
+        raise Exception(f"MACOS: ffcut({on}) failed")
+
+
+def opd_mask(orient: str = "raw") -> Matrix[np.bool_]:
+    """Which pixels of the last OPD map hold a ray (engine 2026-10-10).
+
+    True exactly where the engine's last OPD wrote the map, in the same
+    layout as ``opd(orient)``.  Use it -- NOT ``opd() != 0`` -- to find the
+    pupil: under the chief-ray reference (the default) a valid ray whose
+    path equals the chief's reads EXACTLY 0, the value of an empty pixel.
+    """
+    if orient not in ("raw", "xy"):
+        raise ValueError(f"opd_mask: orient must be 'raw' or 'xy', got {orient!r}")
+    _chk_macos_and_rx_loaded()
+    npts = lib.api.get_src_sampling()[1]   # == nGridPts
+    ok, mask = lib.api.opd_mask_get(npts)
+    if not ok:
+        raise Exception("MACOS: 'opd_mask' failed")
+    mask = np.asarray(mask) != 0
+    return mask.T if orient == "xy" else mask
+
+
+def grid_dropped() -> int:
+    """Grid files the last load declined (engine 2026-10-10): GridFile= grids
+    larger than this model's mGridMat cannot be stored, so those surfaces trace
+    WITHOUT their figure.  Nonzero = a harvest at this model misses figure data;
+    load at a model whose mGridMat fits.  Reset by every load."""
+    return int(lib.api.grid_dropped_get())
+
+
+def grid_idx_ovf() -> int:
+    """Grid-index overflow samples rejected by the last trace (engine db9236b).
+
+    Grid-term samples whose pixel index was non-finite or >= 2e9 and were
+    treated as OFF the grid instead of indexing GridMat out of bounds (an
+    INT32 wrap used to pass the bounds test and kill the host).  Reset at
+    every trace; nonzero means a grid pitch or the ray solve is wrong.
+    """
+    return int(lib.api.grid_idx_ovf_get())
+
+
+def opd_ref(mode: str | None = None) -> str | None:
+    """The OPD map's reference (engine 2026-10-10, = mmacos ``macos.opd_ref``).
+
+    ``opd_ref('chief')`` -- every ray referenced to the CHIEF ray's OPL, the
+    manual's definition and the DEFAULT; ``opd_ref('mean')`` -- the mean OPL
+    over every valid ray in the aperture, the option; ``opd_ref()`` returns
+    the setting in force.  The two maps differ by one constant per trace, so
+    RMS / P-V and every mean-removed statistic are unchanged; on a SEGMENTED
+    pupil the mean couples the segments (one segment's motion pistons all
+    the others), the chief does not.  An obscured chief ray still serves (the
+    engine gates on the geometric trace); a geometrically lost chief falls
+    back to the mean, and the engine prints which reference every OPD used.
+    Acts on the LOADED deck: a load restores the default (or the deck's own
+    ``UseChfRay4OPD= N``), so call it after ``load``.  Dirties the cached
+    trace.
+    """
+    if mode is None:
+        ok, chief = lib.api.opd_ref_get()
+        if not ok:
+            raise Exception("MACOS: opd_ref() failed")
+        return 'chief' if chief else 'mean'
+    if mode not in ('chief', 'mean'):
+        raise ValueError(f"opd_ref: mode must be 'chief' or 'mean', not {mode!r}")
+    if not lib.api.opd_ref_set(mode == 'chief'):
+        raise Exception(f"MACOS: opd_ref({mode!r}) failed")
+
+
+def get_elt_asph(srf: int, n: int = 4) -> np.ndarray:
+    """Even-radial aspheric coefficients (AsphCoef: h^4, h^6, ...) of element
+    ``srf`` -- what CALIB's ``OptAsph=`` DOFs leave on it.  ``n`` <= 9."""
+    ok, coef = lib.api.elt_asph_get(int(n), int(srf))
+    if not ok:
+        raise Exception(f"MACOS: get_elt_asph({srf}) failed")
+    return np.asarray(coef, dtype=np.float64).ravel()
+
+
 def calib_set_target(target, wf_zern_modes=None) -> None:
     """Set the CALIB optimization target.
 
     Args:
-        target: either an integer (1..5 mapping to the dopt_mod
+        target: either an integer (1..4 mapping to the dopt_mod
                 *_TARGET constants) OR a name string from
-                {'WFE', 'WFE_ZMODE', 'ZWF', 'BEAM', 'SPOT', 'OPL'}
-                (case-insensitive).
+                {'WFE', 'WFE_ZMODE', 'ZWF', 'BEAM', 'SPOT'}
+                (case-insensitive).  'OPL' (5) was removed 2026-10-10:
+                it had no objective behind it and the engine refuses it.
         wf_zern_modes: required for the WFE_ZMODE target -- list of
-                Zernike mode indices (1..45) the optimizer should
-                drive to zero.  Ignored for other targets.
+                Zernike mode indices (1..45, NOLL order, 1-based: mode 11
+                is primary spherical) the optimizer should drive to zero.
+                Ignored for other targets.  WFE_ZMODE works since
+                2026-10-10 (before, every load reset the fit basis to 0
+                and the first Zernike fit stopped the host).
 
     Raises:
         ValueError: unknown target name.
@@ -4268,6 +4574,24 @@ def calib() -> dict:
             equivalent metrics aren't yet exposed -- Phase 1b).
         ``new_wfe`` (np.ndarray, shape=(n_fov, n_wavelength)):
             Same, AFTER the optimization.
+        ``n_iter`` (int):
+            LM iterations taken (-1: no LM run).  LM stops when two
+            consecutive accepted steps each change the rms merit
+            (sqrt(chisq/rows), target units) by no more than the
+            tolerance (absolute, OptTol / calib_set_tol) AND lower chisq
+            by no more than 1e-6 of it, after ten consecutive
+            rejected trials (the round-off floor), or at the cap.
+        ``merit`` (float):
+            The final LM merit -- the chisq the solve minimises (-1:
+            none).
+        ``stop_reason`` (str):
+            ``'converged'`` (two flat accepted steps), ``'floor'`` (ten
+            rejected trials after progress: the round-off floor), ``'cap'``
+            (the iteration cap), ``'failed'`` (incl. no trial step could be
+            evaluated), ``'stalled'`` (no trial step lowered the merit and
+            none failed: the start is stationary, e.g. already optimal --
+            it counts as converged) or ``'none'``.  See
+            :func:`calib_stats`, which also reads these after a failed run.
 
     Raises:
         Exception: Rx not loaded, no variable elements defined, no
@@ -4284,6 +4608,7 @@ def calib() -> dict:
             "causes: no variable elements defined (set VarDOF= on at "
             "least one element in the prescription), no FOVs defined "
             "(set OptFOVWt=), or CALIB's iteration cap was exhausted.")
+    st = calib_stats()
     return {
         'converged':     rtn_flag == 0,
         'rtn_flag':      int(rtn_flag),
@@ -4291,7 +4616,30 @@ def calib() -> dict:
         'n_wavelength':  int(n_wl),
         'old_wfe':       old_wfe[:n_fov, :n_wl].copy(),
         'new_wfe':       new_wfe[:n_fov, :n_wl].copy(),
+        **st,
     }
+
+
+def calib_stats() -> dict:
+    """Iteration count and final merit of the last CALIB.
+
+    Returns a dict with ``n_iter`` (int: LM iterations taken; -1 when
+    none ran -- no CALIB yet, or it stopped before the solve; the linear
+    SVD path reports its count), ``merit`` (float: the final LM chisq,
+    target units squared summed over fields and wavelengths; -1 when not
+    available) and ``stop_reason`` (``'converged'`` two flat accepted
+    steps, ``'floor'`` ten rejected trials, ``'cap'`` the iteration cap,
+    ``'failed'``, or ``'none'``), ``n_rejected`` (rejected LM trials) and ``n_failed`` (of
+    those, trials whose evaluation failed -- a trace lost the chief ray; counted as rejected,
+    PLAN 3.4).  :func:`calib` returns the same keys; this reads them
+    after a FAILED run, which :func:`calib` raises on (the iterations it
+    completed, the merit at its last accepted step).  PLAN_CONSOLIDATION
+    3.3.
+    """
+    n_iter, merit, why, nrej, nfail = lib.api.calib_stats_get()
+    reason = {1: 'converged', 2: 'floor', 3: 'cap', 4: 'failed', 5: 'stalled'}.get(int(why), 'none')
+    return {'n_iter': int(n_iter), 'merit': float(merit), 'stop_reason': reason,
+            'n_rejected': int(nrej), 'n_failed': int(nfail)}
 
 
 def perturb(srf: int | np.int32,
@@ -4409,7 +4757,7 @@ def perturb_src(rotation_rad: Tuple[float, float, float] = (0.0, 0.0, 0.0),
 
 
 def spot(srf: int | Tuple[int] | np.int32,
-         vpt_center: bool | int = True,
+         vpt_center: bool | int | None = None,
          beam_csys: int = 1,
          reset_trace: bool = True
          ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -4422,9 +4770,10 @@ def spot(srf: int | Tuple[int] | np.int32,
            Neg. values are referenced with respect to the last surface
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 
-        vpt_center (bool):
-            If (True or 1) Element Center (default) is ref. pos.;
-            otherwise, (False, 0) Chief-Ray Pos.
+        vpt_center (bool | None):
+            If (True or 1) Element Center is ref. pos.; (False, 0) Chief-Ray
+            Pos.; None (default) the SESSION's centre, the engine's SPCENTER
+            (api spc_option_get; the element vertex unless SPCENTER CHFRAY).
 
         beam_csys (int):
             defining the Coord. Sys. for Spot where
@@ -4450,9 +4799,10 @@ def spot(srf: int | Tuple[int] | np.int32,
             uniform intensity, i.e., pts.mean(axis=0)
 
         shift (Vector[np.float64]):
-            shift = nd.array([dx,dy]) where [dx,dy] is shift from
-             (a) Element Vertex Position in local CSYS (if vpt_center=1)
-             (b) Chief-Ray Intersection point in local CSYS (if vpt_center=0)
+            the api's 4-vector [cx, cy, vx, vy]: the chief-ray intersection
+            (cx, cy) and the element vertex (vx, vy) in the selected local CSYS,
+            whatever vpt_center is -- the mmacos convention (Dave 2026-10-16;
+            until then only the half vpt_center selected).
 
         csys (Matrix[np.float64]):
             csys = [x_axis, y_axis, z_axis] a 3x3 matrix where
@@ -4465,16 +4815,20 @@ def spot(srf: int | Tuple[int] | np.int32,
     # logical (1=ELT vertex / 0=chief ray).  beam_csys -> ref_csys and
     # vpt_center -> ref_pos (previously swapped, which made vpt_center=False
     # send ref_csys=0 and spot_cmd reject every call -- no spot test caught it).
+    if vpt_center is None:
+        vpt_center = int(_gen.spc_option_get()) == 1
     ok, npts = lib.api.spot_cmd(_map_Elt(srf).squeeze(),
                                 np.int32(beam_csys),
                                 np.int32(vpt_center),
                                 np.int32(reset_trace))
+    if not ok:
+        raise Exception('MACOS threw an exception')
 
     ok, pts, shift, centre, csys = lib.api.spot_get(npts)
     if not ok:
-        raise Exception('MACOS threw an exeption')
+        raise Exception('MACOS threw an exception')
 
-    return pts, centre, shift[2:] if vpt_center else shift[:2], csys
+    return pts, centre, shift, csys
 
 
 
@@ -4586,6 +4940,612 @@ def beam(kind: str | None = None,
     return None
 
 
+# --- Polarization (PLAN_POLARIZATION Phase 1) --------------------------
+def _single_elt(srf) -> int:
+    """Map a user srf to a single 1-based element ID (raise if multiple)."""
+    iElt = _map_Elt(srf)
+    if hasattr(iElt, '__len__'):
+        if len(iElt) != 1:
+            raise Exception(f'expected a single element, got {len(iElt)}')
+        iElt = iElt[0]
+    return int(iElt)
+
+
+def polarization(state: str | None = None,
+                 Ex: complex | Tuple[float, float] = (1.0, 0.0),
+                 Ey: complex | Tuple[float, float] = (0.0, 0.0)) -> dict | None:
+    """POLARIZATION -- enable/disable polarized ray tracing + source state.
+
+    With ``state='on'`` enables polarized tracing (rays carry a complex
+    3-vector E-field, surface coatings become active, and vector
+    diffraction turns on when the model supports it, mWF>=3).  With
+    ``state='off'`` restores scalar tracing.  With ``state=None`` (default)
+    QUERIES the current state.
+
+    Args:
+        state: 'on', 'off', or None (query).
+        Ex, Ey: source Jones amplitudes, complex or (re, im).  Used only
+            when ``state='on'``.  Defaults to x-polarized (Ex=1, Ey=0).
+
+    Returns:
+        None when setting.  When querying, a dict:
+        ``{'on': bool, 'vector': bool, 'Ex': complex, 'Ey': complex}``.
+
+    Raises:
+        Exception: Rx not loaded, bad state, mWF<3 when enabling, or the
+            engine rejected the call.
+    """
+    _chk_macos_and_rx_loaded()
+
+    if state is None:
+        ok, on, vec, exre, exim, eyre, eyim = lib.api.pol_get()
+        if not ok:
+            raise Exception('MACOS: pol_get failed')
+        return {'on': bool(on), 'vector': bool(vec),
+                'Ex': complex(exre, exim), 'Ey': complex(eyre, eyim)}
+
+    s = state.lower()
+    if s == 'off':
+        if not lib.api.pol_set(False, 0.0, 0.0, 0.0, 0.0):
+            raise Exception('MACOS: pol_set (off) failed')
+        return None
+    if s != 'on':
+        raise Exception(f"MACOS: polarization state must be 'on'/'off'/None, "
+                        f"got {state!r}")
+
+    exc = Ex if isinstance(Ex, complex) else complex(*np.atleast_1d(Ex)[:2]) \
+        if hasattr(Ex, '__len__') else complex(Ex)
+    eyc = Ey if isinstance(Ey, complex) else complex(*np.atleast_1d(Ey)[:2]) \
+        if hasattr(Ey, '__len__') else complex(Ey)
+    if not lib.api.pol_set(True, exc.real, exc.imag, eyc.real, eyc.imag):
+        raise Exception('MACOS: pol_set (on) failed -- model may have mWF<3')
+    return None
+
+
+def vector_diffraction(on: bool) -> None:
+    """VECTOR / SCALAR -- toggle 3-component (vector) diffraction.
+
+    ``on=True`` propagates Ex/Ey/Ez as three independent fields.  Since
+    PLAN_POLARIZATION Phase 3a Tranche 1 this covers the WHOLE chain --
+    every near-field, plane-to-plane, spherical, Fresnel and DFT leg, plus
+    ``FFObscure`` and the ray-side aperture masking -- not just the
+    far-field FFT leg.  Intensity / complex-field readouts sum the three
+    components.  ``on=False`` restores single-field scalar diffraction.
+
+    VECTOR requires polarization ON already (:func:`polarization`) and a
+    model with mWF>=3, else raises (the engine would otherwise silently
+    revert to scalar).
+
+    Constraint: vector mode repurposes the model's mWF=3 wavefront planes
+    as Ex/Ey/Ez of ONE wavefront, so only a single wavefront can be in
+    flight -- do not combine it with multi-WF / COMPOSE work.
+
+    Chains with COATED or reflective surfaces BETWEEN physical propagation
+    legs still need Tranche 2 (per-ray running Jones); Tranche 1 is exact
+    when the elements between legs are non-polarizing (Obscuring /
+    Reference / FocalPlane) -- the coronagraph pupil->FPM->Lyot->focal case.
+    """
+    _chk_macos_and_rx_loaded()
+    if not lib.api.vecdif_set(bool(on)):
+        raise Exception('MACOS: vecdif_set failed -- turn polarization on '
+                        'first (and need mWF>=3)')
+
+
+_MCOAT = 10   # mCoat in elt_mod.F
+
+
+def coating(srf: int | np.int32,
+            index: ArrayLike | None = None,
+            extinc: ArrayLike | None = None,
+            thickness: ArrayLike | None = None) -> dict | None:
+    """Set or query the thin-film coating stack on an element (Model A).
+
+    The polarization-path coating (active only under
+    ``polarization('on')``).  Layers are ordered OUTERMOST -> INNERMOST.
+
+    Args:
+        srf: element ID.
+        index, extinc, thickness: equal-length per-layer vectors.  ``index``
+            is the real refractive index n, ``extinc`` the extinction kappa
+            (index = n - i*kappa), ``thickness`` the PHYSICAL layer thickness
+            in element BaseUnits (NOT waves).  Omit all three to QUERY.
+
+    Returns:
+        None when setting.  When querying, a dict:
+        ``{'n_layer': int, 'index': ndarray, 'extinc': ndarray,
+        'thickness': ndarray}`` (physical thickness).
+
+    Raises:
+        Exception: Rx not loaded, bad layer count/length, or engine error.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = _single_elt(srf)
+
+    if index is None and extinc is None and thickness is None:
+        ok, n_layer, idx, ext, thk = lib.api.coat_get(iElt, _MCOAT)
+        if not ok:
+            raise Exception(f'MACOS: coat_get failed at Elt {iElt}')
+        n = int(n_layer)
+        return {'n_layer': n,
+                'index': np.asarray(idx[:n], dtype=float),
+                'extinc': np.asarray(ext[:n], dtype=float),
+                'thickness': np.asarray(thk[:n], dtype=float)}
+
+    n_arr = np.atleast_1d(np.asarray(index, dtype=float))
+    k_arr = np.atleast_1d(np.asarray(extinc, dtype=float))
+    t_arr = np.atleast_1d(np.asarray(thickness, dtype=float))
+    L = n_arr.size
+    if L < 1 or L > _MCOAT:
+        raise Exception(f'MACOS: coating needs 1..{_MCOAT} layers (got {L})')
+    if k_arr.size != L or t_arr.size != L:
+        raise Exception("MACOS: 'index','extinc','thickness' must match length")
+    # f2py derives nlayer from the array shapes (optional trailing arg).
+    if not lib.api.coat_set(iElt, n_arr, k_arr, t_arr):
+        raise Exception(f'MACOS: coat_set failed at Elt {iElt}')
+    return None
+
+
+def ray_field(srf: int | np.int32) -> dict:
+    """Per-ray complex E-field + geometry + status at an element.
+
+    Harvests, on the N x N ray grid at element ``srf`` (N = model size),
+    the per-ray complex field RayE(3,:), the ray direction cosines, the
+    element surface normal, and the per-ray status.  Requires a polarized
+    trace: call :func:`polarization` ('on') and trace first.
+
+    Returns:
+        dict of ndarrays: ``E`` (complex, shape (N, N, 3) = Ex/Ey/Ez),
+        ``k`` (float, (N, N, 3) direction cosines), ``n`` (float, (N, N, 3)
+        surface normal), and ``status`` (int, (N, N); 0=OK..5=Undef).
+
+    Raises:
+        Exception: Rx not loaded or engine error.
+    """
+    _chk_macos_and_rx_loaded()
+    iElt = _single_elt(srf)
+    N = model_size()
+    (ok, exre, exim, eyre, eyim, ezre, ezim,
+     kx, ky, kz, nx, ny, nz, status) = lib.api.rayfield_get(N, iElt)
+    if not ok:
+        raise Exception(f'MACOS: rayfield_get failed at Elt {iElt}')
+    E = np.stack([exre + 1j * exim, eyre + 1j * eyim, ezre + 1j * ezim],
+                 axis=-1)
+    k = np.stack([kx, ky, kz], axis=-1)
+    n = np.stack([nx, ny, nz], axis=-1)
+    return {'E': E, 'k': k, 'n': n, 'status': status.astype(int)}
+
+
+def jones_pupil(srf: int | np.int32, basis: str = 'double-pole',
+                axis: ArrayLike | None = None,
+                xref: ArrayLike | None = None) -> dict:
+    """2x2 Jones pupil at an element from two orthogonal polarized traces.
+
+    Traces the loaded prescription twice with source states (Ex0,Ey0) =
+    (1,0) and (0,1), harvests the per-ray vector field at ``srf``
+    (:func:`ray_field`), and assembles the 2x2 complex Jones matrix per
+    ray-grid point: [E_out in exit basis] = J [source state].
+
+    INPUT basis (fixed by the engine): collimated sources launch every
+    ray with E = S*(Ex0*xGrid + Ey0*yGrid) -- the source-frame pair,
+    uniform over the grid; point sources use the per-ray frame
+    yray = unit(RayDir x xGrid), xray = yray x RayDir (ssrcray.inc).
+    S is the engine flux normalization (~1/sqrt(nRays)); J carries this
+    common real scalar (ratios/metrics unaffected).
+
+    Args:
+        srf: element at which to harvest.
+        basis: output transverse basis --
+            'double-pole' (default): Chipman double-pole coordinates,
+            smooth over any physical pupil; use for budget numbers.
+            'local-sp': per-ray s/p relative to the exit axis;
+            coordinate-singular on axis -- diagnostic only.
+            'global': project onto (xref, yref) ignoring ray direction.
+        axis: exit-axis 3-vector (default: mean unit ray direction).
+        xref: reference x direction (default: global +x projected out of
+            the axis; +y fallback).
+
+    Returns:
+        dict: ``J`` (N,N,2,2) complex, NaN at vignetted points; ``mask``
+        (N,N) bool; ``basis``, ``axis``, ``xref``, ``yref``; ``k``
+        (N,N,3) exit unit ray directions; ``leak`` max longitudinal
+        residual |E.k|/|E|; ``singular`` (N,N) bool where the requested
+        basis is coordinate-singular (local-sp only, else all-False).
+
+    The two traces are geometry-identical by construction (asserted
+    bitwise).  The pre-call polarization state is restored on exit.
+    """
+    if basis not in ('double-pole', 'local-sp', 'global'):
+        raise Exception(f"MACOS: jones_pupil basis must be 'double-pole', "
+                        f"'local-sp' or 'global', got {basis!r}")
+    s0 = polarization()
+
+    polarization('on', Ex=1 + 0j, Ey=0 + 0j)
+    trace_rays(srf)
+    rfx = ray_field(srf)
+    polarization('on', Ex=0 + 0j, Ey=1 + 0j)
+    trace_rays(srf)
+    rfy = ray_field(srf)
+
+    if s0['on']:
+        polarization('on', Ex=s0['Ex'], Ey=s0['Ey'])
+    else:
+        polarization('off')
+
+    if (not np.array_equal(rfx['status'], rfy['status'])
+            or not np.array_equal(rfx['k'], rfy['k'])):
+        raise Exception('MACOS: jones_pupil -- x/y-state traces disagree in '
+                        'ray geometry (engine bug?)')
+    mask = (rfx['status'] == 0) & (rfy['status'] == 0)
+    if not mask.any():
+        raise Exception(f'MACOS: jones_pupil -- no unvignetted rays at {srf}')
+    N = mask.shape[0]
+
+    k = rfx['k'].copy()
+    kmag = np.linalg.norm(k, axis=-1)
+    kmag[~mask] = 1.0
+    k /= kmag[..., None]
+
+    if axis is not None:
+        ax = np.asarray(axis, dtype=float)
+        ax = ax / np.linalg.norm(ax)
+    else:
+        ax = k[mask].mean(axis=0)
+        ax = ax / np.linalg.norm(ax)
+
+    if xref is not None:
+        xr = np.asarray(xref, dtype=float)
+    else:
+        xr = np.array([1.0, 0.0, 0.0])
+        if abs(xr @ ax) > 1 - 1e-8:
+            xr = np.array([0.0, 1.0, 0.0])
+    xr = xr - (xr @ ax) * ax
+    xr = xr / np.linalg.norm(xr)
+    yr = np.cross(ax, xr)                      # right-handed: xr x yr = ax
+
+    singular = np.zeros((N, N), dtype=bool)
+    if basis == 'double-pole':
+        # Rodrigues rotation carrying ax -> khat, applied to (xr, yr)
+        cth = k @ ax
+        r = np.cross(np.broadcast_to(ax, k.shape), k)
+        sth = np.linalg.norm(r, axis=-1)
+        onax = sth < 1e-12
+        u = r / np.where(sth[..., None] == 0, 1, sth[..., None])
+
+        def _rotc(v0):
+            cxv = np.stack([u[..., 1] * v0[2] - u[..., 2] * v0[1],
+                            u[..., 2] * v0[0] - u[..., 0] * v0[2],
+                            u[..., 0] * v0[1] - u[..., 1] * v0[0]], axis=-1)
+            ud = u @ v0
+            v = (v0[None, None, :] * cth[..., None] + cxv * sth[..., None]
+                 + u * (ud * (1 - cth))[..., None])
+            v[onax] = v0
+            return v
+        e1 = _rotc(xr)
+        e2 = _rotc(yr)
+    elif basis == 'local-sp':
+        s_ = np.cross(k, np.broadcast_to(ax, k.shape))
+        smag = np.linalg.norm(s_, axis=-1)
+        singular = mask & (smag < 1e-9)
+        s_ /= np.where(smag[..., None] < 1e-9, 1, smag[..., None])
+        e1 = np.cross(s_, k)                   # p (meridional); e1 x e2 = k
+        e2 = s_
+        e1[singular] = xr
+        e2[singular] = yr
+    else:                                      # 'global'
+        e1 = np.broadcast_to(xr, k.shape).copy()
+        e2 = np.broadcast_to(yr, k.shape).copy()
+
+    J = np.full((N, N, 2, 2), np.nan + 1j * np.nan, dtype=complex)
+    J[..., 0, 0] = (e1 * rfx['E']).sum(axis=-1)
+    J[..., 1, 0] = (e2 * rfx['E']).sum(axis=-1)
+    J[..., 0, 1] = (e1 * rfy['E']).sum(axis=-1)
+    J[..., 1, 1] = (e2 * rfy['E']).sum(axis=-1)
+    J[~mask] = np.nan + 1j * np.nan
+
+    leak = 0.0
+    for rf in (rfx, rfy):
+        Edotk = (rf['E'] * k).sum(axis=-1)
+        Emag = np.linalg.norm(rf['E'], axis=-1)
+        lk = np.abs(Edotk) / np.where(Emag == 0, 1, Emag)
+        leak = max(leak, float(lk[mask].max()))
+
+    return {'J': J, 'mask': mask, 'basis': basis, 'axis': ax,
+            'xref': xr, 'yref': yr, 'k': k, 'leak': leak,
+            'singular': singular}
+
+
+def pol_maps(jp: dict) -> dict:
+    """Polarization-aberration decomposition of a Jones pupil.
+
+    Decomposes ``jp`` (from :func:`jones_pupil`, or any dict with ``J``
+    (N,N,2,2) complex and ``mask`` (N,N) bool) via the per-point polar
+    decomposition J = H W (H hermitian >= 0, W unitary), closed-form 2x2
+    Pauli algebra, fully vectorized.
+
+    Pauli ordering: s1 = x/y (0/90 linear), s2 = +/-45 linear,
+    s3 = circular.
+
+    Returns:
+        dict of (N,N) maps (NaN off-mask): ``T`` intensity transmission
+        (carries the engine source normalization -- ratios only), ``D``
+        diattenuation magnitude, ``Dvec`` (N,N,3) components, ``ret``
+        retardance magnitude in [0, pi], ``retvec`` (N,N,3), ``phase``
+        unitary-part global phase (mod pi), ``ambiguous`` bool (ret
+        within 0.2 rad of pi -- branch unresolved, flagged not chosen),
+        ``mask``; plus ``mean`` and ``var_rms`` dicts (T, D, Dvec, ret,
+        retvec), the pupil mean and the RMS of the variation SEPARATELY
+        -- uniform retardance/diattenuation is a state change (and,
+        after folds, the system's geometric rotation), not an
+        aberration; only the variation drives a contrast floor or a PSI
+        systematic.
+
+    Basis dependence: ``D``/``T`` are singular-value invariants
+    (basis-independent); ``ret``/``retvec`` are exactly what the
+    double-pole basis makes artifact-free.
+    """
+    J = jp['J']
+    mask = np.asarray(jp['mask'], dtype=bool)
+    J11, J12 = J[..., 0, 0], J[..., 0, 1]
+    J21, J22 = J[..., 1, 0], J[..., 1, 1]
+    with np.errstate(invalid='ignore', divide='ignore'):
+        return _pol_maps_body(J11, J12, J21, J22, mask)
+
+
+def _pol_maps_body(J11, J12, J21, J22, mask):
+    # off-mask points are NaN by construction (errstate-silenced caller)
+
+    # hermitian product M = J^dag J (Pauli coefficients, real)
+    M11 = np.abs(J11) ** 2 + np.abs(J21) ** 2
+    M22 = np.abs(J12) ** 2 + np.abs(J22) ** 2
+    M12 = np.conj(J11) * J12 + np.conj(J21) * J22
+    t0 = (M11 + M22) / 2
+    t1 = (M11 - M22) / 2
+    t2 = M12.real
+    t3 = -M12.imag
+    tm = np.sqrt(t1 ** 2 + t2 ** 2 + t3 ** 2)
+
+    tiny = np.finfo(float).tiny
+    T = t0
+    D = tm / np.maximum(t0, tiny)
+    Dvec = np.stack([t1, t2, t3], axis=-1) / np.maximum(t0, tiny)[..., None]
+
+    # polar: H = sqrtm(M) closed form; W = J H^-1
+    detM = t0 ** 2 - tm ** 2
+    sq = np.sqrt(np.maximum(detM, 0))
+    den = np.sqrt(np.maximum(2 * t0 + 2 * sq, tiny))
+    H11, H22, H12 = (M11 + sq) / den, (M22 + sq) / den, M12 / den
+    detH = np.maximum(sq, tiny)
+    Hi11, Hi22 = H22 / detH, H11 / detH
+    Hi12, Hi21 = -H12 / detH, -np.conj(H12) / detH
+    W11 = J11 * Hi11 + J12 * Hi21
+    W12 = J11 * Hi12 + J12 * Hi22
+    W21 = J21 * Hi11 + J22 * Hi21
+    W22 = J21 * Hi12 + J22 * Hi22
+
+    # retardance from the unitary part: strip psi (det W = e^{2i psi}),
+    # W' = cos(d/2) I - i sin(d/2) (nhat . sigma)
+    detW = W11 * W22 - W12 * W21
+    psi = np.angle(detW) / 2
+    ph = np.exp(-1j * psi)
+    W11p, W12p, W21p, W22p = W11 * ph, W12 * ph, W21 * ph, W22 * ph
+    c = (W11p + W22p).real / 2
+    sn1 = (W22p - W11p).imag / 2
+    sn2 = -(W12p + W21p).imag / 2
+    sn3 = (W21p - W12p).real / 2
+    neg = c < 0                                # canonicalize d in [0, pi]
+    c = np.where(neg, -c, c)
+    sn1 = np.where(neg, -sn1, sn1)
+    sn2 = np.where(neg, -sn2, sn2)
+    sn3 = np.where(neg, -sn3, sn3)
+    psi = np.where(neg, psi + np.pi, psi)
+    psi = np.mod(psi + np.pi / 2, np.pi) - np.pi / 2
+    snm = np.sqrt(sn1 ** 2 + sn2 ** 2 + sn3 ** 2)
+    delta = 2 * np.arctan2(snm, c)
+    snmn = np.where(snm < tiny, 1, snm)
+    retvec = np.stack([delta * sn1 / snmn, delta * sn2 / snmn,
+                       delta * sn3 / snmn], axis=-1)
+    ambiguous = mask & (delta > np.pi - 0.2)
+
+    off = ~mask
+    for a in (T, D, delta, psi):
+        a[off] = np.nan
+    Dvec[off] = np.nan
+    retvec[off] = np.nan
+
+    def _stat(x):
+        v = x[mask] if x.ndim == 2 else x[mask]
+        mu = v.mean(axis=0)
+        return mu, np.sqrt(((v - mu) ** 2).mean(axis=0))
+
+    mT, vT = _stat(T)
+    mD, vD = _stat(D)
+    mR, vR = _stat(delta)
+    mDv, vDv = _stat(Dvec)
+    mRv, vRv = _stat(retvec)
+
+    return {'T': T, 'D': D, 'Dvec': Dvec, 'ret': delta, 'retvec': retvec,
+            'phase': psi, 'ambiguous': ambiguous, 'mask': mask,
+            'mean': {'T': mT, 'D': mD, 'Dvec': mDv, 'ret': mR,
+                     'retvec': mRv},
+            'var_rms': {'T': vT, 'D': vD, 'Dvec': vDv, 'ret': vR,
+                        'retvec': vRv}}
+
+
+_ANSI_NORM_RMS = (1.0, 2.0, 2.0, np.sqrt(6), np.sqrt(3), np.sqrt(6),
+                  np.sqrt(8), np.sqrt(8), np.sqrt(8), np.sqrt(8),
+                  np.sqrt(10), np.sqrt(10), np.sqrt(5), np.sqrt(10),
+                  np.sqrt(10))
+
+_ANSI_NAMES = ('piston', 'tilt-y', 'tilt-x', 'astig45', 'defocus', 'astig0',
+               'trefoil-y', 'coma-y', 'coma-x', 'trefoil-x', 'quadrafoil-y',
+               'astig45-2', 'spherical', 'astig0-2', 'quadrafoil-x')
+
+
+def _ansi_nm(j: int) -> tuple:
+    """Radial and azimuthal order of MACOS ANSI mode ``j`` (1-based)."""
+    jj = j - 1
+    n = int(np.ceil((-3 + np.sqrt(9 + 8 * jj)) / 2))
+    return n, 2 * jj - n * (n + 2)
+
+
+def _ansi_zernike(j: int, rho, th):
+    """MACOS ANSI Zernike mode ``j`` (1-based, as in MonZernModes=).
+
+    Mirrors mmacos ``+macos/private/ansi_zernike_eval.m`` exactly --
+    ZerntoMon1 convention, m < 0 -> sin(|m|th), RMS-normalized by
+    NORM_RMS_PARAM_ANSI (elt_mod.F:288-299).  The two must agree: a mode
+    index that means different things in the two bindings is a silent
+    cross-language trap.
+    """
+    if j > len(_ANSI_NORM_RMS):
+        raise ValueError(f'NORM_RMS_PARAM_ANSI tabulated to mode '
+                         f'{len(_ANSI_NORM_RMS)} here (got {j})')
+    n, m = _ansi_nm(j)
+    am = abs(m)
+    R = np.zeros_like(rho)
+    for s in range((n - am) // 2 + 1):
+        c = ((-1) ** s * math.factorial(n - s)
+             / (math.factorial(s) * math.factorial((n + am) // 2 - s)
+                * math.factorial((n - am) // 2 - s)))
+        R = R + c * rho ** (n - 2 * s)
+    ang = np.cos(m * th) if m >= 0 else np.sin(am * th)
+    return _ANSI_NORM_RMS[j - 1] * R * ang
+
+
+def pol_zernike(pm: dict, modes=None, center=None, radius=None,
+                orthonormalize: bool = False) -> dict:
+    """Low-order Zernike expansion of polarization-aberration maps.
+
+    Expands the diattenuation and retardance maps in ``pm`` (from
+    :func:`pol_maps`) onto a Zernike basis over the unvignetted pupil,
+    giving the standard polarization-aberration terms -- piston, tilt,
+    defocus, astigmatism and up -- in each Pauli component.  This is what
+    makes a MACOS result comparable term-by-term with the published
+    polarization-aberration literature, which is written in aberration
+    terms rather than as maps.
+
+    For an on-axis rotationally symmetric two-mirror system the theory
+    predicts a specific answer: diattenuation and retardance grow as
+    rho**2 with a 2*theta azimuthal dependence, so the expansion must be
+    dominated by ASTIGMATISM in the two linear Pauli components (mode 6 =
+    astig0 in s1, mode 4 = astig45 in s2, equal magnitude), with no
+    circular (s3) content and no defocus -- "polarization astigmatism".
+
+    The fit is least-squares, which is the correct estimator whether or
+    not the basis is orthogonal over the actual mask; on an obscured
+    (annular) pupil circular Zernikes are NOT orthogonal, so the
+    conditioning is reported in ``cond``.
+
+    Args:
+        pm: dict from :func:`pol_maps` (needs Dvec, retvec, D, ret, mask;
+            uses ``ambiguous`` if present).
+        modes: MACOS ANSI 1-based mode indices.  Default 1..15.
+        center: (i, j) pupil centre in grid indices.  Default: mask
+            centroid.
+        radius: normalization radius in pixels.  Default: the largest
+            mask-point distance from the centre, so rho <= 1.
+        orthonormalize: Gram-Schmidt the basis over the ACTUAL mask before
+            fitting.  Coefficients become mutually independent but are no
+            longer standard Zernike coefficients -- use for energy
+            bookkeeping, not for literature comparison.
+
+    Returns:
+        dict with ``modes``, ``names``, ``nm`` (K,2), ``D`` (K,3),
+        ``ret`` (K,3), ``Dmag`` (K,), ``retmag`` (K,), ``resid_rms``,
+        ``frac`` (fraction of each map's mean square explained),
+        ``cond``, ``recon`` (reconstructed maps, NaN off-mask),
+        ``center``, ``radius``, ``npts``, ``npts_ret``,
+        ``orthonormalized``, ``mask``.
+
+    Mode 1 (piston) is the pupil MEAN; every other mode is variation
+    about it.  Keep the separation -- a uniform diattenuation or
+    retardance is a state change, not an aberration, and only the
+    variation drives a contrast floor or a PSI systematic.
+
+    Retardance caveat: points flagged ``pm['ambiguous']`` (retardance
+    within 0.2 rad of pi, where the branch is unresolved) are EXCLUDED
+    from the retardance fits and counted in ``npts_ret``.
+    """
+    modes = np.arange(1, 16) if modes is None else np.asarray(modes, int)
+    mask = np.asarray(pm['mask'], dtype=bool)
+    if not mask.any():
+        raise ValueError('pupil mask is empty')
+    ii, jj = np.indices(mask.shape).astype(float)   # first index = +x
+    ctr = ((ii[mask].mean(), jj[mask].mean()) if center is None
+           else (float(center[0]), float(center[1])))
+    dx, dy = ii - ctr[0], jj - ctr[1]
+    rr = np.hypot(dx, dy)
+    rad = float(rr[mask].max()) if radius is None else float(radius)
+    if rad <= 0:
+        raise ValueError('pupil radius must be positive')
+    rho, th = rr / rad, np.arctan2(dy, dx)
+
+    basis = np.stack([_ansi_zernike(int(j), rho, th) for j in modes], axis=-1)
+
+    def _design(sel):
+        A = basis[sel]
+        if orthonormalize:
+            A, _ = np.linalg.qr(A)
+            A = A * np.sqrt(A.shape[0])
+        return A
+
+    A = _design(mask)
+    cond = float(np.linalg.cond(basis[mask]))
+
+    retmask = mask
+    amb = pm.get('ambiguous')
+    if amb is not None:
+        a = np.asarray(amb)
+        retmask = mask & ~np.where(np.isnan(a.astype(float)), False,
+                                   a.astype(bool))
+    Ar = A if np.array_equal(retmask, mask) else _design(retmask)
+
+    def _fit(A_, sel, Map):
+        y = np.asarray(Map)[sel]
+        ok = np.isfinite(y)
+        Au, yu = (A_[ok], y[ok]) if not ok.all() else (A_, y)
+        c, *_ = np.linalg.lstsq(Au, yu, rcond=None)
+        r = yu - Au @ c
+        den = ((yu - yu.mean()) ** 2).mean()
+        frac = 1.0 if den <= 0 else 1 - ((r - r.mean()) ** 2).mean() / den
+        recon = np.full(np.asarray(Map).shape, np.nan)
+        idx = np.where(sel)
+        if not ok.all():
+            idx = tuple(v[ok] for v in idx)
+        recon[idx] = Au @ c
+        return c, float(np.sqrt((r ** 2).mean())), float(frac), recon
+
+    cD = np.zeros((len(modes), 3))
+    cR = np.zeros((len(modes), 3))
+    rD = np.zeros(3)
+    rR = np.zeros(3)
+    fD = np.zeros(3)
+    fR = np.zeros(3)
+    reconD = np.full(mask.shape + (3,), np.nan)
+    reconR = np.full(mask.shape + (3,), np.nan)
+    for c in range(3):
+        cD[:, c], rD[c], fD[c], reconD[..., c] = _fit(
+            A, mask, pm['Dvec'][..., c])
+        cR[:, c], rR[c], fR[c], reconR[..., c] = _fit(
+            Ar, retmask, pm['retvec'][..., c])
+    cDm, rDm, fDm, reconDm = _fit(A, mask, pm['D'])
+    cRm, rRm, fRm, reconRm = _fit(Ar, retmask, pm['ret'])
+
+    nm = np.array([_ansi_nm(int(j)) for j in modes])
+    names = [(_ANSI_NAMES[j - 1] if j <= len(_ANSI_NAMES)
+              else f'n{n} m{m:+d}') for j, (n, m) in zip(modes, nm)]
+    return {'modes': modes, 'names': names, 'nm': nm,
+            'D': cD, 'ret': cR, 'Dmag': cDm, 'retmag': cRm,
+            'resid_rms': {'D': rD, 'ret': rR, 'Dmag': rDm, 'retmag': rRm},
+            'frac': {'D': fD, 'ret': fR, 'Dmag': fDm, 'retmag': fRm},
+            'cond': cond,
+            'recon': {'Dvec': reconD, 'retvec': reconR,
+                      'D': reconDm, 'ret': reconRm},
+            'center': ctr, 'radius': rad,
+            'npts': int(mask.sum()), 'npts_ret': int(retmask.sum()),
+            'orthonormalized': orthonormalize, 'mask': mask}
+
+
 def ffp(place_elt: int | np.int32,
         offset: Tuple[float, float]) -> None:
     """FFP -- place an off-axis field point by DIRECTION COSINES (sky angle).
@@ -4641,25 +5601,33 @@ def pfp(place_elt: int | np.int32,
         raise Exception(f'MACOS: pfp(place_elt={s}) failed -- stop set?')
 
 
-def obs_set(option: str = 'positive') -> None:
+def obs_set(option: str | None = None) -> None | str:
     """OBS -- set the ray-trace obscuration option for spot diagrams.
 
     Controls which rays :func:`spot` plots (iObsOpt):
       'all'      -- every ray, regardless of obscuration (option 0)
       'positive' -- unobscured rays only (default; option 1)
       'negative' -- obscured rays only (option 2)
-    Session state -- persists until changed.  Set 'all' to draw a spot at
+    Persists until changed or a :func:`load`, which resets it to POSITIVE and
+    says so (Dave 2026-10-28).  Set 'all' to draw a spot at
     a focal plane where every ray is obscured (a coronagraph FP), then
     restore 'positive' so the diffraction trace stays masked.
 
     Args:
-        option: 'all' | 'positive' | 'negative'.
+        option: 'all' | 'positive' | 'negative'; None (default) QUERIES the
+            option in force (api obs_opt_get) -- it no longer sets 'positive'
+            (Dave 2026-10-16: the veneer restates no engine default).
+
+    Returns:
+        None when setting; the option name when querying.
 
     Raises:
         Exception: Rx not loaded, bad option, or MACOS rejected the call.
     """
     _chk_macos_and_rx_loaded()
     codes = {'all': 0, 'positive': 1, 'negative': 2}
+    if option is None:
+        return {v: k for k, v in codes.items()}[int(_gen.obs_opt_get())]
     if option not in codes:
         raise Exception(
             f"obs_set: option must be 'all'|'positive'|'negative', got {option!r}")
@@ -4667,13 +5635,25 @@ def obs_set(option: str = 'positive') -> None:
         raise Exception('MACOS: obs_set failed')
 
 
-def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
+def _session_axis_mode() -> int:
+    """The FEX / SXP axis the engine's session holds (CENTROID / CHIEFRAY,
+    read through api modes_get): 0 = centroid, 1 = chief."""
+    return 0 if modes()['centroid'] else 1
+
+
+def fex(mode: int | None = None) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
     """Find Exit Pupil (XP) and sets parameters at Srf. nElt-1
 
     Args:
-        mode (int | np.int32):
-            to centre Ref.Srf.: w.r.t. (=1): Chief Ray  (default) OR
-                                       (=0): Centroid
+        mode (int | np.int32 | None):
+            to centre Ref.Srf.: w.r.t. (=1): Chief Ray OR
+                                       (=0): Centroid;
+            None (default): the SESSION's axis, the engine's CENTROID /
+            CHIEFRAY mode (:func:`modes` ``centroid``), as the CLI's FEX
+            reads it -- chief unless CENTROID is in force (the engine's
+            allocation default since 2026-08-27; a centroid axis leaves
+            tip/tilt in the OPD on obscured or segmented beams).  The
+            veneer carries no default of its own (BRIEF_to_bindings A.6).
 
     Requirement:
         - The Stop of the Optical System must be set beforehand
@@ -4697,6 +5677,8 @@ def fex(mode=1) -> Tuple[np.float64, Vector[np.float64], Vector[np.float64]]:
     if lib.api.n_elt() <= 3:
         raise Exception("'fex': not more than 3 surfaces defined")
 
+    if mode is None:
+        mode = _session_axis_mode()
     ok, xp = lib.api.xp_fnd(np.int32(mode))
 
     if not ok:
@@ -4767,11 +5749,15 @@ def stop(srf: None | int | Tuple[int] | np.int32 = None,
 
     The stop surface cannot be defined at
         -- the image plane or at the XP or at the object
-        -- None-Sequential or Segment Surface
+        -- a Non-Sequential surface (NSReflector / NSRefractor)
+    Segment surfaces ARE accepted (engine 2026-09-08): the STOP command
+    maps the chief ray to that segment for the aiming trace.  Note that
+    in segment-class decks every segment's VptElt is the parent vertex,
+    so offset (0,0) on any segment is the parent vertex.
 
     Args:
         srf (None | int | Tuple[int] | np.int32, optional): Defaults to None.
-           Element ID (Range: 0 < srf < nElt-2)
+           Element ID (Range: 1 <= srf <= nElt, the CLI STOP's range)
            Neg. values are referenced with respect to the last surface
            where -1 (== # of Elements) is the last surface, i.e., Img. Srf.
 
@@ -4825,8 +5811,8 @@ def stop_obj(x: float, y: float, z: float) -> None:
     Use cases:
         - Prescriptions that declare an object-space stop via
           ``ApStop= x y z`` (e.g. Rx_e5hex1.in, where the segmented
-          primary is the natural stop and pymacos's :func:`stop`
-          refuses Segment surfaces).
+          primary is the natural stop; :func:`stop` on a Segment
+          surface is also accepted since the 2026-09-08 engine).
         - Re-aiming the chief ray after a source perturbation
           (``perturb_src``) when an object-space stop is in use --
           for an element-based stop, re-call :func:`stop` instead.
@@ -4845,7 +5831,381 @@ def stop_obj(x: float, y: float, z: float) -> None:
     if not lib.api.stop_obj_set(float(x), float(y), float(z)):
         raise Exception('MACOS threw an Exception')
 
+# -------------------------------------------------------------------------------------------
+# Bound 2026-10-16 (BRIEF_to_bindings A.3): the api routines pymacos lacked, as
+# veneers over the GENERATED stubs (api_gen.py; a FAIL raises api_gen.ApiError).
+# Each mirrors its mmacos twin (named in the docstring): the same fields, the same
+# buffers, no default the engine can supply.
+# -------------------------------------------------------------------------------------------
+
+_ELT_TYPE_NAMES = ('Reflector', 'FocalPlane', 'Reference', 'HOE', 'Grating',
+                   'Refractor', 'Obscuring', 'Return', 'NSRefractor', 'LensArray',
+                   'Segment', 'NSReflector', 'TrGrating', 'RfPolarizer',
+                   'TrPolarizer', 'CGHNullPlate', 'DoeTrGrating', 'WavePlate')
+_M_POLY_SIDE = 128   # buffer for elt_info's polygon (engine mPolySide; mmacos uses the same)
+_M_OBS_BUF = 10      # buffer for elt_obs (the count is returned even when larger)
+_DRAW_PLANES = {'YZ': 1, 'XZ': 2, 'XY': 3}
+
+
+def ray_status(n_rays: int) -> dict:
+    """Per-ray status of the LAST trace (mmacos ``get_ray_status``).
+
+    ``status`` (int32, n_rays): 0 OK, 1 Obscured, 2 Miss, 3 Bracket, 4 MaxIter,
+    5 Undef; ``fail_elt`` (int32): the element where the failure was recorded
+    (for an obscured ray, the element that clipped it; 0 when OK); the counts
+    ``n_ok`` ``n_obscured`` ``n_miss`` ``n_bracket`` ``n_max_iter`` ``n_undef``
+    and ``n_lost`` = n_rays - n_ok.  ``n_rays`` is the trace's ray count (the
+    second value :func:`trace_rays` returns); the api refuses any other.
+    """
+    _chk_macos_and_rx_loaded()
+    st, fe = _gen.ray_status_get(np.int32(n_rays))
+    st = np.asarray(st, dtype=np.int32)
+    out = {'status': st, 'fail_elt': np.asarray(fe, dtype=np.int32)}
+    for k, code in (('n_ok', 0), ('n_obscured', 1), ('n_miss', 2),
+                    ('n_bracket', 3), ('n_max_iter', 4), ('n_undef', 5)):
+        out[k] = int(np.count_nonzero(st == code))
+    out['n_lost'] = int(n_rays) - out['n_ok']
+    return out
+
+
+def messages(clear: bool = True) -> List[str]:
+    """The engine's messages since the last read (api ``messages_count`` / ``messages_get``).
+
+    The load path's notes, warnings and refusals, CALIB's cause lines and the SMACOS loop's
+    'Unknown command' print to Fortran unit 6 -- which reaches no Python-visible stream on
+    macOS (PLAN_CONSOLIDATION 1.2 (ee)) -- and the engine also keeps each line in a buffer.
+    This returns the kept lines, oldest first, trailing blanks trimmed, and empties the buffer
+    unless ``clear=False``.  The buffer holds the last 500 lines; when older ones were dropped
+    the first entry says how many.  Works with no Rx loaded (a refused load's messages are the
+    point).  mmacos: ``macos.messages``.
+    """
+    n_lines, n_chars, n_dropped = _gen.messages_count()
+    lines: List[str] = []
+    if n_dropped:
+        lines.append(f'({int(n_dropped)} earlier messages dropped)')
+    if n_chars:
+        codes = np.asarray(_gen.messages_get(np.int32(n_chars)), dtype=np.int64)
+        lines += bytes(codes.astype(np.uint8)).decode('latin-1').split('\n')[:-1]
+    if clear:
+        _gen.messages_clear()
+    return lines
+
+
+def elt_info(srf: int) -> dict:
+    """Element metadata for layout drawing (mmacos ``get_elt_info``).
+
+    ``elt_id`` and ``type`` (the Element= name), ``ap_type``, ``ap_vec`` (6),
+    ``x_obs`` (3), ``lmon`` (surface half-size) and ``poly`` (2 x nPolyVtx, the
+    projected polygon vertices when the aperture is Polygonal, else 2 x 0).
+    """
+    _chk_macos_and_rx_loaded()
+    ms = _M_POLY_SIDE
+    eid, apt, apv, xo, lm, npv, pv = _gen.elt_info_get(
+        np.zeros(6), np.zeros(3), np.zeros((2, ms), order='F'), np.int32(srf))
+    eid = int(eid)
+    name = _ELT_TYPE_NAMES[eid - 1] if 1 <= eid <= len(_ELT_TYPE_NAMES) else 'Unknown'
+    return {'elt_id': eid, 'type': name, 'ap_type': int(apt),
+            'ap_vec': np.asarray(apv).ravel(), 'x_obs': np.asarray(xo).ravel(),
+            'lmon': float(lm), 'poly': np.asarray(pv)[:, :int(npv)]}
+
+
+def elt_obs(srf: int) -> dict:
+    """Element obscuration declarations (mmacos ``get_elt_obs``): ``n`` (the true
+    count), ``type`` (ObsType codes) and ``vec`` (6 x n ObsVec) for the first
+    min(n, 10)."""
+    _chk_macos_and_rx_loaded()
+    mo = _M_OBS_BUF
+    n, ty, vc = _gen.elt_obs_get(np.zeros(mo, dtype=np.int32),
+                                 np.zeros((6, mo), order='F'), np.int32(srf))
+    nn = min(int(n), mo)
+    return {'n': int(n), 'type': np.asarray(ty)[:nn], 'vec': np.asarray(vc)[:, :nn]}
+
+
+def elt_z(srf: int, z: float | None = None) -> float | None:
+    """Get (``z`` omitted) or set an element's zElt (mmacos ``get_elt_z``): the
+    propagation distance from the previous surface, BaseUnits."""
+    _chk_macos_and_rx_loaded()
+    setter = z is not None
+    zz = _gen.elt_z(np.array([srf], dtype=np.int32),
+                    np.array([z if setter else 0.0]), setter)
+    return None if setter else float(np.asarray(zz).ravel()[0])
+
+
+def xps(srf: int) -> None:
+    """eXit-Pupil Surface (mmacos ``xps``): the engine XPS command at the
+    exit-pupil return surface ``srf`` leaves each ray's exit-pupil crossing in
+    the ray buffer -- read it IMMEDIATELY with :func:`getRayInfo` (position =
+    the exit-pupil surface; ray 1, the chief, is the vertex = FEX).  Pure
+    geometry, needs a stop.  It leaves the source grid in the differential-field
+    state: :func:`trace_rays` / :func:`modify` before resuming."""
+    _chk_macos_and_rx_loaded()
+    _gen.xps_cmd(np.int32(srf))
+
+
+def met(unit: str = 'm') -> dict:
+    """Metrology beam lengths (mmacos ``met``): ``l`` (n) and ``n``; ``unit``
+    ``'m'`` (default, via the deck's BaseUnits) or ``'native'``."""
+    if unit not in ('m', 'native'):
+        raise ValueError("unit must be 'm' or 'native'")
+    _chk_macos_and_rx_loaded()
+    n = int(_gen.met_calc())
+    if n == 0:
+        return {'l': np.zeros(0), 'n': 0}
+    l = np.asarray(_gen.met_get(np.int32(n)), dtype=float).ravel()
+    if unit == 'm':
+        ok, cbm = lib.api.base_unit_to_metres()
+        if not ok or cbm == 0.0:
+            raise Exception('met: CBM unavailable (Rx not loaded or BaseUnits not declared)')
+        l = l * cbm
+    return {'l': l, 'n': n}
+
+
+def met_geom() -> dict:
+    """Metrology beam geometry (mmacos ``met_geom``): ``src_pts`` / ``tgt_pts``
+    (3 x n), ``src_elt`` / ``tgt_elt`` (n), ``n``."""
+    _chk_macos_and_rx_loaded()
+    n = int(_gen.met_calc())
+    if n == 0:
+        return {'src_pts': np.zeros((3, 0)), 'tgt_pts': np.zeros((3, 0)),
+                'src_elt': np.zeros(0, dtype=int), 'tgt_elt': np.zeros(0, dtype=int), 'n': 0}
+    s, t, se, te = _gen.met_geom_get(np.int32(n))
+    return {'src_pts': np.asarray(s), 'tgt_pts': np.asarray(t),
+            'src_elt': np.asarray(se, dtype=int), 'tgt_elt': np.asarray(te, dtype=int), 'n': n}
+
+
+def _draw_cmd(plane, i_start, i_end):
+    key = plane.upper()
+    if key not in _DRAW_PLANES:
+        raise ValueError(f'plane must be YZ, XZ or XY (got {plane})')
+    if i_end <= 0:
+        i_end = num_elt()
+    nde, nray = _gen.draw_rays_cmd(np.int32(_DRAW_PLANES[key]),
+                                   np.int32(i_start), np.int32(i_end))
+    return key, int(nde), int(nray)
+
+
+def draw_rays(plane: str = 'YZ', i_start: int = 0, i_end: int = 0) -> dict:
+    """Ray-bundle drawing data, projected (mmacos ``draw_rays``): ``U``, ``V``
+    (nDE x nRay), ``elt`` (element per vertex), ``nper`` (vertices per ray),
+    ``nray``, ``plane``.  ``i_end`` <= 0 means the last element."""
+    _chk_macos_and_rx_loaded()
+    key, nde, nray = _draw_cmd(plane, i_start, i_end)
+    u, v, e, nper = _gen.draw_rays_get(np.int32(nde), np.int32(nray))
+    return {'U': np.asarray(u), 'V': np.asarray(v), 'elt': np.asarray(e),
+            'nper': np.asarray(nper), 'nray': nray, 'plane': key}
+
+
+def draw_rays3d(plane: str = 'YZ', i_start: int = 0, i_end: int = 0) -> dict:
+    """Ray-bundle drawing data in global 3-D (mmacos ``draw_rays3d``): ``P``
+    (3 x nDE x nRay), ``elt``, ``nper``, ``nray``, ``plane``."""
+    _chk_macos_and_rx_loaded()
+    key, nde, nray = _draw_cmd(plane, i_start, i_end)
+    _, _, e, nper = _gen.draw_rays_get(np.int32(nde), np.int32(nray))
+    px, py, pz = _gen.draw_rays3d_get(np.int32(nde), np.int32(nray))
+    return {'P': np.stack([np.asarray(px), np.asarray(py), np.asarray(pz)]),
+            'elt': np.asarray(e), 'nper': np.asarray(nper), 'nray': nray, 'plane': key}
+
+
+def polarizer(srf: int, axis=None) -> dict | None:
+    """Get (``axis`` omitted: ``{'axis', 'elt_type'}``) or set the transmission
+    axis of a TrPolarizer (mmacos ``polarizer``)."""
+    _chk_macos_and_rx_loaded()
+    if axis is None:
+        a, _, et = _gen.polelt_get(np.int32(srf))
+        return {'axis': np.asarray(a).ravel(), 'elt_type': int(et)}
+    a = np.asarray(axis, dtype=float).ravel()
+    if a.size != 3:
+        raise ValueError("'axis' must be a 3-vector")
+    if not np.linalg.norm(a) > 0:
+        raise ValueError("'axis' must be non-zero")
+    _gen.polelt_set(np.int32(srf), a, 0.0)
+    return None
+
+
+def waveplate(srf: int, axis=None, retardance: float | None = None) -> dict | None:
+    """Get (both omitted: ``{'axis', 'retardance', 'elt_type'}``) or set a
+    WavePlate's fast axis and retardance (waves at the current wavelength); the
+    one not given keeps its current value (mmacos ``waveplate``)."""
+    _chk_macos_and_rx_loaded()
+    a0, r0, et = _gen.polelt_get(np.int32(srf))
+    if axis is None and retardance is None:
+        return {'axis': np.asarray(a0).ravel(), 'retardance': float(r0), 'elt_type': int(et)}
+    a = np.asarray(a0 if axis is None else axis, dtype=float).ravel()
+    r = float(r0) if retardance is None else retardance
+    if a.size != 3:
+        raise ValueError("'axis' must be a 3-vector")
+    if not np.linalg.norm(a) > 0:
+        raise ValueError("'axis' must be non-zero")
+    if not np.isscalar(r):
+        raise ValueError("'retardance' must be a scalar")
+    _gen.polelt_set(np.int32(srf), a, float(r))
+    return None
+
+
+def elt_jones(srf: int) -> np.ndarray:
+    """The 2x2 Jones matrix a polarizing element applied in the last polarized
+    trace, in its own eigenbasis (mmacos ``elt_jones``); zero without one."""
+    _chk_macos_and_rx_loaded()
+    jr, ji = _gen.jmat_elt_get(np.int32(srf))
+    return np.asarray(jr) + 1j * np.asarray(ji)
+
+
+def ray_hist(state: str) -> None:
+    """``'on'`` / ``'off'``: record every ray's global crossing at every element
+    in each later trace (mmacos ``ray_hist('on')``); read with
+    :func:`ray_pos_hist`.  Marks the trace dirty (:func:`modify`)."""
+    if state not in ('on', 'off'):
+        raise ValueError("state must be 'on' or 'off'")
+    _chk_macos_and_rx_loaded()
+    _gen.ray_hist_set(state == 'on')
+    modify()
+
+
+def ray_pos_hist(n_rays: int) -> dict:
+    """The ray-position history of the last trace (mmacos ``ray_hist(nRays)``):
+    ``P`` (3 x n_rays x nElt+1; column 0 = the source plane) and ``ok``
+    (n_rays x nElt+1, True where the ray reached that element)."""
+    _chk_macos_and_rx_loaded()
+    ne1 = num_elt() + 1
+    z = lambda: np.zeros((int(n_rays), ne1), order='F')  # noqa: E731
+    px, py, pz, lok = _gen.ray_pos_hist_get(z(), z(), z(), z())
+    return {'P': np.stack([np.asarray(px), np.asarray(py), np.asarray(pz)]),
+            'ok': np.asarray(lok) != 0}
+
+
+def srt(x: float, y: float, end_elt: int | None = None) -> dict:
+    """Trace ONE ray from a normalized source-aperture point (the CLI's SRT; mmacos
+    ``macos.srt``).  ``x``, ``y``: |x|, |y| <= 0.5; (0, 0) is the chief ray.
+
+    Returns a dict (column k = element k + 1, BaseUnits / global frame):
+      'pos'     (3, nElt) where the ray meets each element
+      'dir'     (3, nElt) its direction leaving it
+      'n_prev', 'n_cur'   (nElt,) the index before / after
+      'ok'      the ray was traced to end_elt (an OBSCURED ray still is)
+      'status'  per-ray status code (as ray_status); 'fail_elt' the element that
+                set it (0 when OK)
+    Columns past end_elt -- or past fail_elt for a lost ray -- are 0.  The engine
+    re-seeds its source ray set for the one ray; the trace is marked modified so the
+    next trace rebuilds the full grid.  api srt_trace (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    e = ne if end_elt is None else int(end_elt)
+    z3 = lambda: np.zeros((3, ne), order='F')  # noqa: E731
+    z1 = lambda: np.zeros(ne)  # noqa: E731
+    p, d, n0, n1, ok, st, fe = _gen.srt_trace(float(x), float(y), e,
+                                              z3(), z3(), z1(), z1())
+    modify()
+    return {'pos': np.asarray(p), 'dir': np.asarray(d),
+            'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
+            'status': int(st), 'fail_elt': int(fe)}
+
+
+def ray(i_ray: int) -> dict:
+    """Trace ray ``i_ray`` of the source grid (1 = the chief ray) -- the CLI's RAY; mmacos
+    ``macos.ray``.  ``i_ray`` in 1..nRays of the current grid.  Traces to the last element
+    (or the deck's ray-target element); the dict is srt()'s ('pos', 'dir', 'n_prev',
+    'n_cur', 'ok', 'status', 'fail_elt').  The engine rebuilds its source grid for the call;
+    the trace is marked modified.  api ray_trace (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    z3 = lambda: np.zeros((3, ne), order='F')  # noqa: E731
+    z1 = lambda: np.zeros(ne)  # noqa: E731
+    p, d, n0, n1, ok, st, fe = _gen.ray_trace(int(i_ray), z3(), z3(), z1(), z1())
+    modify()
+    return {'pos': np.asarray(p), 'dir': np.asarray(d),
+            'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
+            'status': int(st), 'fail_elt': int(fe)}
+
+
+def sint() -> dict:
+    """Read the data of every Interpolated surface and set up its interpolation -- the CLI's
+    SINT; mmacos ``macos.sint``.  For each element with ``Surface= Interpolated`` (SrfType 5)
+    the engine reads ``<deck>.srfN.bin``, else ``.srfN.txt``, where ``<deck>`` is the loaded
+    deck's name without its '.in' (``Rx_TraceRewrites.srf1.txt`` for element 1) or, second,
+    with it (the CLI's spelling, ``Rx_TraceRewrites.in.srf1.txt``) -- and precomputes the
+    triangular interpolation the trace uses.  Until it is set, such a
+    surface traces as its base conic.  A missing file is not prompted for: that element is
+    not set.
+
+    Returns a dict:
+      'n_set'  how many elements were set
+      'set'    (nElt,) int: 1 = set, -1 = an Interpolated surface not set, 0 = not one
+    Why an element was not set (a missing or unreadable file, too few or too many points)
+    is in messages(); a file shorter than its header uses the points read, with a warning
+    there.  The trace is marked modified.  api sint_cmd (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    n, s = _gen.sint_cmd(np.zeros(ne, dtype=np.int32))
+    modify()
+    return {'n_set': int(n), 'set': np.asarray(s, dtype=int)}
+
+
+def segray(i_seg: int) -> dict:
+    """Trace the ray through Segment element ``i_seg``'s centre -- the CLI's SEGRAYTRACE;
+    mmacos ``macos.segray``.  ``i_seg`` is the ELEMENT number of a Segment element; any
+    other element is refused.  The ray passes through the segment's reference point
+    (RptElt, the design centre): parallel to the chief ray for a collimated source, aimed
+    from the chief ray's start for a point source; it is forced onto that segment and
+    traced to the last element (or the deck's ray-target element).  The dict is ray()'s.
+    The engine rebuilds its source grid for the call; the trace is marked modified.
+    api segray_trace (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    ne = num_elt()
+    z3 = lambda: np.zeros((3, ne), order='F')  # noqa: E731
+    z1 = lambda: np.zeros(ne)  # noqa: E731
+    p, d, n0, n1, ok, st, fe = _gen.segray_trace(int(i_seg), z3(), z3(), z1(), z1())
+    modify()
+    return {'pos': np.asarray(p), 'dir': np.asarray(d),
+            'n_prev': np.asarray(n0), 'n_cur': np.asarray(n1), 'ok': bool(ok),
+            'status': int(st), 'fail_elt': int(fe)}
+
+
+def ref_rays(kind: str) -> dict:
+    """Find the reference rays of the source grid -- the CLI's RRAY / PRAY; mmacos
+    ``macos.ref_rays``.  ``kind='rray'``: the chief ray and the four rays nearest the
+    aperture edge at +x, +y, -x, -y (5 slots); ``kind='pray'``: the chief ray and the eight
+    rays nearest 0.9 of the aperture at 45-degree steps from +x (9 slots).  Each candidate
+    must pass the system.  ``id`` (n,) is each ray's index in the source grid (slot 0 the
+    chief ray; ``ray(id[k])`` traces it), -1 where no ray was found (slot 0: the chief ray
+    was lost); ``offset`` (2, n) its XY offset from the chief ray in the source grid frame
+    (BaseUnits; 0 where ``id`` is -1).  These are the rays the CLI's TPR traces.  The
+    trace is marked modified.  api ref_rays (BRIEF_to_bindings B.2).
+    """
+    _chk_macos_and_rx_loaded()
+    k = {'rray': 1, 'pray': 2}.get(kind)
+    if k is None:
+        raise ValueError("ref_rays: kind must be 'rray' or 'pray'")
+    n = 5 if k == 1 else 9
+    ids, off = _gen.ref_rays(k, np.zeros(9, dtype=np.int32), np.zeros((2, 9), order='F'))
+    modify()
+    return {'id': np.asarray(ids)[:n].astype(int), 'offset': np.asarray(off)[:, :n].copy()}
+
+
+def src_seg() -> dict:
+    """The source segmentation tiling (the truth mmacos ``view_rx`` draws Segment
+    tiles from): ``grid_type`` (1 Circular, 2 Square, 3 Hex, 4 Pie, 5 Flower,
+    6 UDG), ``n_seg``, ``width`` (flat-to-flat), ``gap``."""
+    _chk_macos_and_rx_loaded()
+    g, n, w, gp = _gen.src_seg_get()
+    return {'grid_type': int(g), 'n_seg': int(n), 'width': float(w), 'gap': float(gp)}
+
+
+def deadband_notes() -> int:
+    """Source-frame / stop-aim updates the round-off dead band suppressed beyond
+    the first one the engine printed (0 on every deck measured 2026-10-02)."""
+    return int(_gen.deadband_notes_get())
+
+
+def fwd_root_flips() -> int:
+    """Surface intersections in the last trace where the forward-crossing root
+    pick differed from the legacy metric (reset at every trace start)."""
+    return int(_gen.fwd_root_flips_get())
+
 
 # -------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    pass
+    pass

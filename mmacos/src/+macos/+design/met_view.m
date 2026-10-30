@@ -31,6 +31,9 @@ function fig = met_view(seg, am, opts)
 %     'edge_off'    launcher edge clearance to annotate on the face-on
 %                   panel (mm; draws the offset hex dashed; default [] = off)
 %     'title'       figure title (default auto from counts)
+%     'units'       length unit for the M2-M3 inset's axis labels (default
+%                   '' = the met Rx's BaseUnits=, read from AM.in, else
+%                   'BaseUnits'); the coordinates are the deck's own
 %     'save'        PNG path;  'visible' (default true)
 %
 %   Example (after e5_seg.m):
@@ -52,6 +55,7 @@ arguments
                                          % open-circle launcher overlay)
     opts.edge_off    double  = []
     opts.title       (1,:) char = ''
+    opts.units       (1,:) char = ''
     opts.save        (1,:) char = ''
     opts.visible     (1,1) logical = true
 end
@@ -196,8 +200,9 @@ plot(axi, Fi(1,:), Fi(2,:), 's', 'MarkerSize', 6, ...
      'LineStyle', 'none');
 axis(axi, 'equal');  box(axi, 'on');
 axi.FontSize = 6;
-xlabel(axi, 'hub-plane x, mm', 'FontSize', 7);
-ylabel(axi, 'hub-plane y, mm', 'FontSize', 7);
+un = deck_units_(am, opts.units);         % was 'mm' whatever the deck (1.2 (iii))
+xlabel(axi, ['hub-plane x, ' un], 'FontSize', 7);
+ylabel(axi, ['hub-plane y, ' un], 'FontSize', 7);
 title(axi, 'M2-M3 MET face-on', 'FontSize', 8);
 
 %% ---------------- right: face-on primary layout --------------------
@@ -291,3 +296,13 @@ Z = [S(3,:); T(3,:); nan(1,n)];
 h = plot3(ax, X(:), Y(:), Z(:), '-', 'Color', [col 0.45], 'LineWidth', 0.6);
 end
 
+function un = deck_units_(am, un)
+%DECK_UNITS_  The inset's length unit: an explicit 'units', else the met Rx's
+%   BaseUnits= line, else the generic 'BaseUnits'.
+if ~isempty(un), return; end
+un = 'BaseUnits';
+if isfield(am, 'in') && ~isempty(am.in) && isfile(am.in)
+    u = regexp(fileread(am.in), '(?m)^\s*BaseUnits=\s*(\S+)', 'tokens', 'once');
+    if ~isempty(u), un = u{1}; end
+end
+end
