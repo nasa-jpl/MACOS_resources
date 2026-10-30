@@ -29,9 +29,32 @@ function p = iodc2010_params()
 %                      at the scan's largest PASSING field (the "no mounting
 %                      material beyond the clear aperture" loophole), then
 %                      check the edge thickness there
+%     stop_clips       false: the stop is the PARAXIAL construct the 2006
+%                      evaluator used -- the rays are uniform across the
+%                      paraxial entrance pupil and "any internal aperture
+%                      stops were fully filled" (Sec. 4.4: the pupil
+%                      aberration this puts at the stop was accepted, not
+%                      clipped); a ray is lost only to a surface miss, TIR or
+%                      a declared clear aperture.  true: the stop's radius is
+%                      a hard circular aperture (the first ladder's convention,
+%                      2026-10-30 a.m., which failed lenses by a ring of edge
+%                      rays a fraction of a percent outside the stop)
 %     src_standoff_mm  how far upstream of the lens the source plane sits
 %     model_size       128
 %     outdir           where reports, decks and figures go (this directory)
+%   The outer design loop (p.outer, passed to iodc2010_outer by the runner):
+%     families         'forms' (iodc2010_forms) and/or 'groups' (iodc2010_groups)
+%     n_elts           element counts the forms family enumerates
+%     groups           iodc2010_groups overrides (a_range, c_range, b_max, gap_grid)
+%     D_target         entrance pupil the seeds are sized for (mm)
+%     design_field_deg the floor of the CALIB design field (the seed's own limit above it)
+%     top_k            seeds per element count that go to the solve
+%     prescreen_grid   rays across the pupil in the pre-screen
+%     air_grid         seed air spaces in units of the radius
+%     ladder_D / ladder_theta  the (D, theta) ladder the best lenses are re-solved on
+%     n_ladder         how many of the best solved lenses climb the ladder
+%     solve            iodc2010_solve overrides (rounds, iters_per_round,
+%                      floor_glass_R, floor_air_R, var_stop, ray_grid)
 p = struct();
 p.lambda_nm       = 532;
 p.glass           = 'N-BK7';
@@ -45,7 +68,13 @@ p.theta_tol_deg   = 0.01;
 p.semidia_default = 60;
 p.size_apertures  = true;
 p.aperture_margin = 1e-6;      % relative margin on a footprint-sized aperture
+p.stop_clips      = false;
 p.src_standoff_mm = 100;
 p.model_size      = 128;
 p.outdir          = fileparts(mfilename('fullpath'));
+p.outer = struct('families', {{'forms', 'groups'}}, 'n_elts', [2 3], 'groups', struct(), ...
+    'D_target', 10, 'design_field_deg', 1, 'top_k', 8, ...
+    'prescreen_grid', 21, 'air_grid', [0.1 0.25 0.5 1 2], 'ladder_D', [10 15 20 30], ...
+    'ladder_theta', [3 5 8 12], 'n_ladder', 3, ...
+    'solve', struct('rounds', 4, 'iters_per_round', 12, 'floor_glass_R', 0.03, 'floor_air_R', 0.01, 'var_stop', false, 'ray_grid', 31));
 end

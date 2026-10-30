@@ -19,9 +19,13 @@ function E = iodc2010_emit(L, P, p, path, opt)
 %       Sellmeier row (GlassElt / GlassType / GlassCoef): the engine recomputes
 %       the index from the row at every trace (tracesub.F CTRACE), so the deck
 %       is the NAMED glass on any engine build, table row or not.
-%     * The stop is Element= Reference, Surface= Flat, ApType= Circular with
-%       the stop semi-diameter: it clips and nothing else.  It sits in the
-%       medium of its gap (IndRef = that medium).
+%     * The stop is Element= Reference, Surface= Flat, in the medium of its
+%       gap (IndRef = that medium).  The chief ray is aimed through its
+%       centre (macos.stop).  With p.stop_clips false (the default, the 2006
+%       evaluator's convention) it carries no aperture: the beam is the
+%       paraxial entrance pupil and the pupil aberration at the stop is
+%       accepted; with p.stop_clips true it is ApType= Circular at the stop
+%       semi-diameter and clips.
 %     * Clear apertures: ApType= Circular, ApVec = [semidia 0 0] on every
 %       surface (p / L.semidia; E.semidia records them).
 %     * The source: collimated (zSource 1e22), Aperture = P.D (the paraxial
@@ -36,7 +40,7 @@ arguments
     P struct
     p struct
     path (1,:) char
-    opt struct = struct()     % CALIB block (see iodc2010_search): .fields_deg .max_iters .var_surf .var_fp .tol
+    opt struct = struct()     % CALIB block (see iodc2010_solve): .fields_deg .max_iters .var_surf .var_fp .var_stop .tol .ray_grid .standoff
 end
 N = L.N;
 do_opt = ~isempty(fieldnames(opt));
@@ -58,9 +62,19 @@ key = [items.z] + 1e-9 * strcmp({items.kind}, 'surf');   % stop first at equal z
 z_img = P.z_img;
 z_xp0 = P.z_xp;  if ~isfinite(z_xp0), z_xp0 = z_img - 1e6; end
 
-% ---- the source start: well in front of the first element
+% ---- the source start: well in front of the first element.  A CALIB deck
+%      backs off further (opt.standoff, default the lens's whole length): the
+%      solve moves surfaces, and a first surface that walks upstream PAST the
+%      source plane loses every ray of that field (the R = 130 item of the
+%      first ladder, run down 2026-10-30: the off-axis chief rows started
+%      100 mm ahead of the seed's pupil and the solve moved surface 1 by 31 mm).
 z_front = min([L.z, L.stop(1)]);
-z_src   = min(P.z_ep, z_front) - p.src_standoff_mm;
+standoff = p.src_standoff_mm;
+if do_opt
+    if isfield(opt, 'standoff') && ~isempty(opt.standoff), standoff = opt.standoff;
+    else, standoff = max(p.src_standoff_mm, z_img - z_front); end
+end
+z_src   = min(P.z_ep, z_front) - standoff;
 
 lam_mm = p.lambda_nm * 1e-6;
 nm = @(s) sprintf('%.15E', s);
@@ -103,10 +117,11 @@ if do_opt
     w('       OptMaxItrs=  %d', opt.max_iters);
     if isfield(opt, 'tol') && ~isempty(opt.tol), w('           OptTol=  %s', nm(opt.tol)); end
     w('           OptFEX=  Yes');
+    if isfield(opt, 'ray_grid') && ~isempty(opt.ray_grid), w('       OptRayGrid=  %d', opt.ray_grid); end
     fo = opt.fields_deg(opt.fields_deg > 0);
     for th = fo(:).'
         d  = [0 sin(deg2rad(th)) cos(deg2rad(th))];
-        cp = [0 0 P.z_ep] - p.src_standoff_mm * d;
+        cp = [0 0 P.z_ep] - ((P.z_ep - z_src) / d(3)) * d;     % every field starts ON the source plane
         w('     OptChfRayDir=  %s  %s  %s', nm(d(1)), nm(d(2)), nm(d(3)));
         w('     OptChfRayPos=  %s  %s  %s', nm(cp(1)), nm(cp(2)), nm(cp(3)));
     end
@@ -179,9 +194,16 @@ for it = 1:numel(items)
             w('             nObs=  0');
             if do_opt
                 w('           ApStop=  0.0E+00  0.0E+00');   % element-bound stop: re-aimed every trace
+                if isfield(opt, 'var_stop') && opt.var_stop
+                    w('           VarElt=  0 0 0 0 0 1 0 0');     % the stop's axial position
+                end
             end
-            w('           ApType=  Circular');
-            w('            ApVec=  %s  0.0E+00  0.0E+00', nm(L.stop(2)));
+            if isfield(p, 'stop_clips') && p.stop_clips
+                w('           ApType=  Circular');
+                w('            ApVec=  %s  0.0E+00  0.0E+00', nm(L.stop(2)));
+            else
+                w('           ApType=  None');          % the paraxial stop: nothing clips here
+            end
             w('         PropType=  Geometric');
             w('             zElt=  1.0E+22');
             w('          nECoord=  -6');

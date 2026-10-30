@@ -6,7 +6,7 @@ function R = iodc2010_run(varargin)
 %                                            independent tracer on the gate lens
 %   R = iodc2010_run('nGridpts', 45, ...)    any iodc2010_params field
 %
-%   Stages ('stage' = 'evaluate' | 'gate' | 'search' | 'all'):
+%   Stages ('stage' = 'evaluate' | 'gate' | 'search' | 'outer' | 'all'):
 %     evaluate  iodc2010_score on each lens: deck, paraxial EFL check, aperture
 %               sizing, field scan, bisection, report (<name>_report.txt), the
 %               CODE V .seq beside it
@@ -17,6 +17,12 @@ function R = iodc2010_run(varargin)
 %     search    iodc2010_search: CALIB solves the spacings of the symmetric pair
 %               over a radius x stop scan, each candidate scaled to EFL 100 and
 %               scored by the metric; the best is reported
+%     outer     iodc2010_outer: the outer design loop -- Petzval-balanced sign
+%               patterns x seed spacings x stop places for p.outer.n_elts
+%               elements, pre-screened by the evaluator, solved by CALIB in
+%               rounds with a thickness floor, scored, the best re-solved over
+%               a (D, theta) ladder, and every point mapped against the
+%               published top ten (search/outer/)
 %
 %   A user edits iodc2010_params.m, or the lens list in bundled_lenses(),
 %   and re-runs.  Nothing ends in exit(0): run it interactively or wrap it.
@@ -34,7 +40,7 @@ for i = 1:numel(fn)
 end
 here = fileparts(mfilename('fullpath'));
 addpath(here);
-if ~exist('macos.init', 'file')
+if isempty(which('macos.init'))          % exist() is 0 for a package function; which() finds it
     addpath(fullfile(fileparts(fileparts(here)), 'src'));
 end
 if ~exist(p.outdir, 'dir'), mkdir(p.outdir); end
@@ -73,6 +79,13 @@ if any(strcmp(ip.Results.stage, {'search', 'all'}))
         fprintf('search best: %s  D %.3f x %.2f deg = %.1f (%s)\n', b.lens.name, b.score.D_mm, ...
             b.score.theta_lim_deg, b.score.merit, b.score.limit_reason);
     end
+end
+if any(strcmp(ip.Results.stage, {'outer', 'all'}))
+    po = p;  po.outdir = fullfile(p.outdir, 'search', 'outer');
+    if ~exist(po.outdir, 'dir'), mkdir(po.outdir); end
+    oa = namedargs2cell(p.outer);
+    R.outer = iodc2010_outer(po, oa{:});
+    fprintf('outer loop best merit %.1f; tables and the (D, theta) map in %s\n', R.outer.best_merit, po.outdir);
 end
 end
 

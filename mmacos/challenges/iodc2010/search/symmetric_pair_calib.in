@@ -4,7 +4,7 @@
 % Scoring convention: challenges/iodc2010/README.md (the metric is stated before the number).
 % Source Definition
         ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
-        ChfRayPos=  0.0E+00  0.0E+00  -1.000000000000000E+02
+        ChfRayPos=  0.0E+00  0.0E+00  -2.095312936842379E+02
           zSource=  1.0E+22
         BaseUnits=  mm
         WaveUnits=  nm
@@ -23,9 +23,9 @@
        OptMaxItrs=  30
            OptFEX=  Yes
      OptChfRayDir=  0.000000000000000E+00  2.617694830787315E-02  9.996573249755573E-01
-     OptChfRayPos=  0.000000000000000E+00  -2.617694830787315E+00  -2.521955577510391E+01
+     OptChfRayPos=  0.000000000000000E+00  -7.444067543956437E+00  -2.095312936842379E+02
      OptChfRayDir=  0.000000000000000E+00  5.233595624294383E-02  9.986295347545738E-01
-     OptChfRayPos=  0.000000000000000E+00  -5.233595624294384E+00  -2.511677675300558E+01
+     OptChfRayPos=  0.000000000000000E+00  -1.489835092421508E+01  -2.095312936842379E+02
          OptFOVWt=  1 1 1
 % Element Definitions
              nElt=  8
@@ -85,8 +85,7 @@
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApStop=  0.0E+00  0.0E+00
-           ApType=  Circular
-            ApVec=  7.000000000000000E+00  0.0E+00  0.0E+00
+           ApType=  None
          PropType=  Geometric
              zElt=  1.0E+22
           nECoord=  -6
