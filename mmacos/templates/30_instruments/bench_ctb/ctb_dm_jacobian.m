@@ -43,7 +43,8 @@ function out = ctb_dm_jacobian(opts)
 %
 %   out: G (npix x ncol complex single), col_dm/col_act (column maps),
 %   dz_idx (linear FPA indices), E0_dz, peak_bare, lamD_px, center_px,
-%   dm (model geometry per DM), h_mm, config, timing.
+%   dm (model geometry per DM), h_mm, config, timing, rx and elt (the
+%   deck and its station map: ctb_efc rebuilds the chain from them).
 %
 %   The .mat is the EFC input; it is fingerprinted (jac_fingerprint) and
 %   the full array is gitignored above ~10 MB by the bench_ctb policy --
@@ -150,7 +151,7 @@ function out = ctb_dm_jacobian(opts)
         'dm',dmgeo, 'h_mm',h, 'inner_lamD',opts.inner_lamD, ...
         'outer_lamD',opts.outer_lamD, 'region',opts.region, 'contrast0',c0, ...
         'chain_opts',{ch.config}, 'a0',{opts.a0}, 'tag',opts.tag, ...
-        'rx',ch.rx, 'fd','central', 'cbm',cbm, 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
+        'rx',ch.rx, 'elt',ch.elt, 'fd','central', 'cbm',cbm, 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
     if opts.save
         tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
         mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d%s.mat', ch.N, tg));

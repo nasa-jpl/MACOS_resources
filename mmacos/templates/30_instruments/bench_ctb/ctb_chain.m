@@ -19,6 +19,12 @@ function ch = ctb_chain(opts)
 %     'apodizer','fpm','lyot'  individual mask switches (true)
 %     'r_fpm_lamD'    FPM occulter radius, lambda/D (2.70)
 %     'r_apod_m','r_apod_taper_m','r_lyot_frac'  mask params
+%     'r_lyot_inner_frac'  a central Lyot blocker, radius as a fraction of
+%                     the bare geometric pupil radius (0 = none, the
+%                     bench's plain disk).  For a pupil with a central
+%                     obscuration (a telescope's secondary) the occulter
+%                     throws the shadow's diffraction into the Lyot plane
+%                     around the shadow's image; the blocker takes it.
 %
 %   ch fields:
 %     .run()        -> E at the FPA (N x N complex) through the masked
@@ -49,6 +55,7 @@ function ch = ctb_chain(opts)
         opts.r_apod_m        (1,1) double = 15e-3
         opts.r_apod_taper_m  (1,1) double = 2e-3
         opts.r_lyot_frac     (1,1) double = 0.50
+        opts.r_lyot_inner_frac (1,1) double {mustBeNonnegative} = 0
         opts.vortex_K        (1,1) double {mustBeInteger,mustBePositive} = 8
         opts.lam_m           (1,1) double {mustBeNonnegative} = 0
         opts.fpm_defect_lamD   (1,1) double {mustBeNonnegative} = 0
@@ -126,6 +133,10 @@ function ch = ctb_chain(opts)
     if opts.lyot
         masks.L = ctb_mask_disk(N, abs(macos.dx_at(e.Lyot)), ...
                                 opts.r_lyot_frac * r_lyot_geom_m, 8);
+        if opts.r_lyot_inner_frac > 0                         % annular stop: the central blocker
+            masks.L = masks.L .* (1 - ctb_mask_disk(N, abs(macos.dx_at(e.Lyot)), ...
+                                                     opts.r_lyot_inner_frac * r_lyot_geom_m, 8));
+        end
     end
     masks.dx_f = dx_f;  masks.lamD_fpm_m = lamD_fpm_m;
     masks.r_lyot_geom_m = r_lyot_geom_m;
@@ -137,6 +148,7 @@ function ch = ctb_chain(opts)
         'apodizer', opts.apodizer, 'fpm', opts.fpm, 'lyot', opts.lyot, ...
         'r_fpm_lamD', opts.r_fpm_lamD, 'r_apod_m', opts.r_apod_m, ...
         'r_apod_taper_m', opts.r_apod_taper_m, 'r_lyot_frac', opts.r_lyot_frac, ...
+        'r_lyot_inner_frac', opts.r_lyot_inner_frac, ...
         'vortex_K', opts.vortex_K, 'lam_m', opts.lam_m, ...
         'fpm_defect_lamD', opts.fpm_defect_lamD, ...
         'fpm_incl_lamD', opts.fpm_incl_lamD, ...

@@ -274,6 +274,9 @@ P.coro = struct( ...
     ...                         % rotates each OAP's off-axis direction
     ...                         % against the telescope's anamorphic beam:
     ...                         % measured 4.691 vs 4.716 mm at 10")
+    'lyot_inner', [0 0.08 0.12 0.16 0.20], ...  % stage 9: the central
+    ...                         % Lyot blocker's radius, pupil radii,
+    ...                         % scanned against the secondary's shadow
     'pick', struct( ...         % the stage's pick of 2026-10-29 (its
     ...                         % report lists every candidate); the test
     ...                         % tE2eCoroFold replays THIS one
