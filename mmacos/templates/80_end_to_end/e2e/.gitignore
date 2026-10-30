@@ -16,3 +16,15 @@ ctb_efc_e2e_coupled.png
 ctb_dm_jacobian_N512_e2e_coupled_r1.mat
 ctb_efc_e2e_coupled_r1.mat
 ctb_efc_e2e_coupled_r1.png
+s10_report.txt
+s10_probe.png
+s10_efc.png
+s10_run.mat
+ctb_efc_e2e_sens.mat
+ctb_efc_e2e_sens.png
+ctb_efc_e2e_sens_r1.mat
+ctb_efc_e2e_sens_r1.png
+ctb_efc_e2e_sens_ph.mat
+ctb_efc_e2e_sens_ph.png
+ctb_efc_e2e_sens_def.mat
+ctb_efc_e2e_sens_def.png

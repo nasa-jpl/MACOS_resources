@@ -281,4 +281,41 @@ P.coro = struct( ...
     ...                         % report lists every candidate); the test
     ...                         % tE2eCoroFold replays THIS one
         'fold_m', 0.3, 'tilt_deg', 8, 'sign', 1, 'flip_at', 4, 'scale', 1));
+
+% ================= stage 10: sensing the coupled dark zone =================
+% Pairwise probing (the CTB's ctb_probe_estimate, Give'on 2011) on the
+% stage-9 model: the dark-zone field estimated from probe images only,
+% scored against the engine's true field, and EFC closed on the estimate
+% against stage 9's perfect-sensing record (PLAN_CONSOLIDATION 3a, Dave
+% 2026-10-28: "then pairwise probing on the coupled system").
+P.sens = struct( ...
+    'npairs',     3, ...        % probe pairs per estimate (ctb_probe_estimate)
+    'amp_rel',    [0.1 0.3 1 3], ... % probe amplitudes, multiples of the
+    ...                         % default (the speckle level); the stage
+    ...                         % PICKS the largest still under rel_err_max
+    ...                         % noiseless and runs the rest at it (the
+    ...                         % default rule is 0.9 rad on this halo)
+    'photons',    [0 1e10 1e8 1e6], ... % per image at the bare peak; 0 =
+    ...                         % noiseless (the manual's ch08d sweep)
+    'photons_efc', 1e10, ...    % the count the probed EFC loop runs at:
+    ...                         % 1e8 (the bench's) is 50 photons per
+    ...                         % speckle pixel on this halo, too few for
+    ...                         % any linear probe (s10 [2])
+    'niter',      20, ...       % EFC iterations, stage 9's
+    'alphas',     logspace(-6, 0, 7), ... % stage 9's grid (to 1: the
+    ...                         % brighter halo's first step is nonlinear)
+    'rel_err_max', 0.10, ...    % gate: noiseless estimate at the pick vs
+    ...                         % the true field (the bench measures 3.8 %
+    ...                         % at ITS default, ch08d)
+    'lin_err_max', 0.01, ...    % gate: the smallest probe of the sweep
+    ...                         % estimates the field within this (the
+    ...                         % Jacobian predicts the probes; the probe-
+    ...                         % intensity ratio is NOT the meter on the
+    ...                         % telescope: a 22 % second-order offset)
+    'dug_floor_frac', 0.25, ... % gate: at the dug state the estimation
+    ...                         % floor is below this fraction of the field
+    'efc_ratio_max', 1.5, ...   % gate: EFC on the estimate ends within
+    ...                         % this factor of perfect sensing's end
+    'photon_ratio_max', 2.0);   % gate: at photons_efc, within this factor
+                                % of the noiseless estimate's end
 end

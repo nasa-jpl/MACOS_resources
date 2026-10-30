@@ -31,6 +31,14 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
 %                 [] (default) sets it so the probes' mean model intensity
 %                 on the dark zone equals the mean of I_0 (the speckle
 %                 level); EST.probe_nm reports the value used.
+%     'probe_rel' a multiple of that default amplitude (1): the probe
+%                 follows the field as the default does, scaled.  The
+%                 default rule puts a 0.23 rad probe on the bench's 3e-7
+%                 halo (9 nm, the knee of the amplitude sweep) but a 0.9
+%                 rad one on a 5e-7 halo behind a telescope (37 nm), where
+%                 the probe's second-order response leaves the estimate 47 %
+%                 off the field; 0.3 there is the bench's regime (e2e stage
+%                 10).  Ignored when 'probe_nm' is given.
 %     'probes'    explicit probe shapes, [nact^2 x npairs] on the probe DM
 %                 (scaled to peak 1, then by 'probe_nm').  [] (default) =
 %                 sinc-sine probes after Give'on: a narrow row in y (so
@@ -59,7 +67,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
 %   the histogram), amp_err / phase_err (per pixel), c_true / c_est (mean
 %   contrast of each), ratio (1 x npairs diagnostic), cond2 (per-pixel
 %   2x2 conditioning), I0 / Ip / Im (images, dark-zone vectors), dE,
-%   probes, probe_nm, photons, nruns.
+%   probes, probe_nm, probe_rel, photons, nruns.
 %
 %   Run:  >> est = ctb_probe_estimate(ch, J, {});
 %   See also: ctb_probe_solve, ctb_efc, ctb_dm_jacobian, ctb_chain.
@@ -69,6 +77,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
         a0  cell = {}
         opts.npairs   (1,1) double {mustBeInteger, mustBeGreaterThanOrEqual(opts.npairs, 2)} = 3
         opts.probe_nm double {mustBeScalarOrEmpty, mustBePositive} = []
+        opts.probe_rel (1,1) double {mustBePositive} = 1
         opts.probes   double = []
         opts.probe_dm (1,1) double {mustBeInteger, mustBePositive} = 1
         opts.photons  (1,1) double {mustBeNonnegative} = 0
@@ -135,7 +144,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
     I0 = noisy_(abs(E_true).^2, pb, opts.photons, rs);
 
     if isempty(opts.probe_nm)
-        A = sqrt(mean(I0) / mean(abs(dE1).^2, 'all'));   % mm, peak stroke
+        A = opts.probe_rel * sqrt(mean(I0) / mean(abs(dE1).^2, 'all'));   % deck units, peak stroke
     else
         A = opts.probe_nm / u_nm;
     end
@@ -165,7 +174,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
         'phase_err', angle(E_hat .* conj(E_true)), ...
         'c_true', mean(abs(E_true).^2) / pb, 'c_est', mean(abs(E_hat).^2) / pb, ...
         'ratio', ratio, 'cond2', cond2, 'I0', I0, 'Ip', Ip, 'Im', Im, ...
-        'dE', dE, 'probes', A * S, 'probe_nm', A * u_nm, ...
+        'dE', dE, 'probes', A * S, 'probe_nm', A * u_nm, 'probe_rel', opts.probe_rel, ...
         'photons', opts.photons, 'nruns', nruns, 'dz_idx', dz, 'peak_bare', pb);
 end
 
