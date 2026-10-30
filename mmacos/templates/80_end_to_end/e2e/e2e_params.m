@@ -220,4 +220,62 @@ P.sim = struct( ...
     'walk_rot',   2e-8, ...     % random-walk step, rad (rigid rot)
     'walk_trans', 2e-8, ...     % random-walk step, m (rigid trans)
     'grid_nm_rms', 5);          % per-segment figure drift, nm RMS
+
+% ================= stage 8: the coronagraph channel =================
+% The CTB coronagraph (templates/30_instruments/bench_ctb, its parameter
+% block read at run time) behind the stage-2 telescope, as the mmacos
+% manual's chapter 2 drew it unfolded ("case C"), then FOLDED into the
+% telescope's own launch envelope (PLAN_CONSOLIDATION 3a, Dave 2026-10-28)
+% under the design drivers: every fold under 15 deg of incidence, a
+% numeric clearance, a small relay.  s8_coronagraph scans the knobs below
+% and picks the first relay scale at which a candidate clears every gate.
+P.coro = struct( ...
+    'dm1_m',        NaN, ...    % OAP1 -> DM1 (m): NaN = the telescope
+    ...                         % stop's image, measured (case C)
+    'shroud_grow_m', 0, ...     % the gate: the telescope's own hardware
+    ...                         % union radius (shroud_deck) plus this;
+    ...                         % 0 = the instrument adds nothing
+    'fold_m',    [0.2 0.3 0.4 0.6], ... % the added fold's station, m
+    ...                         % before the focus on the converging feed
+    'tilt_deg',  [8 10 14], ... % its deviation from retro, out of the
+    ...                         % bench plane toward +z (AOI = half)
+    'signs',     [1 -1], ...    % the accordion's first turn sense
+    'flip_at',   [0 3 4 5], ... % invert the turn pattern after this CTB
+    ...                         % turn (0 = never): the drift reverses
+    'plane_deg', 90, ...        % the accordion's plane: 90 = vertical
+    ...                         % through the feed (drift in z), 0 = the
+    ...                         % bench plane (the template's zigzag)
+    'scales',    [1 0.75 0.5], ...  % relay scale, tried in this order;
+    ...                         % 1 = the CTB's relay as built
+    'shroud_min_m', 0.10, ...   % gate: the CTB's bodies stay this far
+    ...                         % inside the gate radius
+    'clear_min_m', 0.020, ...   % gate: every CTB leg-vs-body and every
+    ...                         % telescope leg vs CTB body >= 20 mm, and
+    ...                         % the CTB's own legs vs its own bodies
+    'z_floor_m',  0.30, ...     % gate: no CTB body below the bench plane
+    'keepout_m',  0.60, ...     % Dave's keep-out behind the PM vertex
+    ...                         % (reported as a margin, the bench itself
+    ...                         % sits inside it at fold_frac*D)
+    'aoi_max_deg', 15, ...      % the coronagraph AOI rule
+    'ring_as',    10, ...       % the walk ring (arcsec): the widest the
+    ...                         % chapter passed every ray through
+    'clear_as',   1.0, ...      % the field (arcsec, ring radius) the
+    ...                         % clearance bodies and legs are sized over:
+    ...                         % the coronagraph's own field, twice its
+    ...                         % 20 lambda/D dark zone (the 10" walk ring
+    ...                         % would size every mask body 20x too big)
+    'edge_lamD',  8, ...        % the CTB's dark-zone edge, lambda/D
+    'edge_as',    0.206, ...    % that edge on this telescope, arcsec
+    ...                         % (8 x 25.78 mas)
+    'wfe_tol_waves', 2e-4, ...  % gate: folded == unfolded wavefront
+    'walk_tol_m',    5e-5, ...  % gate: folded == unfolded DM2 walk to 1 %
+    ...                         % (a flat fold is an isometry, but turning
+    ...                         % the accordion into the vertical plane
+    ...                         % rotates each OAP's off-axis direction
+    ...                         % against the telescope's anamorphic beam:
+    ...                         % measured 4.691 vs 4.716 mm at 10")
+    'pick', struct( ...         % the stage's pick of 2026-10-29 (its
+    ...                         % report lists every candidate); the test
+    ...                         % tE2eCoroFold replays THIS one
+        'fold_m', 0.3, 'tilt_deg', 8, 'sign', 1, 'flip_at', 4, 'scale', 1));
 end
