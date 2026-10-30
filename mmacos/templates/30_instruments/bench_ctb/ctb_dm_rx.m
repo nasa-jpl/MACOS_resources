@@ -27,7 +27,10 @@ function out = ctb_dm_rx(opts)
 %                GridFile= against the cwd at load time)
 %
 %   out: rx_out, dms, ielt (per DM), ng, gdx_mm (per DM), span_mm (per
-%   DM), gridfile.
+%   DM), gridfile, cbm (the deck's base unit in metres, from its
+%   BaseUnits= line: 1e-3 for the hand decks; 1 for a deck in metres such
+%   as the e2e telescope with the CTB behind it.  The *_mm fields are in
+%   the DECK'S unit, whatever it is; the consumers scale by cbm).
 %
 %   Run:  >> out = ctb_dm_rx;
 %   See also: ctb_dm, macos.elt_grid_add, macos.design.grid_augment_rx.
@@ -52,6 +55,17 @@ function out = ctb_dm_rx(opts)
                  "pData" "xData" "yData" "zData" "lData"];
 
     L = splitlines(string(fileread(opts.rx_in)));
+    bu = regexp(char(strjoin(L, newline)), '(?m)^\s*BaseUnits=\s*(\S+)', 'tokens', 'once');
+    if isempty(bu), cbm = 1;                  % no BaseUnits: the engine's factor is 1
+    else
+        switch lower(bu{1})
+            case 'mm',          cbm = 1e-3;
+            case 'cm',          cbm = 1e-2;
+            case 'm',           cbm = 1;
+            case {'in','inch'}, cbm = 25.4e-3;
+            otherwise, error('ctb_dm_rx: unknown BaseUnits %s', bu{1});
+        end
+    end
     outL = strings(0, 1);
     indm = false;  cur = struct();  dmn = 0;
     ielt = zeros(1, numel(opts.dms));
@@ -135,7 +149,7 @@ function out = ctb_dm_rx(opts)
 
     out = struct('rx_out',opts.rx_out, 'dms',{cellstr(names)}, 'ielt',ielt, ...
                  'ng',opts.ng, 'gdx_mm',gdx_mm, 'span_mm',span_mm, ...
-                 'gridfile',gf);
+                 'gridfile',gf, 'cbm',cbm);
     fprintf('[ctb_dm_rx] %s: %s at iElt [%s], ng=%d, gdx=[%s] mm\n', ...
         opts.rx_out, strjoin(cellstr(names), ','), num2str(ielt), ...
         opts.ng, num2str(gdx_mm, '%.4g '));

@@ -92,6 +92,17 @@ function info = ctb_prop_layout(opts)
 %     'verify'    load each deck, compare the chief ray against the bare
 %                 deck at every real optic, and check the PSF centring
 %                                                              (default true)
+%     'lead'      elements BEFORE the CTB's first station, copied verbatim
+%                 (default 0: the bare bench).  A telescope with the CTB
+%                 spliced behind it (e2e stage 8, s8_fold_full.in: the
+%                 telescope, its fold F0, then OAP1..FPA) passes the count
+%                 of its own elements here; the 17 CTB stations must
+%                 follow them in order.  Every inserted surface is still
+%                 placed on the traced chief, now the telescope's, and
+%                 the focus spheres are FEX'd through the whole train.
+%     'stem'      output deck stem (default '' = ctb_dcr / ctb_s2s_dcr by
+%                 variant; with a stem given, '<stem>' for compact and
+%                 '<stem>_s2s' for full, suffix appended)
 %
 %   Returns a struct array, one entry per generated deck:
 %     .name    'compact' | 'full'
@@ -113,6 +124,8 @@ function info = ctb_prop_layout(opts)
         opts.ngridpts (1,1) double {mustBeInteger,mustBePositive} = 255
         opts.model    (1,1) double {mustBeInteger,mustBePositive} = 512
         opts.verify   (1,1) logical = true
+        opts.lead     (1,1) double {mustBeInteger,mustBeNonnegative} = 0
+        opts.stem     (1,:) char   = ''
     end
 
     here = fileparts(mfilename('fullpath'));
@@ -136,6 +149,7 @@ function info = ctb_prop_layout(opts)
            'OAP7','optic'; 'Backend','marker'; 'OAP8','optic'
            'FPA','image' };
     name = ST(:,1).';  kind = ST(:,2).';  nST = numel(name);
+    lead = opts.lead;                           % station k is element lead+k
 
     % ------------------------------------------------------------------
     % 1) Chief-ray pierce at every station.
@@ -146,16 +160,34 @@ function info = ctb_prop_layout(opts)
     % ------------------------------------------------------------------
     macos.init(opts.model);
     nE = macos.load_rx(opts.src);
-    assert(nE == nST, 'expected a %d-station bare deck, got %d', nST, nE);
+    assert(nE == lead + nST, 'expected a %d-station bare deck (%d leading elements + %d), got %d', ...
+           lead + nST, lead, nST, nE);
     cp = zeros(3, nST);
     for k = 1:nST
-        s  = macos.trace(k);
+        s  = macos.trace(lead + k);
         ri = macos.get_ray_info(s.nRays);
-        assert(all(ri.ok_trace & ri.ok_pass), ...
-            '%s: station %d (%s) vignettes', opts.src, k, name{k});
+        if lead == 0
+            assert(all(ri.ok_trace & ri.ok_pass), ...
+                '%s: station %d (%s) vignettes', opts.src, k, name{k});
+        else
+            % behind a telescope the secondary's shadow and the primary's
+            % hole stop rays by design -- the chief ray among them (it is
+            % the one the secondary's shadow is centred on); the engine
+            % carries its geometry on, so it still places every surface
+            assert(ri.ok_trace(1), ...
+                '%s: the chief ray is not traced to station %d (%s)', opts.src, k, name{k});
+        end
         cp(:,k) = ri.pos(:,1);
     end
-    uin = @(k) unit_(cp(:,k) - cp(:,k-1));     % beam direction arriving at k
+    % the beam direction arriving at station 1 comes from the element before
+    % it (the telescope's last mirror) when there is one, else it is unknown
+    % and station 1 is never asked for it
+    if lead > 0
+        s = macos.trace(lead);  ri = macos.get_ray_info(s.nRays);  cp0 = ri.pos(:,1);
+    else
+        cp0 = [];
+    end
+    uin = @(k) unit_(cp(:,k) - prev_(cp, cp0, k));   % beam direction arriving at k
 
     % ------------------------------------------------------------------
     % 2) Leg numbering.  Walk the gaps from DM1 onward; every gap consumes
@@ -176,10 +208,11 @@ function info = ctb_prop_layout(opts)
     % ------------------------------------------------------------------
     blocks = split_elements_(fileread(opts.src));
     hdr = blocks{1};  foot = blocks{end};  ebl = blocks(2:end-1);
+    pre = ebl(1:lead);  ebl = ebl(lead+1:end);  % the leading elements, verbatim
     tmpd = tempname;  mkdir(tmpd);
     R = struct();
     for k = find(strcmp(kind,'focus'))
-        R.(name{k}) = fex_radius_(hdr, foot, ebl, k, cp(:,k), uin(k), ...
+        R.(name{k}) = fex_radius_(hdr, foot, [pre, ebl], lead + k, cp(:,k), uin(k), ...
                                   0.5*norm(cp(:,k) - cp(:,k-1)), ...
                                   name{k}, opts.model, tmpd);
         fprintf('[ctb_prop_layout] %-10s exit-pupil radius = %.10f (FEX)\n', ...
@@ -196,19 +229,28 @@ function info = ctb_prop_layout(opts)
     info = struct('name',{},'out',{},'nElt',{},'ix',{},'R',{},'chk',{});
     for v = 1:numel(vs)
         info(v) = emit_variant_(vs{v}, hdr, foot, ebl, name, kind, leg, ...
-                                cp, R, opts);   %#ok<AGROW>
+                                cp, R, opts, pre);   %#ok<AGROW>
+    end
+end
+
+function p = prev_(cp, cp0, k)
+%PREV_  The chief pierce before station k (the leading train's last element for k = 1).
+    if k > 1, p = cp(:,k-1);
+    else
+        assert(~isempty(cp0), 'ctb_prop_layout: station 1 has no element before it');
+        p = cp0;
     end
 end
 
 % ======================================================================
 function e = emit_variant_(variant, hdr, foot, ebl, name, kind, leg, ...
-                           cp, R, opts)
+                           cp, R, opts, pre)
 %EMIT_VARIANT_  Assemble, write, FEX the terminal, rewrite, verify.
     nST = numel(name);
     uin = @(k) unit_(cp(:,k) - cp(:,k-1));
     Z_PLANE = 1.0e22;   KR_FLAT = -1.0e22;
 
-    B  = {};                                  % emitted blocks, light order
+    B  = pre;                                 % emitted blocks, light order (the leading train first)
     for k = 1:nST
         switch kind{k}
             case 'focus'
@@ -270,6 +312,9 @@ function e = emit_variant_(variant, hdr, foot, ebl, name, kind, leg, ...
     switch variant
         case 'compact', stem = 'ctb_dcr';
         case 'full',    stem = 'ctb_s2s_dcr';
+    end
+    if ~isempty(opts.stem)
+        stem = opts.stem;  if strcmp(variant, 'full'), stem = [stem '_s2s']; end
     end
     out = fullfile(opts.outdir, sprintf('%s%s.in', stem, opts.suffix));
     write_deck_(out, hdr, B, foot, opts.ngridpts);

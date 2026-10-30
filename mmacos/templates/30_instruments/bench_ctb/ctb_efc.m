@@ -132,6 +132,8 @@ function out = ctb_efc(opts)
         return
     end
 
+    cbm = 1e-3;  if isfield(J, 'cbm'), cbm = J.cbm; end     % the deck's base unit, m
+    u_nm = 1e9 * cbm;                                          % deck units -> nm
     G = double(J.G);
     % REAL-stacked system: DM commands are real, so the complex least
     % squares must be solved as [Re G; Im G] da = -[Re e; Im e].  (A
@@ -182,7 +184,7 @@ function out = ctb_efc(opts)
         fprintf('[efc] PLANT LSB dither %.2f nm (seed %d) -- controller stays continuous\n', ...
                 opts.quant_nm, opts.quant_seed);
     end
-    papply_(dm, a, opts.quant_nm);
+    papply_(dm, a, opts.quant_nm, u_nm);
     E = ch.run();
     E_before = E;
     contrast = zeros(1, opts.niter + 1);
@@ -219,7 +221,7 @@ function out = ctb_efc(opts)
                 sel = dmof == k;
                 at{k}(J.col_act(sel)) = at{k}(J.col_act(sel)) + da(sel);
             end
-            papply_(dm, at, opts.quant_nm);
+            papply_(dm, at, opts.quant_nm, u_nm);
             Et = ch.run();
             c = mean(abs(Et(dz)).^2) / pb;
             if c < best.c
@@ -232,7 +234,7 @@ function out = ctb_efc(opts)
             contrast = contrast(1:it);
             alpha_used = alpha_used(1:it-1);
             % restore best-so-far state
-            papply_(dm, a, opts.quant_nm);
+            papply_(dm, a, opts.quant_nm, u_nm);
             E = ch.run();
             break;
         end
@@ -240,16 +242,16 @@ function out = ctb_efc(opts)
         E = best.E;
         contrast(it+1) = best.c;
         alpha_used(it) = best.alpha;
-        str_nm = cellfun(@(x) 1e6 * rms(x(x~=0)), a);
+        str_nm = cellfun(@(x) u_nm * rms(x(x~=0)), a);
         fprintf('[efc] iter %d: contrast %.3e (alpha %.1e, stroke rms [%s] nm)\n', ...
             it, best.c, best.alpha, num2str(str_nm, '%.2f '));
-        if any(cellfun(@(x) 1e6*max(abs(x)), a) > opts.stroke_warn_nm)
+        if any(cellfun(@(x) u_nm*max(abs(x)), a) > opts.stroke_warn_nm)
             warning('ctb_efc:stroke', 'actuator stroke exceeds %g nm', ...
                 opts.stroke_warn_nm);
         end
     end
     % ensure engine state = final commands (line search may have left a trial)
-    papply_(dm, a, opts.quant_nm);
+    papply_(dm, a, opts.quant_nm, u_nm);
     E_after = ch.run();
     c_final = mean(abs(E_after(dz)).^2) / pb;
     fprintf('[efc] final: %.3e -> %.3e (%.1fx) in %d iterations\n', ...
@@ -265,7 +267,7 @@ function out = ctb_efc(opts)
         'quant_nm',opts.quant_nm, 'quant_seed',opts.quant_seed, ...
         'contrast_est',contrast_est(1:numel(contrast)), ...
         'est_floor',est_floor(1:numel(contrast)), 'sensing',{opts.sensing});
-    stroke_rms_nm = cellfun(@(x) 1e6 * rms(x(x~=0)), a);
+    stroke_rms_nm = cellfun(@(x) u_nm * rms(x(x~=0)), a);
     out.stroke_rms_nm = stroke_rms_nm;
     if opts.save
         tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
@@ -276,7 +278,7 @@ function out = ctb_efc(opts)
 end
 
 % ======================================================================
-function papply_(dm, cmd, quant_nm)
+function papply_(dm, cmd, quant_nm, u_nm)
 %PAPPLY_  Apply a command to the PLANT, with optional LSB dither (Lane 2e).
 %   quant_nm > 0 adds fresh U(+/-quant_nm/2) nm noise per actuator (DM
 %   electronics LSB noise, Ruane 2020; commands are mm so nm*1e-6).  The
@@ -285,7 +287,7 @@ function papply_(dm, cmd, quant_nm)
     for k = 1:numel(dm)
         c = cmd{k};
         if quant_nm > 0
-            c = c + (rand(size(c)) - 0.5) * quant_nm * 1e-6;
+            c = c + (rand(size(c)) - 0.5) * quant_nm / u_nm;
         end
         dm{k}.apply(c);
     end

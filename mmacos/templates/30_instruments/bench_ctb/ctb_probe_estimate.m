@@ -106,6 +106,8 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
     assert(numel(a0) == ndm, 'ctb_probe_estimate: A0 needs one command per DM (%d)', ndm);
 
     dz = J.dz_idx;  pb = J.peak_bare;
+    cbm = 1e-3;  if isfield(J, 'cbm'), cbm = J.cbm; end     % the deck's base unit, m
+    u_nm = 1e9 * cbm;                                          % deck units -> nm
     sel = dmof == opts.probe_dm;
     Gp  = double(J.G(:, sel));               % probe DM's columns
     cact = J.col_act(sel);                    % their actuator indices
@@ -135,7 +137,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
     if isempty(opts.probe_nm)
         A = sqrt(mean(I0) / mean(abs(dE1).^2, 'all'));   % mm, peak stroke
     else
-        A = opts.probe_nm * 1e-6;
+        A = opts.probe_nm / u_nm;
     end
     dE = A * dE1;
     Ip = zeros(numel(dz), K);  Im = Ip;
@@ -163,7 +165,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
         'phase_err', angle(E_hat .* conj(E_true)), ...
         'c_true', mean(abs(E_true).^2) / pb, 'c_est', mean(abs(E_hat).^2) / pb, ...
         'ratio', ratio, 'cond2', cond2, 'I0', I0, 'Ip', Ip, 'Im', Im, ...
-        'dE', dE, 'probes', A * S, 'probe_nm', A * 1e6, ...
+        'dE', dE, 'probes', A * S, 'probe_nm', A * u_nm, ...
         'photons', opts.photons, 'nruns', nruns, 'dz_idx', dz, 'peak_bare', pb);
 end
 
