@@ -1,0 +1,49 @@
+base,name,D_target,theta_design,solve_stop,rounds,R,oal,D,theta,merit,limit,ok
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D4_t3,4,3,rounds,4,11.6294886007726,20.3277858477453,3.80764793527969,0.2421875,0.92216473432555,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D4_t6,4,6,rounds,4,11.7821112073564,18.1854134024381,3.56239577181983,0.234375,0.834936509020272,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D4_t12,4,12,rounds,4,12.8983035861592,19.116056215994,4,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D4_t20,4,20,rounds,4,11.2252719028736,16.6920736363753,4,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D7_t3,7,3,rounds,4,11.9439060973615,19.5838771798146,3.92176888225145,0.125,0.490221110281431,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D7_t6,7,6,rounds,4,13.3690655428136,20.6849481327093,5.86734812247029,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D7_t12,7,12,rounds,4,10.7201690898413,15.7817598776075,3.21527736712115,0.0859375,0.276312898736974,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D7_t20,7,20,rounds,4,11.715446955106,17.153718063174,7,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D12_t3,12,3,rounds,5,12.1899364262454,18.2571858409972,4.1924138925654,0.0078125,0.0327532335356672,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D12_t6,12,6,rounds,5,12.1305185940131,16.8330220594037,3.8415723505563,0.40625,1.5606387674135,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D12_t12,12,12,rounds,4,12.8340059710854,19.4762611356144,3.98561671179823,0.265625,1.05867943907141,vignetting,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D12_t20,12,20,rounds,4,13.3939257237324,21.6538634493455,9.3959744781031,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D20_t3,20,3,image-inside,2,17.3052356109644,52.4364350705592,19.236955773929,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D20_t6,20,6,rounds,4,16.8363006546885,84.5982059828047,14.6792978875298,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D20_t12,20,12,rounds,4,18.639811940623,67.1458532502406,18.9911807700674,0,0,rms,1
+f3_men+_xcp_pcv_g5_front,f3_men+_xcp_pcv_g5_front_D20_t20,20,20,image-inside (last round clamped; the previous clean round is returned),1,14.7375597824828,21.9270710786045,NaN,NaN,0,not solved,0
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D4_t3,4,3,rounds,4,9.21784575161336,13.7295810879194,4,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D4_t6,4,6,rounds,4,9.17239729636892,13.6615179996974,4,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D4_t12,4,12,rounds,4,9.57070941961784,14.1525533335673,4,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D4_t20,4,20,rounds,4,12.513032312038,18.5322223711189,4,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D7_t3,7,3,rounds,4,9.66404924701262,14.3179486187515,7,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D7_t6,7,6,rounds,4,9.61019525175018,14.2206591983413,7,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D7_t12,7,12,rounds,5,2.76374111432934,4.09153796415457,3.60881718347941,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D7_t20,7,20,rounds,4,8.97618699640082,12.9755460482377,7,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D12_t3,12,3,rounds,4,8.91995258242308,14.5296928605981,11.6013287957154,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D12_t6,12,6,rounds,4,9.48555081906389,19.0009889160067,12,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D12_t12,12,12,rounds,4,10.051093534006,23.2539646279421,12,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D12_t20,12,20,rounds,4,2.89971886214082,3.58671579059153,3.76865313034593,0,0,rms,1
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D20_t3,20,3,image-inside,1,14.5046631638239,21.5483916350511,NaN,NaN,0,not solved,0
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D20_t6,20,6,image-inside (last round clamped; the previous clean round is returned),1,14.5046631638239,21.5483916350511,NaN,NaN,0,not solved,0
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D20_t12,20,12,image-inside,1,14.5046631638239,21.5483916350511,NaN,NaN,0,not solved,0
+f3_men-_xcp_pcv_g5_front,f3_men-_xcp_pcv_g5_front_D20_t20,20,20,rounds,4,7.01470956690719,10.4136605460881,9.16212315878402,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D4_t3,4,3,rounds,4,245.331875411902,827.585468316521,4,10.87890625,43.515625,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D4_t6,4,6,rounds,4,233.033816890165,793.756207891234,4,11.630859375,46.5234375,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D4_t12,4,12,rounds,4,145.725645829593,492.476125316872,4,12.3828125,49.53125,distortion,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D4_t20,4,20,calib-failed (last round clamped; the previous clean round is returned),3,276.17201416177,929.642437572434,NaN,NaN,0,not solved,0
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D7_t3,7,3,rounds,4,202.216270470251,678.770684524317,7,2.7890625,19.5234375,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D7_t6,7,6,rounds,5,206.802435294682,695.715053641841,7,5.72265625,40.05859375,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D7_t12,7,12,rounds,4,177.701285903984,603.147512397458,7,3.109375,21.765625,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D7_t20,7,20,calib-failed (last round clamped; the previous clean round is returned),3,276.17201416177,929.642437572434,NaN,NaN,0,not solved,0
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D12_t3,12,3,rounds,4,188.633495659544,631.357041183077,12,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D12_t6,12,6,rounds,4,211.846985077297,710.77539960496,12,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D12_t12,12,12,rounds,4,196.53118373955,663.941781535713,12,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D12_t20,12,20,calib-failed (last round clamped; the previous clean round is returned),3,276.17201416177,929.642437572434,NaN,NaN,0,not solved,0
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D20_t3,20,3,rounds,5,55.128750179867,164.388817446377,9.34344924420994,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D20_t6,20,6,rounds,4,140.580449859164,458.810393425599,20,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D20_t12,20,12,rounds,4,137.183786889202,457.774529274771,20,0,0,rms,1
+f3_bicv_men+_bicx_g6_air2,f3_bicv_men+_bicx_g6_air2_D20_t20,20,20,rounds,4,272.677665587566,917.899081285394,20,0,0,rms,1

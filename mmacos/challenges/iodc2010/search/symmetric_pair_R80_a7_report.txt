@@ -7,15 +7,15 @@ METRIC (stated before the numbers; challenges/iodc2010/README.md):
   distortion 100 (yR - yP)/yP at the image plane used; EFL paraxial (y-nu).
   Semi-field = the largest field (to 0.01 deg) with RMS <= 0.070, |dist| <= 5.0 %, no ray lost.
 
-PRESCRIPTION: R = 78.544284 mm, signs [+1 +0 +0 -1 ], t = [0.3890 71.8634 2.5317 50.8609 ] mm, glass {N-BK7,air,N-BK7,air}, stop z = 36.3208 mm a = 6.8726 mm
-  clear semi-diameters [9.0275 7.8021 4.0768 3.9939 ] mm; image plane at z = 125.644996 mm (paraxial focus 125.984115)
+PRESCRIPTION: R = 78.539582 mm, signs [+1 +0 +0 -1 ], t = [0.3813 71.8838 2.5224 50.8535 ] mm, glass {N-BK7,air,N-BK7,air}, stop z = 36.3232 mm a = 6.8722 mm
+  clear semi-diameters [9.0276 7.7276 4.0369 3.9551 ] mm; image plane at z = 125.641021 mm (paraxial focus 125.978520)
 
-FIRST ORDER: EFL 100.000000 mm (engine near-axis 100.000000; within 0.01 mm of 100), D 18.0701 mm (f/5.534), EP at z = 47.5741, XP at z = 24.7431 mm
-RULES: edge thickness/air space per gap [-0.1315 71.8634 2.4301 ] mm -> VIOLATION
+FIRST ORDER: EFL 100.000000 mm (engine near-axis 100.000000; within 0.01 mm of 100), D 18.0701 mm (f/5.534), EP at z = 47.5836, XP at z = 24.7379 mm
+RULES: edge thickness/air space per gap [-0.1393 71.8838 2.4228 ] mm -> VIOLATION
 
 FIELDS:
   theta_deg  rms_waves  dist_pct  lost/launched  result
-     0.000    0.20024       NaN   1780/7081      FAIL vignetting
+     0.000    0.19962       NaN   1884/7081      FAIL vignetting
 
-RESULT: semi-field 0.00 deg (limited by sized-deck vignetting), D 18.070 mm, MERIT D*theta = 0.0
+RESULT: semi-field 0.00 deg (limited by vignetting), D 18.070 mm, MERIT D*theta = 0.0
 Published 2010 winner: 81.30 mm x 43.50 deg = 3537 (Bates); 10th place 1094.

@@ -25,8 +25,19 @@ classdef tIodc2010 < matlab.unittest.TestCase
 %               table row added 2026-10-30 (Incomplete before the rebuild,
 %               never a silent pass; the GlassCoef path is what the gate leg
 %               proves on every build)
+%     stop      the stop is the paraxial construct of the 2006 evaluator: the
+%               ring of pupil-edge rays its own pupil aberration carries a
+%               fraction of a percent outside the stop radius is KEPT
+%               (p.stop_clips false); the hard-aperture switch loses exactly
+%               that outermost ring (the 2026-10-30 a.m. convention, measured)
+%     forms     iodc2010_forms: 14 of the 64 two-element patterns are
+%               Petzval-balanced (equal converging and diverging surface
+%               counts, checked here from the textbook rule), every seed is
+%               scaled to |EFL| = 100
+%     calib deck every CALIB field's chief starts ON the source plane, backed
+%               off by the lens's length (the R = 130 item's fix)
 %
-%   Model size 128 -> SUITE_FAST.  Runtime ~40 s.  Lives in mmacos/tests; the
+%   Model size 128 -> SUITE_FAST.  Runtime ~50 s.  Lives in mmacos/tests; the
 %   challenge code it exercises is challenges/iodc2010.
 
     properties
@@ -160,6 +171,70 @@ classdef tIodc2010 < matlab.unittest.TestCase
             tc.assumeLessThan(abs(efl - 100), 1e-3, ...
                 'N-BK7 is not in this engine build''s glass table (rebuild pending)');
             tc.verifyEqual(efl, P.efl, 'AbsTol', 1e-6, 'the table row''s index');
+        end
+
+        function test_the_paraxial_stop_keeps_the_pupil_edge_rays(tc)
+            % a two-element lens whose stop sits behind a strongly curved
+            % element (a solved lens of the outer loop's smoke run): its pupil
+            % aberration carries the outermost ring of the paraxial pupil a
+            % fraction of a percent outside the stop radius
+            L = iodc2010_lens('R', 18.8308, 'sgn', [1 0 0 1], 't', [4.4192 6.4141 5.8014 63.0070], ...
+                'glass', {'N-BK7', 'air', 'N-BK7', 'air'}, 'stop', [10.0181 2.1896], 'name', 'stopring');
+            L.semidia = inf(1, L.N);
+            P = iodc2010_paraxial(L, tc.p.lambda_nm);
+            % the metric's convention: nothing is lost
+            E = iodc2010_emit(L, P, tc.p, fullfile(tc.tmp, 'stop_open.in'));
+            macos.load_rx(E.path);
+            F = iodc2010_eval(E, P, tc.p, 0);
+            tc.verifyEqual(F.nLost, 0, 'the paraxial stop clips nothing');
+            tc.verifyTrue(F.pass);
+            % the hard-aperture switch: the outermost ring, and only it
+            pc = tc.p;  pc.stop_clips = true;
+            Ec = iodc2010_emit(L, P, pc, fullfile(tc.tmp, 'stop_hard.in'));
+            macos.load_rx(Ec.path);
+            Fc = iodc2010_eval(Ec, P, pc, 0, 'rays', true);
+            tc.verifyGreaterThan(Fc.nLost, 0, 'the hard stop loses rays');
+            tc.verifyLessThan(Fc.nLost, 0.02 * Fc.nLaunched, 'a thin ring, not the beam');
+            rad = hypot(Fc.ray.pos_e1(1, :), Fc.ray.pos_e1(2, :));
+            tc.verifyGreaterThan(min(rad(~Fc.ray.ok_fp)), 0.995 * P.D / 2, 'the lost rays are the pupil edge');
+            tc.verifyEqual(Fc.reason, 'vignetting');
+        end
+
+        function test_forms_are_petzval_balanced_and_scaled(tc)
+            [C, fi] = iodc2010_forms(2, tc.p, 'air_grid', [0.25 1]);
+            tc.verifyEqual(fi.n_patterns_all, 64);
+            tc.verifyEqual(fi.n_patterns_balanced, 14);
+            tc.verifyGreaterThan(fi.n_seeds, 20);
+            n = iodc2010_glass('N-BK7', tc.p.lambda_nm);
+            for i = 1:numel(C)
+                L = C(i).L;
+                P = iodc2010_paraxial(L, tc.p.lambda_nm);
+                tc.verifyEqual(abs(P.efl), 100, 'AbsTol', 1e-9, L.name);
+                tc.verifyGreaterThan(P.z_img, L.z(end), 'the image is real and beyond the lens');
+                % the textbook rule: a surface converges when c (n' - n) > 0
+                nb = [1, P.n_after(1:end-1)];  na = P.n_after;
+                pw = P.c .* (na - nb);
+                tc.verifyEqual(nnz(pw > 0), nnz(pw < 0), ['Petzval balance: ' L.name]);
+                tc.verifyEqual(P.D, 10, 'RelTol', 1e-9, 'the seed stop is sized for D_target');
+            end
+        end
+
+        function test_calib_deck_fields_start_on_the_source_plane(tc)
+            L = tc.pair();  L.semidia = inf(1, L.N);
+            P = iodc2010_paraxial(L, tc.p.lambda_nm);
+            opt = struct('fields_deg', [0 1.5 3], 'max_iters', 5, 'var_surf', 1:L.N, 'var_fp', true);
+            E = iodc2010_emit(L, P, tc.p, fullfile(tc.tmp, 'pair_calib.in'), opt);
+            txt = fileread(E.path);
+            t0 = regexp(txt, '\n\s*ChfRayPos=\s*(\S+)\s+(\S+)\s+(\S+)', 'tokens', 'once');
+            z0 = str2double(t0{3});
+            rows = regexp(txt, 'OptChfRayPos=\s*(\S+)\s+(\S+)\s+(\S+)', 'tokens');
+            tc.verifyEqual(numel(rows), 2, 'one row per off-axis field');
+            for i = 1:numel(rows)
+                tc.verifyEqual(str2double(rows{i}{3}), z0, 'AbsTol', 1e-9, 'the field starts on the source plane');
+            end
+            z_front = min([L.z, L.stop(1)]);
+            tc.verifyLessThanOrEqual(z0, z_front - (P.z_img - z_front) + 1e-9, 'backed off by the lens''s length');
+            tc.verifyEqual(E.z_src, z0, 'AbsTol', 1e-9);
         end
     end
 end

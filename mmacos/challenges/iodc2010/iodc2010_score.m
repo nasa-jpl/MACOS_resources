@@ -104,7 +104,9 @@ if auto_ap
         'pass', Fv.pass, 'reason', Fv.reason);
     say('  apertures sized to the footprint at %.2f deg: [%s] mm; verified: %s\n', ...
         S.theta_lim_deg, sprintf('%.3f ', Lw.semidia), tern_(Fv.pass, 'pass', ['FAIL ' Fv.reason]));
-    if ~Fv.pass, S.limit_reason = ['sized-deck ' Fv.reason]; S.theta_lim_deg = 0; end
+    if ~Fv.pass && F0.pass          % an on-axis failure keeps its own reason (the verify at 0 repeats it)
+        S.limit_reason = ['sized-deck ' Fv.reason];  S.theta_lim_deg = 0;
+    end
 end
 S.E = E;  S.deck = E.path;  S.semidia = Lw.semidia;  S.L = L;
 

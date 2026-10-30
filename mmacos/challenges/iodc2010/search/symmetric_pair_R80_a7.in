@@ -1,5 +1,5 @@
 % IODC 2010 "green lens" prescription: symmetric_pair_R80_a7
-% Emitted by mmacos/challenges/iodc2010/iodc2010_emit.m -- one radius magnitude 78.544284 mm,
+% Emitted by mmacos/challenges/iodc2010/iodc2010_emit.m -- one radius magnitude 78.539582 mm,
 % signs [+1 +0 +0 -1], N-BK7 at 532 nm, |EFL| target 100 mm.  Light travels +z, surface 1 at z = 0.
 % Scoring convention: challenges/iodc2010/README.md (the metric is stated before the number).
 % Source Definition
@@ -12,7 +12,7 @@
            Extinc=  0.0E+00
           Wavelen=  5.320000000000000E+02
              Flux=  1.0E+00
-         Aperture=  1.807010267823634E+01
+         Aperture=  1.807014237800981E+01
          Obscratn=  0.0E+00
          GridType=  Circular
          nGridpts=  97
@@ -24,7 +24,7 @@
           EltName=  S1
           Element=  Refractor
           Surface=  Conic
-            KrElt=  -7.854428360842148E+01
+            KrElt=  -7.853958183372905E+01
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
            VptElt=  0.0E+00  0.0E+00  0.000000000000000E+00
@@ -38,7 +38,7 @@
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApType=  Circular
-            ApVec=  9.027548891335067E+00  0.0E+00  0.0E+00
+            ApVec=  9.027568724739035E+00  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=  1.0E+22
           nECoord=  -6
@@ -49,15 +49,15 @@
             KrElt=  -1.0E+22
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  3.889884907926640E-01
-           RptElt=  0.0E+00  0.0E+00  3.889884907926640E-01
+           VptElt=  0.0E+00  0.0E+00  3.812720602974451E-01
+           RptElt=  0.0E+00  0.0E+00  3.812720602974451E-01
            IndRef=  1.000000000000000E+00
            Extinc=  0.0E+00
             nCoat=  0
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApType=  Circular
-            ApVec=  7.802144795727725E+00  0.0E+00  0.0E+00
+            ApVec=  7.727621155345917E+00  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=  1.0E+22
           nECoord=  -6
@@ -68,15 +68,14 @@
             KrElt=  -1.0E+22
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  3.632082828472140E+01
-           RptElt=  0.0E+00  0.0E+00  3.632082828472140E+01
+           VptElt=  0.0E+00  0.0E+00  3.632316099387585E+01
+           RptElt=  0.0E+00  0.0E+00  3.632316099387585E+01
            IndRef=  1.000000000000000E+00
            Extinc=  0.0E+00
             nCoat=  0
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
-           ApType=  Circular
-            ApVec=  6.872624815736879E+00  0.0E+00  0.0E+00
+           ApType=  None
          PropType=  Geometric
              zElt=  1.0E+22
           nECoord=  -6
@@ -87,8 +86,8 @@
             KrElt=  -1.0E+22
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  7.225235844531082E+01
-           RptElt=  0.0E+00  0.0E+00  7.225235844531082E+01
+           VptElt=  0.0E+00  0.0E+00  7.226509593575769E+01
+           RptElt=  0.0E+00  0.0E+00  7.226509593575769E+01
            IndRef=  1.519472583065481E+00
          GlassElt=  N-BK7
         GlassType=  Sellmeier
@@ -98,7 +97,7 @@
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApType=  Circular
-            ApVec=  4.076782414684711E+00  0.0E+00  0.0E+00
+            ApVec=  4.036898904982505E+00  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=  1.0E+22
           nECoord=  -6
@@ -106,18 +105,18 @@
           EltName=  S4
           Element=  Refractor
           Surface=  Conic
-            KrElt=  7.854428360842148E+01
+            KrElt=  7.853958183372905E+01
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  7.478405879872298E+01
-           RptElt=  0.0E+00  0.0E+00  7.478405879872298E+01
+           VptElt=  0.0E+00  0.0E+00  7.478751521533827E+01
+           RptElt=  0.0E+00  0.0E+00  7.478751521533827E+01
            IndRef=  1.000000000000000E+00
            Extinc=  0.0E+00
             nCoat=  0
              xObs=  1.0E+00  0.0E+00  0.0E+00
              nObs=  0
            ApType=  Circular
-            ApVec=  3.993938640834265E+00  0.0E+00  0.0E+00
+            ApVec=  3.955094735861333E+00  0.0E+00  0.0E+00
          PropType=  Geometric
              zElt=  1.0E+22
           nECoord=  -6
@@ -128,8 +127,8 @@
             KrElt=  -1.0E+22
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  1.256449963509815E+02
-           RptElt=  0.0E+00  0.0E+00  1.256449963509815E+02
+           VptElt=  0.0E+00  0.0E+00  1.256410206906893E+02
+           RptElt=  0.0E+00  0.0E+00  1.256410206906893E+02
            IndRef=  1.0E+00
            Extinc=  1.0E+22
             nCoat=  0
@@ -142,18 +141,18 @@
           EltName=  ExitPupil
           Element=  Return
           Surface=  Conic
-            KrElt=  -1.009019285515976E+02
+            KrElt=  -1.009030999203820E+02
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  2.474306779938391E+01
-           RptElt=  0.0E+00  0.0E+00  2.474306779938391E+01
+           VptElt=  0.0E+00  0.0E+00  2.473792077030732E+01
+           RptElt=  0.0E+00  0.0E+00  2.473792077030732E+01
            IndRef=  1.0E+00
            Extinc=  1.0E+22
             nCoat=  0
              nObs=  0
            ApType=  None
          PropType=  Geometric
-             zElt=  1.009019285515976E+02
+             zElt=  1.009030999203820E+02
           nECoord=  -6
              iElt=  8
           EltName=  Image
@@ -162,8 +161,8 @@
             KrElt=  -1.0E+22
             KcElt=  0.0E+00
            psiElt=  0.0E+00  0.0E+00  1.0E+00
-           VptElt=  0.0E+00  0.0E+00  1.256449963509815E+02
-           RptElt=  0.0E+00  0.0E+00  1.256449963509815E+02
+           VptElt=  0.0E+00  0.0E+00  1.256410206906893E+02
+           RptElt=  0.0E+00  0.0E+00  1.256410206906893E+02
            IndRef=  1.0E+00
            Extinc=  0.0E+00
             nCoat=  0
