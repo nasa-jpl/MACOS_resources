@@ -10,7 +10,7 @@ From this directory, after `run('<path-to>/mmacos/mmacos_setup.m')`:
 
 ## What a run gives
 
-The convex-secondary seed conic-optimizes on axis to 0.0016 waves; taken off axis by 6.399 m and re-balanced over a 3 x 3 grid on the ±2′ field, its worst field is 0.077 waves at 2.3 µm, just outside λ/14, which the run prints as a residual. Its all-sphere baseline line reads 0 waves, which an uncorrected sphere cannot be; not traced.
+The convex-secondary seed conic-optimizes on axis to 0.0016 waves; taken off axis by 4.359 m and re-balanced over a 3 x 3 grid on the ±2′ field, its worst field is 0.044 waves at 2.3 µm, inside λ/14: diffraction-limited. Its all-sphere baseline line reads 0 waves, which an uncorrected sphere cannot be; not traced.
 
 ## Source
 

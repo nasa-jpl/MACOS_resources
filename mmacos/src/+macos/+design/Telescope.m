@@ -2139,6 +2139,20 @@ classdef Telescope < handle
                 foot(k) = max(rx, ry);              % beam radius (0.5 for a 0.5 beam)
             end
 
+            % the SOURCE point (crossing 1 of every ray, elt 0) needs its own
+            % beam center: an off-axis beam enters at y = the decenter, and the
+            % old 0 there tilted the incoming segment from the axis to M1 -- a
+            % phantom crossing near M2 that grew with a shorter source
+            % standoff and set tma_offaxis's decenter to 6.40 m instead of
+            % 4.36 m (PLAN_CONSOLIDATION 1.2 (ffff)).  Row 1 only: the unused
+            % slots past nper are padded with elt 0 and value 0.
+            ctr0 = [0; 0; 0];
+            s0x = (bxz.nper(:).' >= 1) & (bxz.elt(1,:) == 0);
+            s0y = (byz.nper(:).' >= 1) & (byz.elt(1,:) == 0);
+            if any(s0x), ctr0(1) = mean(bxz.V(1,s0x)); end
+            if any(s0y), ctr0(2) = mean(byz.V(1,s0y)); end
+            ctr = [ctr0, ctr];     % column 1 = the source, column k+1 = element k
+
             % --- body-in-beam: test each fan's REAL 3-D ray segments (off-plane
             % coord = the per-element beam center) against every non-endpoint
             % body disk.  obstructs counts pierced segments; clr tracks the
@@ -2160,10 +2174,10 @@ classdef Telescope < handle
                             if ~isBody(k) || k == ea || k == eb, continue; end
                             den = psi(:,k).' * AB;
                             if abs(den) < 1e-30, continue; end       % grazes plane
-                            t = (psi(:,k).' * (ctr(:,k) - A)) / den;
+                            t = (psi(:,k).' * (ctr(:,k+1) - A)) / den;
                             if t <= opts.tol || t >= 1-opts.tol, continue; end
                             Q   = A + t*AB;
-                            rho = norm(Q - ctr(:,k));
+                            rho = norm(Q - ctr(:,k+1));
                             if rho < hole(k), continue; end   % through the hole
                             clr(k) = min(clr(k), rho);
                             if rho < foot(k), obstructs(k) = obstructs(k) + 1; end
@@ -3030,8 +3044,8 @@ classdef Telescope < handle
         %   x-fan: off-plane y = beam center y.  Meridian rays lie in their
         %   plane through the beam center, so this is exact (not a stitch).
             ke = bb.elt(i,r);
-            cx = 0;  cy = 0;
-            if ke >= 1 && ke <= nE, cx = ctr(1,ke);  cy = ctr(2,ke); end
+            cx = 0;  cy = 0;     % ctr column 1 = the source (elt 0), k+1 = element k
+            if ke >= 0 && ke <= nE, cx = ctr(1,ke+1);  cy = ctr(2,ke+1); end
             if isy        % y-fan: V=Y, U=Z, x = beam center
                 P = [cx; bb.V(i,r); bb.U(i,r)];
             else          % x-fan: V=X, U=Z, y = beam center
