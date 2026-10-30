@@ -34,6 +34,12 @@ function out = ctb_dm_jacobian(opts)
 %                     'ctb_dm_jacobian:fpTruth'; see ctb_fp_guard)
 %     'outdir'        (this dir)
 %     'verbose'       progress prints every 50 pokes (true)
+%     'dmrx'          the DM deck to poke, as ctb_dm_rx returns it (rx_out,
+%                     ielt, ng, gdx_mm, cbm); default = ctb_dm_rx(), the
+%                     bench's own.  Pass the station map for that deck in
+%                     'chain' ({'elt', ...}).  h_mm and beam_d_mm stay in
+%                     millimetres whatever the deck's base unit (scaled by
+%                     its cbm); out.cbm records it for the EFC's prints.
 %
 %   out: G (npix x ncol complex single), col_dm/col_act (column maps),
 %   dz_idx (linear FPA indices), E0_dz, peak_bare, lamD_px, center_px,
@@ -65,13 +71,16 @@ function out = ctb_dm_jacobian(opts)
         opts.outdir     (1,:) char = ''
         opts.verbose    (1,1) logical = true
         opts.replace_fp (1,1) logical = false
+        opts.dmrx       struct = struct()
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, '..', '..', '..', 'src'));
     if isempty(opts.outdir), opts.outdir = here; end
 
     % ---- deck + chain + DM models --------------------------------------
-    r  = ctb_dm_rx();
+    if isempty(fieldnames(opts.dmrx)), r = ctb_dm_rx(); else, r = opts.dmrx; end
+    cbm = 1e-3;  if isfield(r, 'cbm'), cbm = r.cbm; end       % deck base unit, m
+    u_mm = 1e-3 / cbm;                                        % mm -> deck units
     ch = ctb_chain('rx', r.rx_out, 'model_size', opts.model_size, ...
                    opts.chain{:});
     ndm = numel(opts.dms);
@@ -83,7 +92,7 @@ function out = ctb_dm_jacobian(opts)
     for k = 1:ndm
         j = opts.dms(k);
         dm{k} = ctb_dm('ielt', r.ielt(j), 'ng', r.ng, 'gdx_mm', r.gdx_mm(j), ...
-                       'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm, ...
+                       'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm * u_mm, ...
                        'coupling', opts.coupling);
         dm{k}.apply(opts.a0{k});          % linearization point (flat default)
     end
@@ -101,7 +110,7 @@ function out = ctb_dm_jacobian(opts)
     ncol = sum(cellfun(@(d) d.nact_active, dm));
     G = complex(zeros(numel(dz_idx), ncol, 'single'));
     col_dm  = zeros(1, ncol);  col_act = zeros(1, ncol);
-    h = opts.h_mm;
+    h = opts.h_mm * u_mm;                                     % the poke, deck units
     t0 = tic;  c = 0;
     for k = 1:ndm
         acts = find(dm{k}.active).';
@@ -141,7 +150,7 @@ function out = ctb_dm_jacobian(opts)
         'dm',dmgeo, 'h_mm',h, 'inner_lamD',opts.inner_lamD, ...
         'outer_lamD',opts.outer_lamD, 'region',opts.region, 'contrast0',c0, ...
         'chain_opts',{ch.config}, 'a0',{opts.a0}, 'tag',opts.tag, ...
-        'rx',ch.rx, 'fd','central', 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
+        'rx',ch.rx, 'fd','central', 'cbm',cbm, 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
     if opts.save
         tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
         mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d%s.mat', ch.N, tg));
