@@ -1,0 +1,13 @@
+R,a,efl_solved,n_iter,stop_reason,D,theta,merit,limit,ok
+60,3.5,NaN,-1,calib error: mmacos: calib_run failed,NaN,NaN,0,calib-failed,0
+80,3.5,108.120047104064,30,cap,9.28862046768018,2.1796875,20.2462899256466,vignetting,1
+100,3.5,135.242812697825,30,cap,7.55283841207795,2.234375,16.8758733269867,vignetting,1
+130,3.5,174.374690896895,30,cap,5.75417166556416,3.484375,20.0496918972001,rms,1
+60,5,NaN,-1,calib error: mmacos: calib_run failed,NaN,NaN,0,calib-failed,0
+80,5,NaN,-1,calib error: mmacos: calib_run failed,NaN,NaN,0,calib-failed,0
+100,5,129.99847615407,30,cap,10.3271039423488,1.2734375,13.1509214265848,vignetting,1
+130,5,187.853580610161,30,cap,8.14975866801016,2.125,17.3182371695216,rms,1
+60,7,NaN,-1,calib error: mmacos: calib_run failed,NaN,NaN,0,calib-failed,0
+80,7,101.853370257772,30,cap,18.0701026782363,0,0,sized-deck vignetting,0
+100,7,NaN,-1,calib error: mmacos: calib_run failed,NaN,NaN,0,calib-failed,0
+130,7,NaN,-1,calib error: mmacos: calib_run failed,NaN,NaN,0,calib-failed,0

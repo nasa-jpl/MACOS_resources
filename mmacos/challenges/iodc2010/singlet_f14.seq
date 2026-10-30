@@ -1,0 +1,29 @@
+RDM
+LEN
+TITLE 'IODC 2010 green lens: singlet_f14 (MACOS challenges/iodc2010)'
+EPD 7.000000
+DIM M
+WL 532
+REF 1
+WTW 1
+XAN 0 0 0 0 0 
+YAN 0 0.898 1.797 1.977 2.695 
+WTF 1 1 1 1 1 
+SO 0.0 1.0E20
+S 51.9472583065 0.0000000000 NBK7_SCHOTT
+  CIR 3.502379
+S 0.0 6.0000000000 NBK7_SCHOTT
+  STO
+  CIR 3.500000
+S 0.0 96.0512614266
+  CIR 3.485384
+SI 0.0 0.0
+GO
+! --- the 2010 evaluation (Juergens 2006, Sec. 4.4-4.5): RMS WFE chief-ray reference,
+! --- tilt and focus not removed; distortion at the image plane given; paraxial EFL.
+FIR
+WAV
+NRD 32
+GO
+DIS
+GO
