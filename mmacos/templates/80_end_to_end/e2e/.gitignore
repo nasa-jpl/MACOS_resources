@@ -28,3 +28,14 @@ ctb_efc_e2e_sens_ph.mat
 ctb_efc_e2e_sens_ph.png
 ctb_efc_e2e_sens_def.mat
 ctb_efc_e2e_sens_def.png
+s11_sens_state.mat
+s11_perf_state.mat
+s11_report.txt
+s11_cycles.png
+s11_run.mat
+ctb_dm_jacobian_N512_e2e_sens_c*.mat
+ctb_dm_jacobian_N512_e2e_perf_c*.mat
+ctb_efc_e2e_sens_c*.mat
+ctb_efc_e2e_sens_c*.png
+ctb_efc_e2e_perf_c*.mat
+ctb_efc_e2e_perf_c*.png

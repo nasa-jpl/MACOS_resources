@@ -316,6 +316,15 @@ P.sens = struct( ...
     ...                         % floor is below this fraction of the field
     'efc_ratio_max', 1.5, ...   % gate: EFC on the estimate ends within
     ...                         % this factor of perfect sensing's end
-    'photon_ratio_max', 2.0);   % gate: at photons_efc, within this factor
-                                % of the noiseless estimate's end
+    'photon_ratio_max', 2.0, ...% gate: at photons_efc, within this factor
+    ...                         % of the noiseless estimate's end
+    'cycles', struct( ...       % stage 11: recompute-and-restart (Dave
+    ...                         % 2026-10-30: standard practice, ten or
+    ...                         % more cycles to approach the goal is usual)
+        'max',       10, ...    % the cap: cycles 0 .. max
+        'niter',     20, ...    % loop iterations per cycle (stalls earlier)
+        'stop_gain', 1.05, ...  % a cycle gaining less than 5 % converges
+        'goal',      1e-8));    % the goal performance (the bench's single
+                                % relinearization reaches 3.8e-9 on a 3e-7
+                                % halo); reaching it stops the chain
 end
