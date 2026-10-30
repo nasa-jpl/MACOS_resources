@@ -2225,15 +2225,13 @@ classdef Telescope < handle
         function clear_realized_apertures(obj)
         %CLEAR_REALIZED_APERTURES  Drop the realized per-element clear
         %   apertures (spec.elt.ap / ap_rect) and re-emit with the
-        %   design-phase (vertex-centered ap_r) stops.  STOPGAP for the
-        %   realize_apertures frame bug (2026-07-06): footprint centers
-        %   are measured in GLOBAL XY (draw_rays) but emitted as LOCAL
-        %   ApVec offsets -- correct only while the element origin sits
-        %   at the global origin (coaxial / eccentric-section parents).
-        %   On a tilted-fold design the emitted stops land metres off
-        %   the beam and the SAVED .in loses every ray on reload
-        %   (sz_tma.in carries this latent).  Call before save() until
-        %   the ray_bundle-based aperture-frame fix lands.
+        %   design-phase (vertex-centered ap_r) stops.  Was the STOPGAP
+        %   for the realize_apertures frame bug (2026-07-06: footprint
+        %   centers measured in GLOBAL XY, emitted as LOCAL ApVec offsets,
+        %   so a tilted-fold deck lost every ray on reload).  Fixed
+        %   2026-10-29 (PLAN_CONSOLIDATION 1.2 (ffff)): realize_apertures
+        %   now measures in each element's aperture frame; this remains
+        %   for dropping realized stops.
             for k = 1:numel(obj.spec.elt)
                 obj.spec.elt(k).ap = [];
                 obj.spec.elt(k).ap_rect = [];
@@ -2264,10 +2262,9 @@ classdef Telescope < handle
         %   psi = (0,0,-1).  Measured on a 6 m tilted-fold design: it
         %   reported M2's centre at yc = -3.405 m where the true in-plane
         %   offset is -0.031 m, so the emitted stop landed 3.37 m off the
-        %   beam and the saved .in lost every ray on reload -- the same
-        %   defect REALIZE_APERTURES still carries (see
-        %   CLEAR_REALIZED_APERTURES; it is left alone because the rodgers1
-        %   corpus is scored through it).
+        %   beam and the saved .in lost every ray on reload.  REALIZE_
+        %   APERTURES carried the same defect until 2026-10-29 (fixed in
+        %   the frame only -- it keeps its two-fan box sizing).
         %
         %   The footprint now comes from RAY_BUNDLE -- the FULL ray grid at
         %   every element, not the two meridian fans -- so an elongated
@@ -2510,16 +2507,29 @@ classdef Telescope < handle
                 % over the design's realised CLEAR APERTURE (the vignetted
                 % pupil) -- the CODE V field-map convention (PACKET Sec 4a).
                 if ~isempty(v), wfe(j) = std(v) / lam; end
-                byz = macos.draw_rays('YZ', 0, nE);        % y-fan: V=Y
-                bxz = macos.draw_rays('XZ', 0, nE);        % x-fan: V=X
+                byz = macos.draw_rays('YZ', 0, nE);        % y-fan: V=Y, U=Z
+                bxz = macos.draw_rays('XZ', 0, nE);        % x-fan: V=X, U=Z
+                % Footprint in the element's APERTURE frame -- ApVec's frame:
+                % offsets from VptElt along xObs/yObs (obs_frame_).  Each fan
+                % point is made 3-D with the beam centre as its off-plane
+                % coordinate (exact for a meridian ray), then projected.  The
+                % old global-x,y box was right only for an element at the
+                % origin with psi = (0,0,-1); on a tilted fold the emitted
+                % stop landed metres off the beam (sz_tma lost every ray at
+                % M2 on reload; PLAN_CONSOLIDATION 1.2 (ffff)).
                 for k = 1:nE
                     my = (byz.elt == k);  mx = (bxz.elt == k);
-                    if any(my(:))
-                        ylo(k)=min(ylo(k),min(byz.V(my))); yhi(k)=max(yhi(k),max(byz.V(my)));
-                    end
-                    if any(mx(:))
-                        xlo(k)=min(xlo(k),min(bxz.V(mx))); xhi(k)=max(xhi(k),max(bxz.V(mx)));
-                    end
+                    if ~any(my(:)) && ~any(mx(:)), continue; end
+                    e  = obj.spec.elt(k);
+                    cx = e.Vpt(1);  if any(mx(:)), cx = mean(bxz.V(mx)); end
+                    cy = e.Vpt(2);  if any(my(:)), cy = mean(byz.V(my)); end
+                    P  = [ [repmat(cx,1,nnz(my)); byz.V(my).'; byz.U(my).'], ...
+                           [bxz.V(mx).'; repmat(cy,1,nnz(mx)); bxz.U(mx).'] ];
+                    [xo, yo] = obj.obs_frame_(e.psi);
+                    d  = P - e.Vpt(:);
+                    u  = xo.' * d;  v = yo.' * d;
+                    xlo(k)=min(xlo(k),min(u)); xhi(k)=max(xhi(k),max(u));
+                    ylo(k)=min(ylo(k),min(v)); yhi(k)=max(yhi(k),max(v));
                 end
             end
 
@@ -2550,10 +2560,9 @@ classdef Telescope < handle
             % Rodgers on-axis map to ~3% (PACKET Sec 4a).  A field the aperture
             % vignettes to < 6 samples stays NaN -> rendered as a lost field.
             %
-            % The FocalPlane rect clip is DROPPED for this pass: on a tilted /
-            % offset FP its emitted ApVec carries the known global-XY ->
-            % local-ApVec frame bug (see clear_realized_apertures) and would
-            % vignette every ray off-axis, making the metric all-NaN.  The
+            % The FocalPlane rect clip is DROPPED for this pass (kept as it
+            % was: it dates from the global-XY frame bug, fixed 2026-10-29,
+            % and the refsphere baselines were taken without it).  The
             % physical STOPS are the (coaxial, frame-bug-immune) mirrors; the
             % FP only samples the wavefront.  The returned aperture struct
             % still reports the FP rect (restored below) for downstream use.
