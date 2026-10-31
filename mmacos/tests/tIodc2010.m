@@ -36,8 +36,20 @@ classdef tIodc2010 < matlab.unittest.TestCase
 %               scaled to |EFL| = 100
 %     calib deck every CALIB field's chief starts ON the source plane, backed
 %               off by the lens's length (the R = 130 item's fix)
+%     weights   iodc2010_solve's per-field weights reach the deck's OptFOVWt=
+%               line and steer CALIB: the solve that weights the edge field
+%               tenfold ends with a lower edge-field RMS, and a higher
+%               on-axis one, than the equal-weight solve (the trade the
+%               merit-shaped objective buys; measured 0.062 vs 0.125 and
+%               0.169 vs 0.100 waves -- a hundredfold collapses the first
+%               lens onto its thickness floor instead)
+%     climb     iodc2010_climb never returns worse than its start, its
+%               re-weighting (on for the leg; off by default, measured no
+%               gain) moves the weights between steps, its lens is at
+%               |EFL| = 100 and at the D asked for, and its bracket is the
+%               record of what held
 %
-%   Model size 128 -> SUITE_FAST.  Runtime ~50 s.  Lives in mmacos/tests; the
+%   Model size 128 -> SUITE_FAST.  Runtime ~120 s.  Lives in mmacos/tests; the
 %   challenge code it exercises is challenges/iodc2010.
 
     properties
@@ -235,6 +247,42 @@ classdef tIodc2010 < matlab.unittest.TestCase
             z_front = min([L.z, L.stop(1)]);
             tc.verifyLessThanOrEqual(z0, z_front - (P.z_img - z_front) + 1e-9, 'backed off by the lens''s length');
             tc.verifyEqual(E.z_src, z0, 'AbsTol', 1e-9);
+        end
+
+        function test_field_weights_steer_the_solve_toward_the_weighted_field(tc)
+            L = tc.pair();
+            common = {'fields_deg', [0 4], 'rounds', 1, 'iters_per_round', 8, 'ray_grid', 15, 'D_target', NaN};
+            [~, a] = iodc2010_solve(L, tc.p, common{:}, 'fov_weights', [1 1], 'deck', fullfile(tc.tmp, 'w_equal.in'));
+            [~, b] = iodc2010_solve(L, tc.p, common{:}, 'fov_weights', [1 10], 'deck', fullfile(tc.tmp, 'w_edge.in'));
+            txt = fileread(fullfile(tc.tmp, 'w_edge.in'));
+            tok = regexp(txt, 'OptFOVWt=\s*(\S+)\s+(\S+)', 'tokens', 'once');
+            tc.verifyEqual(str2double(tok), [1 10], 'the weights reach the deck, on-axis first');
+            tc.verifyTrue(a.ok && b.ok, 'both solves accepted a round');
+            tc.verifyEqual(numel(a.wfe_fields), 2, 'CALIB''s per-field RMS, both fields');
+            tc.verifyTrue(all(isfinite([a.wfe_fields b.wfe_fields])));
+            tc.verifyLessThan(b.wfe_fields(2), a.wfe_fields(2), 'the weighted solve lowers the edge field');
+            tc.verifyGreaterThan(b.wfe_fields(1), a.wfe_fields(1), 'and pays for it on axis');
+        end
+
+        function test_climb_never_returns_worse_and_brackets_the_design_field(tc)
+            L = tc.pair();
+            P = iodc2010_paraxial(L, tc.p.lambda_nm);
+            [Lb, ci] = iodc2010_climb(L, tc.p, 'D_target', P.D, 'steps', 3, 'score_grid', 15, 'theta_min', 1, 'reweight', true, ...
+                'solve', struct('rounds', 2, 'iters_per_round', 8, 'ray_grid', 15), ...
+                'deck_base', fullfile(tc.tmp, 'climb', 'pair'));
+            tc.verifyGreaterThan(ci.merit_start, 0, 'the start is scored and passes on axis');
+            tc.verifyGreaterThanOrEqual(ci.merit, ci.merit_start, 'the best over the steps and the start');
+            tc.verifyEqual(height(ci.rows), 3, 'one row per step');
+            tc.verifyTrue(all(ci.rows.theta_design > 0));
+            solved = ci.rows.merit > 0;
+            tc.verifyGreaterThanOrEqual(nnz(solved), 2, 'the pair solves at these fields');
+            tc.verifyFalse(strcmp(ci.rows.weights{find(solved, 1) + 1}, ci.rows.weights{1}), ...
+                'the re-weighting moved the weights after the first solved step');
+            Pb = iodc2010_paraxial(Lb, tc.p.lambda_nm);
+            tc.verifyEqual(abs(Pb.efl), 100, 'AbsTol', 1e-6, 'the lens returned is at |EFL| = 100');
+            tc.verifyEqual(Pb.D, P.D, 'RelTol', 0.02, 'and at the D asked for');
+            if any(ci.rows.pass), tc.verifyGreaterThan(ci.lo, 0, 'a held design field is the bracket''s floor'); end
+            tc.verifyEqual(ci.lo < ci.hi, true);
         end
     end
 end

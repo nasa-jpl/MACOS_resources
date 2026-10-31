@@ -1,5 +1,5 @@
 function B = iodc2010_outer(p, opts)
-%IODC2010_OUTER  The outer design loop: forms -> pre-screen -> CALIB solve -> score -> ladder -> map.
+%IODC2010_OUTER  The outer design loop: forms -> pre-screen -> CALIB solve -> score -> ladder -> climb -> map.
 %   B = iodc2010_outer(p) runs brief step 4 around the inner solve:
 %
 %     1. FORMS      opts.families: 'forms' = iodc2010_forms for each element
@@ -28,6 +28,12 @@ function B = iodc2010_outer(p, opts)
 %                   (D, theta) in opts.ladder_D x opts.ladder_theta (the stop
 %                   re-sized for D, the design fields for theta) and scored:
 %                   the lens's own frontier on the (D, theta) plane.
+%     4b. CLIMB     the opts.n_climb best solved lenses through iodc2010_climb
+%                   (the merit-shaped inner objective: the design field
+%                   bracketed on the lens's own semi-field, the CALIB fields
+%                   re-weighted toward the worst one) at the lens's own D and
+%                   at every opts.climb_D, the best step re-scored on the
+%                   metric's grid -> outer_climb.csv.
 %     5. MAP        every scored point against the published top ten on the
 %                   (D, theta) plane with lines of constant merit (the paper's
 %                   Fig. 20) -> <outdir>/dtheta_map.png.
@@ -36,15 +42,16 @@ function B = iodc2010_outer(p, opts)
 %   the CSV written, return), 'map' (redraw the map from the tables on
 %   disk), 'solve' (resume from opts.prescreen_csv: the
 %   seeds are rebuilt deterministically, each stop re-sized to the CSV's D,
-%   then solve + ladder + map).  The split lets the 14-minute pre-screen be
+%   then solve + ladder + climb + map), 'climb' (resume from outer_solved.csv
+%   on disk: climb + map, the ladder CSV kept as it is).  The split lets the 14-minute pre-screen be
 %   kept while the solve stage is re-run (the 2026-10-30 production run
 %   needed exactly that: its first solve stage had run on the pre-fix shared
 %   mex through the runner's path guard, see iodc2010_run).
 %
 %   Artifacts in p.outdir: outer_prescreen.csv, outer_solved.csv,
-%   outer_ladder.csv, every solved lens's deck / report / .seq, the map.
-%   B: .seeds (per element count), .prescreen, .solved, .ladder (tables),
-%   .best (lens + score), .timing.
+%   outer_ladder.csv, outer_climb.csv, every solved lens's deck / report /
+%   .seq, the map.  B: .seeds (per element count), .prescreen, .solved,
+%   .ladder, .climb (tables), .best (lens + score), .timing.
 arguments
     p struct
     opts.families (1,:) cell = {'forms', 'groups'}
@@ -60,11 +67,14 @@ arguments
     opts.ladder_theta (1,:) double = [3 5 8 12]
     opts.n_ladder (1,1) double = 3
     opts.solve (1,1) struct = struct()     % name/value overrides for iodc2010_solve
+    opts.n_climb (1,1) double = 3
+    opts.climb_D (1,:) double = []         % pupils the climb runs at besides the lens's own
+    opts.climb (1,1) struct = struct()     % name/value overrides for iodc2010_climb
     opts.stage (1,:) char = 'all'
     opts.prescreen_csv (1,:) char = ''
     opts.quiet (1,1) logical = false
 end
-B.ladder = table();  B.solved = table();  B.best = [];  B.best_merit = 0;
+B.ladder = table();  B.solved = table();  B.climb = table();  B.best = [];  B.best_merit = 0;
 say = @(varargin) iif_(~opts.quiet, varargin{:});
 if ~exist(p.outdir, 'dir'), mkdir(p.outdir); end
 t_all = tic;
@@ -110,7 +120,7 @@ if strcmp(opts.stage, 'solve')
     B.prescreen = T;
     say('resumed from %s: %d seeds\n', opts.prescreen_csv, height(T));
 end
-for s = 1:numel(B.seeds) * ~strcmp(opts.stage, 'solve')
+for s = 1:numel(B.seeds) * ~any(strcmp(opts.stage, {'solve', 'climb'}))
     C = B.seeds{s}.C;
     for i = 1:numel(C)
         L = C(i).L;
@@ -130,20 +140,31 @@ for s = 1:numel(B.seeds) * ~strcmp(opts.stage, 'solve')
     end
     B.seeds{s}.C = C;                    % the seeds with their fitted stops
 end
-if ~strcmp(opts.stage, 'solve')
+if ~any(strcmp(opts.stage, {'solve', 'climb'}))
     B.prescreen = struct2table([rows{:}], 'AsArray', true);
     B.timing.prescreen_s = toc(t0);  B.timing.prescreen_n = n_eval;
     say('pre-screen: %d seeds scored in %.0f s (%.2f s each)\n', n_eval, B.timing.prescreen_s, B.timing.prescreen_s / max(n_eval, 1));
     writetable(B.prescreen, fullfile(p.outdir, 'outer_prescreen.csv'));
 end
-if exist(pq.outdir, 'dir'), rmdir(pq.outdir, 's'); end
+if ~any(strcmp(opts.stage, {'solve', 'climb'})) && exist(pq.outdir, 'dir'), rmdir(pq.outdir, 's'); end   % only the run that made it
 if strcmp(opts.stage, 'prescreen'), B.timing.total_s = toc(t_all);  return; end
 if strcmp(opts.stage, 'map')                     % redraw from the tables on disk
-    B.solved = readtable(fullfile(p.outdir, 'outer_solved.csv'), 'TextType', 'char');
-    B.ladder = readtable(fullfile(p.outdir, 'outer_ladder.csv'), 'TextType', 'char');
+    B.solved = read_csv_(fullfile(p.outdir, 'outer_solved.csv'));
+    B.ladder = read_csv_(fullfile(p.outdir, 'outer_ladder.csv'));
+    B.climb  = read_csv_(fullfile(p.outdir, 'outer_climb.csv'));
     B.best = struct();  B.map = fullfile(p.outdir, 'dtheta_map.png');
     map_(B, p, opts);  B.timing.total_s = toc(t_all);  return
 end
+seedmap = containers.Map();
+for s = 1:numel(B.seeds), for i = 1:numel(B.seeds{s}.C), seedmap(B.seeds{s}.C(i).L.name) = B.seeds{s}.C(i).L; end, end
+solve_args = namedargs2cell(opts.solve);
+if strcmp(opts.stage, 'climb')                   % resume: the solved table from disk, the ladder kept
+    B.solved = read_csv_(fullfile(p.outdir, 'outer_solved.csv'));
+    B.ladder = read_csv_(fullfile(p.outdir, 'outer_ladder.csv'));
+    ok = sortrows(B.solved(B.solved.ok, :), 'merit', 'descend');
+    best = [];  bestMerit = -inf;
+    say('resumed from outer_solved.csv: %d solved, %d ok\n', height(B.solved), height(ok));
+else
 
 % the top_k per element count (any family) by the seed's own merit
 keep = [];
@@ -155,9 +176,6 @@ end
 say('pre-screen keeps %d seeds for the solve\n', height(keep));
 
 % ---- 3. solve + score
-seedmap = containers.Map();
-for s = 1:numel(B.seeds), for i = 1:numel(B.seeds{s}.C), seedmap(B.seeds{s}.C(i).L.name) = B.seeds{s}.C(i).L; end, end
-solve_args = namedargs2cell(opts.solve);
 rows = {};  t0 = tic;
 for i = 1:height(keep)
     L = seedmap(char(keep.name(i)));
@@ -169,6 +187,7 @@ for i = 1:height(keep)
     row = struct('name', L.name, 'nElt', L.N / 2, 'pattern', char(keep.pattern(i)), 'stop_place', char(keep.stop_place(i)), ...
         'merit_seed', keep.merit_seed(i), 'theta_design', thd, ...
         'solve_stop', si.stop, 'rounds', si.n_rounds, 'clamped', nnz(si.clamped), 'R', Ls.R, 'oal', Ls.z(end), ...
+        't', mat2str(Ls.t, 10), 'stop', mat2str(Ls.stop, 10), ...
         'efl', NaN, 'D', NaN, 'theta', NaN, 'merit', 0, 'limit', 'not solved', 'rules_ok', false, 'ok', false);
     if si.ok
         S = iodc2010_score(Ls, p, 'quiet', true, 'deck', fullfile(p.outdir, [L.name '.in']));
@@ -197,7 +216,7 @@ ok = sortrows(ok, 'merit', 'descend');
 rows = {};  t0 = tic;  best = [];  bestMerit = -inf;
 for j = 1:min(opts.n_ladder, height(ok))
     name0 = char(ok.name(j));
-    Lb = read_lens_(fullfile(p.outdir, [name0 '_report.txt']), seedmap(name0));
+    Lb = solved_lens_(ok(j, :), seedmap(name0), p, solve_args, say);
     P0 = iodc2010_paraxial(Lb, p.lambda_nm);
     for Dl = opts.ladder_D
         for thl = opts.ladder_theta
@@ -207,8 +226,8 @@ for j = 1:min(opts.n_ladder, height(ok))
             [Ls, si] = iodc2010_solve(L, p, 'fields_deg', [0 thl/2 thl], 'deck', fullfile(p.outdir, [L.name '_calib.in']), ...
                 'D_target', Dl, 'quiet', true, solve_args{:});
             row = struct('base', name0, 'name', L.name, 'D_target', Dl, 'theta_design', thl, 'solve_stop', si.stop, ...
-                'rounds', si.n_rounds, 'R', Ls.R, 'oal', Ls.z(end), 'D', NaN, 'theta', NaN, 'merit', 0, ...
-                'limit', 'not solved', 'ok', false);
+                'rounds', si.n_rounds, 'R', Ls.R, 'oal', Ls.z(end), 't', mat2str(Ls.t, 10), 'stop', mat2str(Ls.stop, 10), ...
+                'D', NaN, 'theta', NaN, 'merit', 0, 'limit', 'not solved', 'ok', false);
             if si.ok
                 S = iodc2010_score(Ls, p, 'quiet', true, 'deck', fullfile(p.outdir, [L.name '.in']));
                 row.D = S.D_mm;  row.theta = S.theta_lim_deg;  row.merit = S.merit;  row.limit = S.limit_reason;
@@ -227,11 +246,49 @@ end
 if isempty(rows), B.ladder = table(); else, B.ladder = struct2table([rows{:}], 'AsArray', true); end
 B.timing.ladder_s = toc(t0);
 if ~isempty(rows), writetable(B.ladder, fullfile(p.outdir, 'outer_ladder.csv')); end
+end                                              % (stage 'climb' resumes here)
+
+% ---- 4b. the merit-shaped climb on the best solved lenses
+rows = {};  t0 = tic;
+climb_args = namedargs2cell(opts.climb);
+climb_dir = fullfile(p.outdir, 'climb_tmp');
+for j = 1:min(opts.n_climb, height(ok))
+    name0 = char(ok.name(j));
+    Lb = solved_lens_(ok(j, :), seedmap(name0), p, solve_args, say);
+    P0 = iodc2010_paraxial(Lb, p.lambda_nm);
+    for Dc = unique([P0.D, opts.climb_D])
+        L = Lb;  L.semidia = [];
+        L.name = sprintf('%s_climb_D%s', name0, strrep(sprintf('%.3g', Dc), '.', 'p'));
+        say('climb %s: D %.3g mm\n', L.name, Dc);
+        [Lc, ci] = iodc2010_climb(L, p, 'D_target', Dc, 'solve', opts.solve, 'quiet', opts.quiet, ...
+            'deck_base', fullfile(climb_dir, L.name), climb_args{:});
+        row = struct('base', name0, 'name', L.name, 'D_target', Dc, 'theta_start', ci.theta_start, ...
+            'merit_start', ci.merit_start, 'steps', ci.n_steps, 'best_step', ci.best_step, 'climb_stop', ci.stop, ...
+            'lo', ci.lo, 'hi', ci.hi, 'R', Lc.R, 'oal', Lc.z(end), 't', mat2str(Lc.t, 10), 'stop', mat2str(Lc.stop, 10), ...
+            'D', NaN, 'theta', NaN, 'merit', 0, 'limit', 'not solved', 'ok', false);
+        if ci.merit > 0
+            S = iodc2010_score(Lc, p, 'quiet', true, 'deck', fullfile(p.outdir, [L.name '.in']));
+            row.D = S.D_mm;  row.theta = S.theta_lim_deg;  row.merit = S.merit;  row.limit = S.limit_reason;
+            row.ok = S.efl_ok && S.rules.ok && S.image_real;
+            say('   -> step %d of %d: D %.3f x %.2f deg = %.1f (%s)%s\n', ci.best_step, ci.n_steps, row.D, row.theta, ...
+                row.merit, row.limit, tern_(row.ok, '', ' REJECTED'));
+            if row.ok && S.merit > bestMerit
+                bestMerit = S.merit;  best = struct('lens', Lc, 'score', S);
+                Lq = S.L;  Lq.semidia = S.semidia;  tl = S.theta_lim_deg;
+                iodc2010_seq(Lq, S.P, p, unique(round([0 tl/2 tl 1.1*tl 1.5*tl], 3)), fullfile(p.outdir, [L.name '.seq']));
+            end
+        end
+        rows{end+1} = row; %#ok<AGROW>
+    end
+end
+if ~isempty(rows), B.climb = struct2table([rows{:}], 'AsArray', true);  writetable(B.climb, fullfile(p.outdir, 'outer_climb.csv')); end
+if exist(climb_dir, 'dir'), rmdir(climb_dir, 's'); end
+B.timing.climb_s = toc(t0);
 % the best over the solve stage too
 for j = 1:height(ok)
     if ok.merit(j) > bestMerit
         bestMerit = ok.merit(j);
-        best = struct('lens', read_lens_(fullfile(p.outdir, [char(ok.name(j)) '_report.txt']), seedmap(char(ok.name(j)))), 'score', []);
+        best = struct('lens', solved_lens_(ok(j, :), seedmap(char(ok.name(j))), p, solve_args, say), 'score', []);
         best.name = char(ok.name(j));
     end
 end
@@ -267,6 +324,28 @@ for k = 1:8
 end
 end
 
+function L = solved_lens_(row, L0, p, solve_args, say)
+% The solved lens behind a table row: from the row's own prescription
+% columns (t, stop; written since 2026-10-31), else from its report on disk,
+% else RE-SOLVED from the seed with the row's design field and D (the solve
+% is deterministic on one mex: the A/B of 2026-10-31 reproduced 52.69 /
+% 74.79 / 53.63 to the digit; the stop fit can differ when it shrank D).
+name = char(row.name);
+vn = row.Properties.VariableNames;
+if all(ismember({'t', 'stop'}, vn)) && ~isempty(char(row.t))
+    L = L0;  L.t = str2num(char(row.t));  L.stop = str2num(char(row.stop)); %#ok<ST2NM>
+    L.R = row.R;  L.z = [0, cumsum(L.t(1:end-1))];  L.semidia = [];
+    return
+end
+report = fullfile(p.outdir, [name '_report.txt']);
+if exist(report, 'file'), L = read_lens_(report, L0);  return; end
+thd = row.theta_design;  D0 = row.D;
+say('   (%s: no prescription on disk; re-solved from the seed at design field %.2f deg, D %.3f)\n', name, thd, D0);
+L = iodc2010_solve(L0, p, 'fields_deg', [0 thd/2 thd], 'D_target', D0, 'quiet', true, ...
+    'deck', fullfile(p.outdir, 'climb_tmp', [name '_resolve_calib.in']), solve_args{:});
+L.semidia = [];
+end
+
 function L = read_lens_(report, L0)
 % The solved prescription from its own report (the record the user sees),
 % so the ladder starts from exactly what was scored.
@@ -296,14 +375,11 @@ for m = [30 100 300 1000 3500]
     text(ax, Dl, m / Dl * 1.15, sprintf('%d', m), 'Color', [0.5 0.5 0.5], 'FontSize', 8, 'HorizontalAlignment', 'right');
 end
 plot(ax, top(:, 1), top(:, 2), 's', 'MarkerSize', 8, 'MarkerFaceColor', [0.85 0.85 0.85], 'Color', 'k');
-pts = [];
-for T = {B.solved, B.ladder}
-    T = T{1};
-    if isempty(T) || ~ismember('ok', T.Properties.VariableNames), continue; end
-    ok = T.ok;  if ~islogical(ok), ok = logical(str2double(string(ok))); end   % readtable may give it as text
-    pts = [pts; T.D(ok), T.theta(ok)]; %#ok<AGROW>
-end
+pts = ok_points_({B.solved, B.ladder});
+pcl = ok_points_({B.climb});
 if ~isempty(pts), plot(ax, pts(:, 1), pts(:, 2), 'o', 'MarkerSize', 5, 'Color', [0 0.35 0.75], 'MarkerFaceColor', [0.3 0.6 0.95]); end
+if ~isempty(pcl), plot(ax, pcl(:, 1), pcl(:, 2), '^', 'MarkerSize', 6, 'Color', [0.6 0.1 0.1], 'MarkerFaceColor', [0.95 0.5 0.3]); end
+pts = [pts; pcl];
 if ~isempty(B.best) && ~isempty(pts)
     [~, ib] = max(pts(:, 1) .* pts(:, 2));
     plot(ax, pts(ib, 1), pts(ib, 2), 'p', 'MarkerSize', 14, 'Color', 'k', 'MarkerFaceColor', [1 0.8 0.1]);
@@ -312,11 +388,29 @@ end
 set(ax, 'XScale', 'log', 'YScale', 'log');
 xlim(ax, [1 130]);  ylim(ax, [0.5 50]);
 xlabel(ax, 'entrance pupil diameter D (mm)');  ylabel(ax, 'semi-field at RMS 0.070 wave (deg)');
-title(ax, sprintf('IODC 2010: our solved lenses (circles, N = %s) and the published top ten (squares); dotted lines = constant D x theta', ...
-    mat2str(opts.n_elts)), 'FontSize', 9);
+title(ax, sprintf(['IODC 2010: our solved lenses (circles, N = %s), the merit-shaped climb (triangles) and the ' ...
+    'published top ten (squares); dotted lines = constant D x theta'], mat2str(opts.n_elts)), 'FontSize', 9);
 grid(ax, 'on');
 print(f, B.map, '-dpng', '-r110');
 close(f);
+end
+
+function pts = ok_points_(Ts)
+% (D, theta) of every row that passed, from tables made here or read back
+pts = [];
+for T = Ts
+    T = T{1};
+    if isempty(T) || ~ismember('ok', T.Properties.VariableNames), continue; end
+    ok = T.ok;  if ~islogical(ok), ok = logical(str2double(string(ok))); end   % readtable may give it as text
+    pts = [pts; T.D(ok), T.theta(ok)]; %#ok<AGROW>
+end
+end
+
+function T = read_csv_(f)
+% a stage table from disk (an empty table when the stage never ran), its ok column logical
+if ~exist(f, 'file'), T = table();  return; end
+T = readtable(f, 'TextType', 'char');
+if ismember('ok', T.Properties.VariableNames) && ~islogical(T.ok), T.ok = logical(str2double(string(T.ok))); end
 end
 
 function out = tern_(c, a, b)

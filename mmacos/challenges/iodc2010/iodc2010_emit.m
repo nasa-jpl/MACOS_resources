@@ -40,7 +40,7 @@ arguments
     P struct
     p struct
     path (1,:) char
-    opt struct = struct()     % CALIB block (see iodc2010_solve): .fields_deg .max_iters .var_surf .var_fp .var_stop .tol .ray_grid .standoff
+    opt struct = struct()     % CALIB block (see iodc2010_solve): .fields_deg .max_iters .var_surf .var_fp .var_stop .tol .ray_grid .standoff .fov_weights
 end
 N = L.N;
 do_opt = ~isempty(fieldnames(opt));
@@ -111,7 +111,10 @@ if do_opt
     % through the stop's centre at every trace as the surfaces move -- a fixed
     % object-space ApStop point would drift off the stop as the solve moves
     % the lens), the off-axis fields as chief directions (field 1 = the
-    % header's on-axis ChfRayDir), unit weights sized 1 + n_off.
+    % header's on-axis ChfRayDir), weights sized 1 + n_off: unit, or
+    % opt.fov_weights (the merit-shaped solve, iodc2010_climb, re-weights the
+    % fields so the worst one is the one the LM lowers; the engine's row
+    % scale is 1/sqrt(w), notes/calib.md "Field weights").
     w('        OptTarget=  WFE');
     w('         OptWFElt=  %d', numel(items) + 2);
     w('       OptMaxItrs=  %d', opt.max_iters);
@@ -125,7 +128,13 @@ if do_opt
         w('     OptChfRayDir=  %s  %s  %s', nm(d(1)), nm(d(2)), nm(d(3)));
         w('     OptChfRayPos=  %s  %s  %s', nm(cp(1)), nm(cp(2)), nm(cp(3)));
     end
-    w('         OptFOVWt=  %s', strtrim(repmat('1 ', 1, 1 + numel(fo))));
+    if isfield(opt, 'fov_weights') && ~isempty(opt.fov_weights)
+        assert(numel(opt.fov_weights) == 1 + numel(fo) && all(opt.fov_weights > 0), ...
+            'iodc2010_emit: fov_weights needs %d positive weights (the on-axis field first)', 1 + numel(fo));
+        w('         OptFOVWt=  %s', strjoin(arrayfun(nm, opt.fov_weights, 'UniformOutput', false), '  '));
+    else
+        w('         OptFOVWt=  %s', strtrim(repmat('1 ', 1, 1 + numel(fo))));
+    end
 end
 w('%% Element Definitions');
 nElt = numel(items) + 3;

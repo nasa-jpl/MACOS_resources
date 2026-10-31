@@ -55,6 +55,13 @@ function p = iodc2010_params()
 %     n_ladder         how many of the best solved lenses climb the ladder
 %     solve            iodc2010_solve overrides (rounds, iters_per_round,
 %                      floor_glass_R, floor_air_R, var_stop, ray_grid)
+%     n_climb          how many of the best solved lenses get the merit-shaped
+%                      climb (iodc2010_climb: the design field bracketed on the
+%                      lens's own semi-field, the fields re-weighted toward the
+%                      worst one), at the lens's own D and at every climb_D
+%     climb_D          pupils (mm) the climb is run at besides the lens's own
+%     climb            iodc2010_climb overrides (steps, n_fields, grow, tol,
+%                      reweight, w_floor, score_grid)
 p = struct();
 p.lambda_nm       = 532;
 p.glass           = 'N-BK7';
@@ -72,9 +79,17 @@ p.stop_clips      = false;
 p.src_standoff_mm = 100;
 p.model_size      = 128;
 p.outdir          = fileparts(mfilename('fullpath'));
-p.outer = struct('families', {{'forms', 'groups'}}, 'n_elts', [2 3], 'groups', struct(), ...
+% The values are the 2026-10-30 production run's (search/outer/: the air
+% spaces 0.2 / 0.7 / 2.5 R, the groups' gaps 0.3-10 R, the ladder 4-20 mm x
+% 3-20 deg), so iodc2010_run('stage', 'outer') reproduces that record.  A
+% seed's NAME carries its gap INDEX (f3_..._g3_...), so a table written under
+% one air grid names different lenses under another; the tables carry gaps_R.
+p.outer = struct('families', {{'forms', 'groups'}}, 'n_elts', [2 3], ...
+    'groups', struct('a_range', 0:2, 'c_range', 0:2, 'b_max', 4, 'gap_grid', [0.3 1 3 10]), ...
     'D_target', 10, 'design_field_deg', 1, 'top_k', 8, ...
-    'prescreen_grid', 21, 'air_grid', [0.1 0.25 0.5 1 2], 'ladder_D', [10 15 20 30], ...
-    'ladder_theta', [3 5 8 12], 'n_ladder', 3, ...
-    'solve', struct('rounds', 4, 'iters_per_round', 12, 'floor_glass_R', 0.03, 'floor_air_R', 0.01, 'var_stop', false, 'ray_grid', 31));
+    'prescreen_grid', 21, 'air_grid', [0.2 0.7 2.5], 'ladder_D', [4 7 12 20], ...
+    'ladder_theta', [3 6 12 20], 'n_ladder', 3, ...
+    'solve', struct('rounds', 4, 'iters_per_round', 12, 'floor_glass_R', 0.03, 'floor_air_R', 0.01, 'var_stop', false, 'ray_grid', 31), ...
+    'n_climb', 3, 'climb_D', [4 7 12], ...
+    'climb', struct('steps', 8, 'n_fields', 4, 'grow', 1.3, 'tol', 0.03, 'reweight', false, 'w_floor', 0.1, 'score_grid', 21));
 end
