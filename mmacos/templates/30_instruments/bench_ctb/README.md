@@ -707,12 +707,14 @@ takes a `'suffix'`; `ctb_vortex_bandwidth` takes `'chain'`/`'tag'`;
 
 # The progress deck — deck_ctb
 
-`deck_ctb.pptx` (23 slides: title + 15 main + 6 backup behind a divider) records
+`deck_ctb.pptx` (25 slides: title + 17 main + 6 backup behind a divider) records
 the state of the CTB model: bench + prescriptions, PROPER validation,
 mask families head-to-head, planet/bandpass, phase-factor export, the
 pure-PROPER hand-off, the DM/EFC dark hole, the vortex/Lyot trade, the
-physics layers (polarization, bandwidth), and the vector vortex.
+physics layers (polarization, bandwidth), the vector vortex, and the
+coronagraph on the thread's telescope (the coupled model, probing on it,
+and the recompute-and-restart cycles to 1e-8).
 Source is `deck_ctb.md`; regen with `python3 make_brief_slides.py
 deck_ctb.md` (figures are the committed PNGs in this directory).
 Style: `doc/DECK_STYLE.md` + `doc/STYLE_REPORTS.md` §5 (gate run
-2026-08-26, clean).
+2026-10-31, clean).
