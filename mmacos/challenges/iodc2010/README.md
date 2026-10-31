@@ -164,7 +164,8 @@ sized clear apertures as `CIR`.)
 | `iodc2010_search.m` | the first ladder: the CALIB spacing solve inside an R × stop scan on one seed, each candidate scaled to EFL 100 and scored |
 | `iodc2010_solve.m` | the inner solve: CALIB on the spacings in rounds (re-emitted from its own result), a thickness floor (active set), the stop filled on axis, scaled to EFL 100 |
 | `iodc2010_forms.m` | the forms: eight shapes per element, Petzval-balanced sign patterns, seed spacings in units of R, stop places; paraxially screened and scaled |
-| `iodc2010_outer.m` | the outer loop: forms → pre-screen by the seed's own merit → solve → score → the (D, θ) ladder → the map against the top ten |
+| `iodc2010_climb.m` | the merit-shaped inner objective: the design field bracketed on the lens's own semi-field with CALIB inside, the fields re-weighted toward the worst one (iteratively re-weighted least squares); never returns worse than its start |
+| `iodc2010_outer.m` | the outer loop: forms → pre-screen by the seed's own merit → solve → score → the (D, θ) ladder → the climb → the map against the top ten |
 | `iodc2010_run.m` | the runner: `evaluate` (the bundled lenses or yours), `gate`, `search` |
 | `../../tests/tIodc2010.m` | the gates as a unittest class (SUITE_FAST) |
 
@@ -176,6 +177,7 @@ run('~/dev/MACOS_resources/mmacos/challenges/iodc2010/iodc2010_run.m')   % score
 R = iodc2010_run('stage', 'gate');                                        % the evaluator gate
 R = iodc2010_run('stage', 'search');                                      % the first CALIB ladder (search/)
 R = iodc2010_run('stage', 'outer');                                       % the outer design loop (search/outer/)
+R = iodc2010_run('stage', 'outer', 'outer', struct('stage', 'climb'));    % resume: the merit-shaped climb on the solved table
 L = iodc2010_lens('R', 80, 'sgn', [1 0 0 -1], 't', [6 62.94 6 NaN], ...  % your own lens
                   'glass', {'N-BK7','air','N-BK7','air'}, 'stop', [37.47 3.5], 'name', 'mine');
 R = iodc2010_run('lens', L, 'nGridpts', 97);
@@ -306,7 +308,16 @@ every solved lens's deck / report / `.seq`, `dtheta_map.png`):
    EFL 100 and scored with apertures sized at its limit.
 4. **Ladder.**  The three best re-solved at D = 4 / 7 / 12 / 20 mm × design
    field 3 / 6 / 12 / 20°.
+4b. **Climb** (added 2026-10-31, below).  The three best through the
+   merit-shaped inner objective, `iodc2010_climb`, at their own D and at
+   D = 4 / 7 / 12 mm (`outer_climb.csv`, triangles on the map).
 5. **Map.**  Every scored point against the top ten (`dtheta_map.png`).
+
+The options above are `p.outer` in `iodc2010_params.m` (set to the
+production run's values on 2026-10-31; the committed `outer_prescreen.csv`
+had been overwritten by a default-grid run the same afternoon and is
+regenerated -- a seed's name carries its gap *index*, so the table and the
+grid must match).
 
 What came out (39 solved, 32 pass every rule):
 
@@ -350,10 +361,88 @@ field.  Findings, each measured:
   the test.  The resumable stages (`stage = 'prescreen' | 'solve' | 'map'`)
   came out of re-running the solve on the kept pre-screen.
 
+## The merit-shaped inner objective (2026-10-31)
+
+`iodc2010_climb.m`, stage 4b of the outer loop.  The merit is a threshold
+(the largest field at which every field passes), CALIB's objective a sum of
+squares at fixed fields; the climb makes the solve merit-shaped from the
+outside.  For a given D it brackets the **design field** on the lens's own
+semi-field: each step solves the spacings (`iodc2010_solve`, D held) for
+fields 0 … θ at four equal spacings, scores the solved lens by the metric
+(21 rays across), and raises θ (× 1.3, or to the bracket's geometric mean)
+when the lens **held** it, lowers it when not; a step starts from the last
+lens that held its field (a solve asked for a field beyond reach wrecks the
+lens — the first draft started every step from the previous one and one
+seed of merit 81 never recovered from its first step); the lens returned is
+the best over every step and the start, so the climb never returns worse
+than it was given.  Per-field CALIB weights (`OptFOVWt=`, through
+`iodc2010_solve`'s `fov_weights`) are wired and tested, and an iteratively
+re-weighted mode (`reweight`, each field's weight × (RMS / 0.070)² per step)
+exists; measured, it buys nothing on average and is off by default.
+
+**The A/B on the three production seeds** (the same seed, D and mex; the
+plain solve reproduces the 2026-10-30 numbers to the digit; final scores on
+the 97-ray grid):
+
+| seed | seed as scored | plain WFE sum (the 10-30 solve) | field bracket | bracket + re-weighting | limited by |
+|---|---|---|---|---|---|
+| `f3_bicv_pcx_pcx_g3_back` | 81.0 | 52.7 | 81.3 | 81.3 | distortion at 13.5° |
+| `f3_men+_xcp_pcv_g5_front` | 49.5 | 74.8 | **82.5** (D 3.139 × 26.27°) | 76.5 | RMS |
+| `f3_bicv_men+_bicx_g6_air2` | 44.5 | 53.6 | 52.1 | 56.7 | RMS |
+
+Findings, each measured:
+
+* **The bracket is the merit-shaped part.**  It returns the seed where the
+  sum had lost a third of it, and beats the sum by 10 % on the lens that is
+  now the best (82.5).  Re-weighting toward the worst field (IRLS) sent one
+  solve wandering (every field over a wave) and gained on one seed only:
+  the sum over fields spanning 0 … θ is already dominated by its largest
+  residual.
+* **A seed whose field is ended by distortion gains nothing from a
+  wavefront objective** (`f3_bicv_pcx_pcx_g3_back`, 13.5° by distortion, the
+  wavefront fine to 11°): CALIB has no distortion row.  A merit that counts
+  distortion needs either a distortion target in the engine or a MATLAB-side
+  objective around a different inner solver.
+* **The pick is made on a 21-ray grid and re-scored at 97**: the third seed's
+  best step (53.6 at 21) reads 52.1 at 97, below the sum's 53.6 — a 3 % grid
+  noise in the pick, the price of a 12-second climb (`score_grid` raises
+  it).
+* **The record's pre-screen table was wrong** (found by this A/B: the climb's
+  first seed was a different lens of the same name): the runner's accidental
+  default-grid run of 10-30 had overwritten `outer_prescreen.csv`, and a
+  seed's name carries its gap *index* under the grid in force.  The
+  production options are now `p.outer`'s defaults and the table is
+  regenerated; the solved, ladder and climb tables now carry each lens's
+  full prescription (`t`, `stop`) so a resume needs no report on disk (a
+  missing one is re-solved from its seed, deterministically).
+
+**The production climb stage** (`outer_climb.csv`; the three best solved
+lenses from the 10-30 table, each at its own D and at D = 4 / 7 / 12 mm,
+168 s; the triangles on `dtheta_map.png`).  The start here is the SOLVED
+lens, not the seed, which is why the first row reads 81.1 and not the A/B's
+82.5 (that lens's deck and report are `f3_men+_xcp_pcv_g5_front_climb_seed.in`
+/ `_report.txt`, the A/B table `outer_climb_ab.csv`):
+
+| start | D (mm) | start D × θ | climb D × θ | merit | limited by |
+|---|---|---|---|---|---|
+| `f3_men+_xcp_pcv_g5_front` | 3.14 | 3.14 × 23.98 = 75.3 | 3.14 × 25.83 | **81.1** | RMS |
+| `f3_men-_xcp_pcv_g5_front` (re-solved from its seed: its report was not committed) | 3.11 | 3.11 × 23.87 = 74.2 | 3.11 × 25.56 | 79.5 | vignetting |
+| `f3_bicv_men+_bicx_g6_air2` | 4.67 | 4.67 × 11.48 = 53.6 | 4.67 × 11.52 | 53.8 | RMS |
+| the same | 4 | fails on axis | 4.00 × 12.40 | 49.6 | distortion |
+| the same | 7 | fails on axis | 7.00 × 1.58 | 11.0 | RMS |
+| the two small lenses | 4 / 7 / 12 | fails on axis | ≤ 4.3° at D 4, nothing at 7 or 12 | ≤ 17.3 | RMS / vignetting |
+
+The climb adds 6–8 % to the small lenses at their own pupil and confirms
+what the ladder said about theirs: a 20–30-mm lens does not take a 4-mm
+pupil.  The best lens on record is now **82.5** (D 3.139 × 26.27°, RMS
+limited; the published winner 3537, 43× away).  The frontier the published
+entries occupy (D 45–110 mm) is still untouched: it needs element counts
+and spacings this forms family does not enumerate.
+
 ## Next
 
-A merit-shaped inner objective (the largest semi-field at RMS 0.070 for a
-given D, instead of CALIB's WFE sum at fixed fields), four and more elements
-in the forms family with air spaces that reach the intermediate-image regime,
-the stop position as a variable (`var_stop` exists, off by default), and
-Luis's CODE V column.
+Four and more elements in the forms family with air spaces that reach the
+intermediate-image regime, a distortion-aware inner objective (the
+distortion-limited seeds are the ones the wavefront solve cannot move), the
+stop position as a variable (`var_stop` exists, off by default), and Luis's
+CODE V column.

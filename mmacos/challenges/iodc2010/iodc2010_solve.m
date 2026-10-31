@@ -52,9 +52,15 @@ function [Ls, info] = iodc2010_solve(L, p, opts)
 %   until no on-axis ray is lost, in at most five steps; info.stop_fit
 %   records the factor.
 %
+%   Field weights (opts.fov_weights, one per design field, the on-axis
+%   field first) go to the deck's OptFOVWt= line; iodc2010_climb uses them to
+%   make the LM lower the worst field rather than the sum.
+%
 %   info: .rounds (table: round, n_iter, stop_reason, wfe_before, wfe_after,
 %   D, efl), .stop, .clamped (1xN-1 logical), .n_rounds, .deck, .scale,
-%   .efl_solved (before scaling), .ok.
+%   .efl_solved (before scaling), .ok, .fields_deg and .wfe_fields (CALIB's
+%   own after-solve RMS per design field, waves, of the last ACCEPTED round;
+%   NaN when none was).
 arguments
     L struct
     p struct
@@ -70,6 +76,7 @@ arguments
     opts.deck (1,:) char = ''
     opts.fit_stop (1,1) logical = true
     opts.D_target (1,1) double = NaN
+    opts.fov_weights (1,:) double = []     % per-field CALIB weights, the on-axis field first (iodc2010_climb)
     opts.quiet (1,1) logical = true
 end
 say = @(varargin) iif_(~opts.quiet, varargin{:});
@@ -85,6 +92,7 @@ frozen = false(1, N);                      % surfaces removed from the variable 
 clamped = false(1, N - 1);
 rows = {};  info.stop = 'rounds';  D_prev = NaN;
 accepted = Lc;  clean = false;  n_accepted = 0;
+wfe_fields = nan(1, 1 + nnz(opts.fields_deg > 0));
 r = 0;
 while r < opts.rounds || (~clean && r < opts.rounds + 1)
     r = r + 1;
@@ -94,7 +102,8 @@ while r < opts.rounds || (~clean && r < opts.rounds + 1)
     end
     var_surf = find(~frozen);
     opt = struct('fields_deg', opts.fields_deg, 'max_iters', opts.iters_per_round, ...
-        'var_surf', var_surf, 'var_fp', opts.var_fp, 'var_stop', opts.var_stop, 'ray_grid', opts.ray_grid);
+        'var_surf', var_surf, 'var_fp', opts.var_fp, 'var_stop', opts.var_stop, 'ray_grid', opts.ray_grid, ...
+        'fov_weights', opts.fov_weights);
     E = iodc2010_emit(Lc, P, p, opts.deck, opt);
     macos.load_rx(E.path);
     try
@@ -137,7 +146,10 @@ while r < opts.rounds || (~clean && r < opts.rounds + 1)
     end
     Ln = hold_D_(Ln, p, opts.D_target);  Pn = iodc2010_paraxial(Ln, p.lambda_nm);
     Lc = Ln;
-    if clean, accepted = Ln;  n_accepted = n_accepted + 1; end
+    if clean
+        accepted = Ln;  n_accepted = n_accepted + 1;
+        wfe_fields = res.new_wfe(:, 1).' / E.lambda_mm;        % CALIB's field order = the deck's: on-axis, then opt.fields_deg > 0
+    end
     say('    round %d: %2d it (%s) wfe %.3g -> %.3g mm, D %.3f -> %.3f, EFL %.2f%s\n', r, res.n_iter, ...
         res.stop_reason, row.wfe_before, row.wfe_after, P.D, Pn.D, Pn.efl, ...
         tern_(clean, ' (accepted)', sprintf(' -> clamped gap(s) %s, frozen %s', mat2str(find(clamped)), mat2str(find(frozen)))));
@@ -181,6 +193,8 @@ else
     info.rounds = struct2table([rows{:}], 'AsArray', true);
 end
 info.n_accepted = n_accepted;
+info.fields_deg = [0, opts.fields_deg(opts.fields_deg > 0)];
+info.wfe_fields = wfe_fields;
 % solved = at least one accepted (clean) round; a later failed round returns the last accepted lens
 info.ok = n_accepted >= 1 && all(Ls.t(1:N-1) > 0) && Ls.t(N) > 0;
 end
