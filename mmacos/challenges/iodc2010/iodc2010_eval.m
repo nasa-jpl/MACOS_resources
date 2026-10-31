@@ -17,7 +17,11 @@ function F = iodc2010_eval(E, P, p, theta_deg, opts)
 %                   launched ray passes)
 %     F.yR, F.yP    real and paraxial chief-ray height at the image plane (mm)
 %     F.dist_pct    100 (yR - yP) / yP   (NaN on axis)
-%     F.xp          the reference sphere FEX used: .vpt .psi .rad
+%     F.xp          the reference sphere used: .vpt .psi .rad (FEX's, or the mirror
+%                   sphere when the exit pupil lies beyond the image plane -- below)
+%     F.xp_virtual  true when FEX's sphere had to be re-placed (the pupil is virtual,
+%                   beyond the image plane); the OPD is then read at the near
+%                   crossing of the same sphere, <= 3.5e-4 wave from the far one
 %     F.pass        rms <= p.rms_limit & |dist| <= p.dist_limit & nLost == 0
 %     F.reason      '' | 'rms' | 'distortion' | 'vignetting' (the first that fails)
 %
@@ -48,6 +52,28 @@ src = [0; 0; P.z_ep] - s_back * d;
 macos.set_src_fov('src_dir', d, 'src_pos', src);
 macos.stop(E.iStop);
 x  = macos.fex(1);
+% FEX's sphere has its centre at vpt - rad * psi.  When the exit pupil lies BEYOND the
+% image plane (a virtual pupil: the stop inside the rear group's front focal distance, or
+% ahead of a diverging front), FEX's SIGNED station-to-FP distance puts that centre on
+% the far side of the station and every ray misses the sphere (the trace to the FP, which
+% follows the XP Return, dies with it).  The reference sphere the metric wants is still
+% the one centred on the chief ray's image point with the pupil's radius; it is re-placed
+% here as the MIRROR sphere -- same centre, same radius, the vertex r BEFORE the image
+% along the chief, the geometry FEX writes for a real pupil -- and the engine evaluates
+% its near crossing.  The near and far crossings of one sphere differ by rho^2 / r
+% (second order in the ray's transverse aberration): 2e-7 wave at D 1 mm and 3.5e-4
+% wave at D 5 mm on the retrofocus trains that found this (xp_virtual, 2026-10-31); the
+% engine on the mirror sphere matches the independent tracer to 2e-9 wave (the gate's
+% tolerance), tIodc2010 pins both.  The chief's image point comes from the image Return,
+% which precedes the XP Return in the deck (a Return reverses the chief's direction).
+ti = macos.trace(E.iImgRet);  ri = macos.get_ray_info(ti.nRays);
+C_img = ri.pos(:, 1);  dz = -ri.dir(:, 1) / norm(ri.dir(:, 1));
+F.xp_virtual = norm((x.vpt - x.rad * x.psi) - C_img) > 1e-3 * max(1, abs(x.rad));
+if F.xp_virtual
+    r = abs(x.rad);
+    x.vpt = C_img - r * dz;  x.psi = dz;  x.rad = -r;
+    macos.set_xp(x.vpt, x.psi, x.rad);
+end
 
 tr = macos.trace(E.iXP);
 % The RMS is taken over every launched ray that reaches the sphere, the chief

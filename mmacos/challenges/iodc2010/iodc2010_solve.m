@@ -77,6 +77,11 @@ arguments
     opts.fit_stop (1,1) logical = true
     opts.D_target (1,1) double = NaN
     opts.fov_weights (1,:) double = []     % per-field CALIB weights, the on-axis field first (iodc2010_climb)
+    opts.fex (1,1) logical = true          % OptFEX: the engine re-places the XP sphere per field.  false = the
+                                           % deck's own sphere (iodc2010_emit's, the mirror sphere when the
+                                           % pupil is beyond the image), ON-AXIS solves only: the engine's FEX
+                                           % mis-centres a virtual pupil's sphere and CALIB then loses every
+                                           % ray of every field (iodc2010_eval's note, 2026-10-31)
     opts.quiet (1,1) logical = true
 end
 say = @(varargin) iif_(~opts.quiet, varargin{:});
@@ -103,7 +108,7 @@ while r < opts.rounds || (~clean && r < opts.rounds + 1)
     var_surf = find(~frozen);
     opt = struct('fields_deg', opts.fields_deg, 'max_iters', opts.iters_per_round, ...
         'var_surf', var_surf, 'var_fp', opts.var_fp, 'var_stop', opts.var_stop, 'ray_grid', opts.ray_grid, ...
-        'fov_weights', opts.fov_weights);
+        'fov_weights', opts.fov_weights, 'fex', opts.fex);
     E = iodc2010_emit(Lc, P, p, opts.deck, opt);
     macos.load_rx(E.path);
     try
