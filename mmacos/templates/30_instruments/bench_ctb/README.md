@@ -568,7 +568,8 @@ no model gap for the optimizer to mine (the e2e6m S3b lesson).
 | `ctb_dm_jacobian.m` | G = dE(dark zone)/d(actuator): central differences, 3520 pokes (±h, h = 2 nm surface) through the masked chain, 26 min at N=512 (since 2026-10-28; one-sided pokes, 11.3 min, before). Saved to `ctb_dm_jacobian_N512.mat` (37 MB, gitignored) + committed `.fp.json` fingerprint. Regen: `ctb_dm_jacobian()`. |
 | `ctb_efc.m` | the EFC loop: Tikhonov least squares on the dark-zone field, α line-searched each iteration against the MEASURED contrast (runs are 0.4 s — a luxury lab EFC needs probing for), stop when no α improves. Sensing perfect by default (engine field read directly); `'sensing', struct(...)` closes the loop on pairwise-probe estimates instead (below). |
 | `ctb_probe_estimate.m` | pairwise-probe field estimate (Give'on, Kern & Shaklan 2011): I_0 and I_k± for 3 probe pairs on DM1 through the masked chain (7 runs, 4 s), dE_k = G a_k, per-pixel least squares for Re/Im E; the probe-intensity diagnostic ratio; photon noise as a plant option; scored against the engine's true field, which it never feeds back. |
-| `ctb_probe_solve.m` | the per-pixel 2-unknown solve and its conditioning. |
+| `ctb_probe_solve.m` | the per-pixel 2-unknown solve and its conditioning; 'reg' / 'energy_floor' (measured: no gain at depth, the error is in the probe fields). |
+| `ctb_dm_linearity.m` | is the plant linear in a DM pattern at the sub-nm scale?  The odd field response per unit amplitude, the rays that STEP (path change many times the pattern's own OPD), the worst ray and the element where it departs.  Today's answer on a rough state: no -- the bilinear grid DMs kink a ray whose footprint crosses a cell boundary (macos `notes/surfaces.md`, "Grid surfaces are C0"); the pin is `tE2eSensing/test_grid_dm_c0_steps_pinned`. |
 
 ## The real-stacked solve (the trap this layer documents)
 
@@ -707,7 +708,7 @@ takes a `'suffix'`; `ctb_vortex_bandwidth` takes `'chain'`/`'tag'`;
 
 # The progress deck — deck_ctb
 
-`deck_ctb.pptx` (25 slides: title + 17 main + 6 backup behind a divider) records
+`deck_ctb.pptx` (28 slides: title + 19 main + 7 backup behind a divider) records
 the state of the CTB model: bench + prescriptions, PROPER validation,
 mask families head-to-head, planet/bandpass, phase-factor export, the
 pure-PROPER hand-off, the DM/EFC dark hole, the vortex/Lyot trade, the

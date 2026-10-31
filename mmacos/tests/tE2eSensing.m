@@ -21,6 +21,9 @@ classdef tE2eSensing < matlab.unittest.TestCase
 %         pinned amount: on the telescope it is an amplitude-independent
 %         second-order offset, not a Jacobian meter (the stage's finding)
 %     (c) photon noise raises the floor in order: 1e6 > 1e8 > noiseless
+%     (e) PINNED OPEN DEFECT: the bilinear grid DMs make the plant piecewise
+%         linear -- rays STEP under a 2-nm smooth pattern from a rough state
+%         (ctb_dm_linearity); flip to zero steps when a C1 interpolation lands
 %     (d) ctb_efc closed on the pick's estimate digs the TRUE contrast in
 %         three iterations, to what perfect sensing digs, and reports both
 %         curves
@@ -118,6 +121,33 @@ classdef tE2eSensing < matlab.unittest.TestCase
             tc.verifyGreaterThan(e8.floor, e1.floor, 'photon noise at 1e8 raises the floor');
             tc.verifyGreaterThan(e6.floor, 10 * e8.floor, sprintf( ...
                 '1e6 photons: %.2e against 1e8: %.2e (a hundredfold fewer photons, a tenfold floor at least)', e6.floor, e8.floor));
+        end
+
+        function test_grid_dm_c0_steps_pinned(tc)
+            % PINNED OPEN DEFECT (CCL 2026-10-31, PLAN_CONSOLIDATION 3a): the grid DMs are
+            % bilinear (C0) surfaces, so a ray whose footprint on DM2 crosses a cell boundary
+            % takes the two cells' slope difference as a direction kink and steps its path by
+            % tens of nm for a sub-nm change on DM1 -- the plant is piecewise linear in the DM
+            % state at the scale of a deep probe.  A random rough state does not show it (its
+            % cell-edge slope jumps are small); stage 11's EFC-shaped cycle-4 state does, so the
+            % leg runs on that LOCAL product (Incomplete without it, never a silent pass).
+            % When a C1 (continuous-normal) grid interpolation lands, flip the EXPECT to zero
+            % steps at every amplitude.
+            root = fullfile(fileparts(mfilename('fullpath')), '..');
+            e2e = fullfile(root, 'templates', '80_end_to_end', 'e2e');
+            sf = fullfile(e2e, 's11_sens_state.mat');  jf = fullfile(e2e, sprintf('ctb_dm_jacobian_N%d_e2e_sens_c4.mat', tc.ModelSize));
+            tc.assumeTrue(isfile(sf) && isfile(jf), 'stage 11''s cycle-4 state and Jacobian (local products of s11_cycles) are needed');
+            St = load(sf);  J4 = load(jf);  a = St.cycles(4).a_end;
+            tc.assumeTrue(isequal(J4.a0, a), 'the cycle-4 Jacobian is not about cycle 4''s start');
+            S = ctb_probe_shapes(J4.dm(1), J4.outer_lamD, 3);
+            R = ctb_dm_linearity(tc.ch, J4, a, S(:, 1), [0.3 1 2], 'say', []);
+            fprintf('[c0 steps] amps %s nm: steps %s, max step %s nm, odd_dev %s, worst ray %s at elt %s\n', mat2str(R.amps_nm), mat2str(R.n_step), mat2str(R.max_step_nm, 3), mat2str(R.odd_dev, 3), mat2str(R.worst_ray), mat2str(R.worst_elt));
+            % TODAY (measured 2026-10-31 with the > 10 x 2A criterion: steps [0 6 6], max step 63 nm,
+            % odd_dev [0 1.04 0.62]; with an absolute 10-nm criterion 1 / 68 / 156 rays have moved).
+            % AFTER THE C1 FIX: tc.verifyEqual(R.n_step, zeros(size(R.n_step)), 'no ray steps')
+            tc.verifyGreaterThan(R.n_step(end), 0, 'the pinned defect: no ray stepped at 2 nm -- did a C1 grid interpolation land?  Flip the EXPECT.');
+            tc.verifyGreaterThan(R.max_step_nm(end), 10 * 2 * R.amps_nm(end), 'a step is many times the probe''s own OPD');
+            tc.verifyTrue(any(R.worst_elt(end) == [tc.e.DM1 tc.e.DM2]), sprintf('the worst ray departs at a grid DM (element %d)', R.worst_elt(end)));
         end
 
         function test_efc_closes_on_the_estimate(tc)

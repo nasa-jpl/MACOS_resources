@@ -60,8 +60,16 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
 %     'dm'        reuse ctb_dm objects (cell, in JAC.dm order) ({})
 %     'check_jac' check a struct JAC against CH's config (true); ctb_efc
 %                 passes false for the Jacobian it has already checked
+%     'reg', 'energy_floor'  the regularized per-pixel solve
+%                 (ctb_probe_solve): a Tikhonov weight relative to the
+%                 typical probe energy, and a floor below which a pixel's
+%                 estimate is zero.  Both 0 (the plain solve) by default.
+%                 Measured on e2e stage 11's cycle-4 state: NO gain (17.3
+%                 -> 16.2 % at best); the error is in the probe fields --
+%                 the C0 grid DMs step rays (ctb_dm_linearity).
 %
-%   EST fields: E_hat, E_true (dark-zone vectors), floor (mean
+%   EST fields: E_hat, E_true (dark-zone vectors), w_px (per-pixel probe
+%   energy over the typical, the solve's weight), reg, energy_floor, floor (mean
 %   |E_hat - E_true|^2 / peak_bare: the estimation floor), rel_err
 %   (||E_hat - E_true|| / ||E_true||), err_px (per-pixel |dE|^2/peak, for
 %   the histogram), amp_err / phase_err (per pixel), c_true / c_est (mean
@@ -84,6 +92,8 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
         opts.seed     (1,1) double = 1
         opts.dm       cell = {}
         opts.check_jac (1,1) logical = true
+        opts.reg          (1, 1) double {mustBeNonnegative} = 0
+        opts.energy_floor (1, 1) double {mustBeNonnegative} = 0
     end
     if opts.check_jac || ~isstruct(jac)
         J = load_jac_(jac, ch);
@@ -124,7 +134,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
 
     % ---- probe shapes (peak 1) -----------------------------------------
     if isempty(opts.probes)
-        S = default_probes_(pd, J.outer_lamD, opts.npairs);
+        S = ctb_probe_shapes(pd, J.outer_lamD, opts.npairs);
     else
         S = opts.probes;
         assert(size(S, 1) == pd.nact^2, ...
@@ -163,7 +173,7 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
     apply_(dm, a0);                           % leave the plant as found
 
     % ---- estimate, diagnostic, score -------------------------------------
-    [E_hat, cond2] = ctb_probe_solve(Ip - Im, dE);
+    [E_hat, cond2, wpx] = ctb_probe_solve(Ip - Im, dE, 'reg', opts.reg, 'energy_floor', opts.energy_floor);
     ratio = mean((Ip + Im)/2 - I0, 1) ./ mean(abs(dE).^2, 1);
     d = E_hat - E_true;
     err_px = abs(d).^2 / pb;
@@ -173,7 +183,8 @@ function est = ctb_probe_estimate(ch, jac, a0, opts)
         'amp_err', abs(E_hat) ./ abs(E_true) - 1, ...
         'phase_err', angle(E_hat .* conj(E_true)), ...
         'c_true', mean(abs(E_true).^2) / pb, 'c_est', mean(abs(E_hat).^2) / pb, ...
-        'ratio', ratio, 'cond2', cond2, 'I0', I0, 'Ip', Ip, 'Im', Im, ...
+        'ratio', ratio, 'cond2', cond2, 'w_px', wpx, 'reg', opts.reg, 'energy_floor', opts.energy_floor, ...
+        'I0', I0, 'Ip', Ip, 'Im', Im, ...
         'dE', dE, 'probes', A * S, 'probe_nm', A * u_nm, 'probe_rel', opts.probe_rel, ...
         'photons', opts.photons, 'nruns', nruns, 'dz_idx', dz, 'peak_bare', pb);
 end
@@ -198,32 +209,6 @@ function J = load_jac_(jac, ch)
                  'measured on another deck, mask or engine.'], jp, fpp, rep);
         end
     end
-end
-
-% ======================================================================
-function S = default_probes_(d, outer_lamD, K)
-    % actuator centres in aperture units (D = the controlled beam)
-    x = d.acx(:) / d.beam_d_mm;  y = d.acy(:) / d.beam_d_mm;
-    xi0 = (outer_lamD + 1) / 2;               % lobe centre, lambda/D
-    Wx  = outer_lamD + 2;                     % lobe width in x, lambda/D
-    Wy  = 2 * (outer_lamD + 1);               % full annulus height
-    S = zeros(numel(x), K);
-    for k = 1:K
-        th = (k - 1) * pi / K;
-        if mod(k, 2) == 1      % lobes at +/- xi0 along x
-            S(:, k) = sinc_(Wx * x) .* sinc_(Wy * y) .* cos(2*pi*xi0*x + th);
-        else                   % the same probe turned 90 degrees
-            S(:, k) = sinc_(Wx * y) .* sinc_(Wy * x) .* cos(2*pi*xi0*y + th);
-        end
-    end
-    S(~d.active(:), :) = 0;
-    S = S ./ max(abs(S), [], 1);
-end
-
-function s = sinc_(t)
-    s = ones(size(t));
-    nz = t ~= 0;
-    s(nz) = sin(pi * t(nz)) ./ (pi * t(nz));
 end
 
 function apply_(dm, cmd)
