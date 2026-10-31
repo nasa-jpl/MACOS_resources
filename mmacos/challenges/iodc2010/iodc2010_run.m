@@ -6,7 +6,7 @@ function R = iodc2010_run(varargin)
 %                                            independent tracer on the gate lens
 %   R = iodc2010_run('nGridpts', 45, ...)    any iodc2010_params field
 %
-%   Stages ('stage' = 'evaluate' | 'gate' | 'search' | 'outer' | 'all'):
+%   Stages ('stage' = 'evaluate' | 'gate' | 'search' | 'outer' | 'chain' | 'all'):
 %     evaluate  iodc2010_score on each lens: deck, paraxial EFL check, aperture
 %               sizing, field scan, bisection, report (<name>_report.txt), the
 %               CODE V .seq beside it
@@ -23,6 +23,10 @@ function R = iodc2010_run(varargin)
 %               rounds with a thickness floor, scored, the best re-solved over
 %               a (D, theta) ladder, and every point mapped against the
 %               published top ten (search/outer/)
+%     chain     the same loop on the chain family (iodc2010_chain: four and
+%               six elements as chains of zero-Petzval pair units, the links
+%               long enough for an intermediate image), one run per p.chain
+%               entry (search/chain4/, search/chain6/)
 %
 %   A user edits iodc2010_params.m, or the lens list in bundled_lenses(),
 %   and re-runs.  Nothing ends in exit(0): run it interactively or wrap it.
@@ -36,7 +40,12 @@ p = iodc2010_params();
 fn = fieldnames(ip.Unmatched);
 for i = 1:numel(fn)
     assert(isfield(p, fn{i}), 'iodc2010_run: unknown parameter %s', fn{i});
-    p.(fn{i}) = ip.Unmatched.(fn{i});
+    v = ip.Unmatched.(fn{i});
+    if isstruct(p.(fn{i})) && isstruct(v)           % 'outer', struct('stage', 'climb') merges INTO p.outer:
+        for g = fieldnames(v).', p.(fn{i}).(g{1}) = v.(g{1}); end   % replacing it would drop the production grids
+    else
+        p.(fn{i}) = v;
+    end
 end
 here = fileparts(mfilename('fullpath'));
 addpath(here);
@@ -86,6 +95,21 @@ if any(strcmp(ip.Results.stage, {'outer', 'all'}))
     oa = namedargs2cell(p.outer);
     R.outer = iodc2010_outer(po, oa{:});
     fprintf('outer loop best merit %.1f; tables and the (D, theta) map in %s\n', R.outer.best_merit, po.outdir);
+end
+if any(strcmp(ip.Results.stage, {'chain', 'all'}))
+    % four and more elements: the outer loop on the chain family, one run per
+    % p.chain entry (its own directory, its own tables and map)
+    R.chain = {};
+    for i = 1:numel(p.chain)
+        e = p.chain{i};
+        po = p;  po.outdir = fullfile(p.outdir, 'search', e.name);
+        if ~exist(po.outdir, 'dir'), mkdir(po.outdir); end
+        o = p.outer;  o.families = {'chain'};
+        for f = setdiff(fieldnames(e), {'name'}).', o.(f{1}) = e.(f{1}); end
+        oa = namedargs2cell(o);
+        R.chain{end+1} = iodc2010_outer(po, oa{:}); %#ok<AGROW>
+        fprintf('chain run %s best merit %.1f; tables and the (D, theta) map in %s\n', e.name, R.chain{end}.best_merit, po.outdir);
+    end
 end
 end
 

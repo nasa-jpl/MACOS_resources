@@ -164,6 +164,8 @@ sized clear apertures as `CIR`.)
 | `iodc2010_search.m` | the first ladder: the CALIB spacing solve inside an R × stop scan on one seed, each candidate scaled to EFL 100 and scored |
 | `iodc2010_solve.m` | the inner solve: CALIB on the spacings in rounds (re-emitted from its own result), a thickness floor (active set), the stop filled on axis, scaled to EFL 100 |
 | `iodc2010_forms.m` | the forms: eight shapes per element, Petzval-balanced sign patterns, seed spacings in units of R, stop places; paraxially screened and scaled |
+| `iodc2010_groups.m` | the groups: converging / diverging / converging groups of equal elements, b = a + c, power from the separations |
+| `iodc2010_chain.m` | the chains: four and more elements as a chain of zero-Petzval pair units (an equi-convex and an equi-concave element, power from their spacing), links long enough for an intermediate image; names carry the gap values |
 | `iodc2010_climb.m` | the merit-shaped inner objective: the design field bracketed on the lens's own semi-field with CALIB inside, the fields re-weighted toward the worst one (iteratively re-weighted least squares); never returns worse than its start |
 | `iodc2010_outer.m` | the outer loop: forms → pre-screen by the seed's own merit → solve → score → the (D, θ) ladder → the climb → the map against the top ten |
 | `iodc2010_run.m` | the runner: `evaluate` (the bundled lenses or yours), `gate`, `search` |
@@ -178,6 +180,7 @@ R = iodc2010_run('stage', 'gate');                                        % the 
 R = iodc2010_run('stage', 'search');                                      % the first CALIB ladder (search/)
 R = iodc2010_run('stage', 'outer');                                       % the outer design loop (search/outer/)
 R = iodc2010_run('stage', 'outer', 'outer', struct('stage', 'climb'));    % resume: the merit-shaped climb on the solved table
+R = iodc2010_run('stage', 'chain');                                       % four and six elements, the chain family (search/chain4/, search/chain6/)
 L = iodc2010_lens('R', 80, 'sgn', [1 0 0 -1], 't', [6 62.94 6 NaN], ...  % your own lens
                   'glass', {'N-BK7','air','N-BK7','air'}, 'stop', [37.47 3.5], 'name', 'mine');
 R = iodc2010_run('lens', L, 'nGridpts', 97);
@@ -394,7 +397,7 @@ Findings, each measured:
 
 * **The bracket is the merit-shaped part.**  It returns the seed where the
   sum had lost a third of it, and beats the sum by 10 % on the lens that is
-  now the best (82.5).  Re-weighting toward the worst field (IRLS) sent one
+  now the best (82.5 then; 93.8 after the re-run below).  Re-weighting toward the worst field (IRLS) sent one
   solve wandering (every field over a wave) and gained on one seed only:
   the sum over fields spanning 0 … θ is already dominated by its largest
   residual.
@@ -416,33 +419,135 @@ Findings, each measured:
   full prescription (`t`, `stop`) so a resume needs no report on disk (a
   missing one is re-solved from its seed, deterministically).
 
-**The production climb stage** (`outer_climb.csv`; the three best solved
-lenses from the 10-30 table, each at its own D and at D = 4 / 7 / 12 mm,
-168 s; the triangles on `dtheta_map.png`).  The start here is the SOLVED
-lens, not the seed, which is why the first row reads 81.1 and not the A/B's
-82.5 (that lens's deck and report are `f3_men+_xcp_pcv_g5_front_climb_seed.in`
-/ `_report.txt`, the A/B table `outer_climb_ab.csv`):
+**The production climb stage** (`outer_climb.csv`, re-run 2026-10-31 p.m.
+with the two starts the chain run called for, below: the three best lenses by
+the better of their seed and solved merit, each climbed from the SEED and from
+the solved lens, at its own D and at D = 4 / 7 / 12 mm; 319 s; the triangles
+on `dtheta_map.png`):
 
-| start | D (mm) | start D × θ | climb D × θ | merit | limited by |
+| lens | start | D (mm) | start D × θ | climb D × θ | merit | limited by |
+|---|---|---|---|---|---|---|
+| `f3_men-_xcp_pcv_g5_front` | seed | 4 | fails on axis | 4.00 × 23.45 | **93.8** | RMS |
+| the same | seed | 3.11 | 3.11 × 16.21 = 50.4 | 3.11 × 26.56 | 82.6 | RMS |
+| the same | solved | 3.11 | 3.11 × 23.87 = 74.2 | 3.11 × 25.56 | 79.5 | vignetting |
+| the same | solved | 4 | fails on axis | nothing | 0 | RMS |
+| `f3_men+_xcp_pcv_g5_front` | seed | 3.14 | 3.14 × 15.78 = 49.5 | 3.14 × 26.27 | 82.5 | RMS |
+| the same | solved | 3.14 | 3.14 × 23.98 = 75.3 | 3.14 × 25.83 | 81.1 | RMS |
+| the same | seed / solved | 4 | fails on axis | 4.00 × 4.41 / 4.32 | 17.7 / 17.3 | vignetting / RMS |
+| `f3_bicv_pcx_pcx_g3_back` | seed | 6.03 | 6.03 × 13.48 = 81.2 | returned its start | 81.3 | distortion |
+| the same | solved | 6.03 | 6.03 × 8.91 = 53.7 | 6.03 × 11.48 | 69.2 | RMS |
+| the same | seed / solved | 7 | fails on axis | 7.00 × 5.08 / 5.99 | 35.5 / 41.9 | RMS |
+| the same | seed / solved | 4 | 4.00 × 13.48 / 11.72 | 4.00 × 13.49 / 13.45 | 53.9 / 53.8 | distortion |
+| any | any | 12 | fails on axis | nothing (one 1.2) | ≤ 1.2 | — |
+
+The best lens on record is now **93.8**: `f3_men-_xcp_pcv_g5_front` climbed
+from its *seed* at D = 4 mm (R 19.00, 29 mm long, f/25, 4.00 × 23.45°, RMS
+limited; `f3_men-_xcp_pcv_g5_front_climb_seed_D4.in` / `_report.txt` / `.seq`),
+where the same lens climbed from its *solved* prescription takes no 4-mm
+pupil at all (the ladder of 10-30 said the same of it).  The seed start
+also gives 82.6 / 82.5 at the two small lenses' own pupils and keeps the
+distortion-limited 81.3 the plain solve had lowered to 53.7.  The published
+winner is 3537, 38× away; the frontier the entries occupy (D 45–110 mm) is
+still untouched (every lens of ours is at D ≤ 7 mm): see the chain family
+below for what it needs.
+
+## Four and six elements: the chain family (2026-10-31 p.m.)
+
+`iodc2010_chain.m`, `iodc2010_run('stage','chain')` (artifacts in
+`search/chain4/` and `search/chain6/`, the same tables and map as the outer
+loop).  The full forms enumeration at four elements is ~150 000 seeds (the
+balanced sign patterns × 27 spacings × 5 stop places), so four and more
+elements go in through a structured family built on the one-radius problem's
+own weak element: a **unit** of an equi-convex and an equi-concave element
+separated by an air space u, whose Petzval sum is zero and whose net power
+comes from the spacing alone, φ_unit = u R φ² with φ = 2(n − 1)/R (positive in
+either order; focal length 0.93 R at u = 1, 3.1 R at u = 0.3).  Units are
+chained with link gaps; a link longer than the unit's focal length puts a real
+intermediate image inside it, the next unit re-images it — the relay form.
+Every chain is Petzval-balanced by construction, the stop goes ahead, in any
+unit gap or link, or behind, and the names carry the gap *values*
+(`ch4_np3_L0p5_pn0p3_s_l1`), not indices.  Two units with u ∈ {0.1, 0.3, 1, 3} R
+and links {0.5, 1.5, 4, 10} R gave 719 paraxially viable four-element seeds
+(360 with an intermediate image); three units on a coarser grid (u {0.3, 1},
+links {1.5, 4, 10}) gave 2824 six-element seeds (2817 with an intermediate
+image).  A test leg pins the counts, the balance of each unit, |EFL| = 100,
+D = 10 at the seed, and the intermediate-image flag against the unit's
+first-order focal length.
+
+What came out (the pre-screen 250 s + 1181 s; the top eight per element
+count solved, the three best laddered and climbed):
+
+| family | seeds (nonzero merit) | best seed D × θ | best solved | best on the ladder / climb | limited by |
 |---|---|---|---|---|---|
-| `f3_men+_xcp_pcv_g5_front` | 3.14 | 3.14 × 23.98 = 75.3 | 3.14 × 25.83 | **81.1** | RMS |
-| `f3_men-_xcp_pcv_g5_front` (re-solved from its seed: its report was not committed) | 3.11 | 3.11 × 23.87 = 74.2 | 3.11 × 25.56 | 79.5 | vignetting |
-| `f3_bicv_men+_bicx_g6_air2` | 4.67 | 4.67 × 11.48 = 53.6 | 4.67 × 11.52 | 53.8 | RMS |
-| the same | 4 | fails on axis | 4.00 × 12.40 | 49.6 | distortion |
-| the same | 7 | fails on axis | 7.00 × 1.58 | 11.0 | RMS |
-| the two small lenses | 4 / 7 / 12 | fails on axis | ≤ 4.3° at D 4, nothing at 7 or 12 | ≤ 17.3 | RMS / vignetting |
+| chain4 | 719 (411) | `ch4_np3_L4_np3_s_back`: 2.52 × 7.73 = 19.5 (R 3.6 m, 37 m long) | 19.8 (`ch4_np3_L0p5_np0p3_s_l1`, D 4.50 × 4.39) | **30.4** (`ch4_np3_L0p5_pn0p3_s_l1` at D 4: 4.00 × 7.61) | RMS |
+| chain6 | 2824 (1437) | `ch6_np1_L1p5_pn1_L10_np1_s_back`: 1.81 × 12.97 = 23.5 (R 3.1 m, 46 m long) | 14.3 (`ch6_np1_L1p5_pn1_L1p5_np1_s_back`, D 2.32 × 6.17) | **24.4** (the same at D 2.32: 2.32 × 10.51) | RMS |
 
-The climb adds 6–8 % to the small lenses at their own pupil and confirms
-what the ladder said about theirs: a 20–30-mm lens does not take a 4-mm
-pupil.  The best lens on record is now **82.5** (D 3.139 × 26.27°, RMS
-limited; the published winner 3537, 43× away).  The frontier the published
-entries occupy (D 45–110 mm) is still untouched: it needs element counts
-and spacings this forms family does not enumerate.
+Against the three-element 82.5 (93.8 after the climb re-run below), the
+chains did not move the frontier.  What the tables say, each measured:
+
+* **No chain takes a pupil.**  The pre-screen shrinks every seed's stop
+  until it passes on axis; no four- or six-element chain passed above
+  D = 6.4 mm (the median 3.3 / 2.0 mm), and the ladder and the climb read
+  zero at D = 12 for every chain and at most 10.7 (7.00 × 1.53°) at D = 7.  A unit's two
+  elements have powers ±φ with a small net — its on-axis aberration is a
+  strong telephoto's, not a weak lens's.  The three-element forms do reach
+  the 10-mm target on axis (`f3_bicv_pcx_pcx_g3_back` at 6.03 mm passes
+  13.4°).
+* **The relay form buys field at no pupil.**  The chains the pre-screen
+  ranks first are the longest (R 3–3.6 m, 23–46 m long, an intermediate image
+  in a 10–40 m link): 8–13° of semi-field at D 1.8–2.6 mm.  The compact
+  chains (R 300 mm, 1.2 m long) take 4.5–5.8 mm at 2.3–3.4°.
+* **The plain solve wrecked the long seeds** (19.5 → 0.0, 17.2 → 0.0; two
+  of eight four-element solves and seven of eight six-element solves stopped in
+  the first round, clamped: the thickness floors are in units of R, 30 mm of
+  air and 90 mm of glass at R = 3 m), and **the climb from the solved lens
+  returned its start** at nearly every pupil (the bracket closed *below* the
+  start's own field: the WFE sum at the start's own design field does not
+  reproduce the start).  The climb stage therefore now starts from the
+  **seed as well as the solved lens**, and ranks its candidates by the better
+  of the two merits (the A/B above had already read 82.5 from the seed
+  against 81.1 from the solved lens of the same name); the runner also now
+  merges a struct override into `p.outer` instead of replacing it (the
+  documented resume line would have dropped the production grids and
+  re-named every seed).
+
+**The climb re-run with both starts** (`outer_climb.csv` in each directory
+now carries a `start` column; the candidates are the three best by the
+better of the solved and the seed merit):
+
+| directory | lens | start | D (mm) | start D × θ | climb D × θ | merit | limited by |
+|---|---|---|---|---|---|---|---|
+| chain4 | `ch4_np3_L4_np3_s_back` (the 37-m relay) | seed | 2.52 | 2.52 × 7.73 = 19.5 | 2.52 × 10.95 | **27.6** | vignetting |
+| chain4 | the same | solved (0.0 after the plain solve) | 2.52 | 0 | 2.52 × 1.42 | 3.6 | vignetting |
+| chain4 | `ch4_np3_L0p5_pn0p3_s_l1` | solved | 4 | 4.00 × 7.81 = 31.2 | returned its start | **30.4** | RMS |
+| chain4 | the same | seed | 4 | 4.00 × 7.38 = 29.5 | returned its start | 28.8 | RMS |
+| chain6 | `ch6_np1_L1p5_pn1_L4_np1_s_back` (plain solve: failed in round 1) | seed | 2.12 | 2.12 × 9.96 = 21.1 | 2.12 × 12.83 | **27.2** | distortion |
+| chain6 | `ch6_np1_L1p5_pn1_L10_np1_s_back` (the 46-m relay; plain solve failed) | seed | 1.81 | 1.81 × 12.97 = 23.5 | 1.81 × 13.00 | 23.5 | distortion |
+| chain6 | `ch6_np1_L1p5_pn1_L1p5_np1_s_back` | solved | 2.32 | 2.32 × 9.84 = 22.8 | 2.32 × 10.51 | 24.4 | RMS |
+| chain6 | the same | seed | 2.32 | 2.32 × 6.17 = 14.3 | 2.32 × 10.20 | 23.7 | RMS |
+| outer (production) | `f3_men-_xcp_pcv_g5_front` | seed | 4 | fails on axis | 4.00 × 23.45 | **93.8** (the new best) | RMS |
+| outer | the same | solved | 4 | fails on axis | nothing | 0 | RMS |
+| outer | `f3_bicv_pcx_pcx_g3_back` | seed | 6.03 | 6.03 × 13.48 = 81.2 | returned its start | 81.3 | distortion |
+| outer | the same | solved | 6.03 | 6.03 × 8.91 = 53.7 | 6.03 × 11.48 | 69.2 | RMS |
+
+The seed start recovers what the plain solve destroyed (19.5 → 0 → 27.6 from
+the seed; the six-element best, 27.2, is a seed the plain solve could not
+solve at all) and is within 5 % of the solved start where the solve had
+helped, and on the production lenses it found the new best: the seed of
+`f3_men-_xcp_pcv_g5_front` re-sized to a 4-mm pupil climbs to 93.8 where
+its solved prescription takes no 4-mm pupil.  The chains' bests stand at
+30.4 (four elements) and 27.2 (six),
+every one of them at D ≤ 4 mm; the two six-element relays that distortion
+ends (12.8–13.0° at D < 2.2 mm) join `f3_bicv_pcx_pcx_g3_back` as the lenses
+a wavefront objective cannot move further.
 
 ## Next
 
-Four and more elements in the forms family with air spaces that reach the
-intermediate-image regime, a distortion-aware inner objective (the
+The pupil, not the field, is what every family lacks: the frontier sits at
+D 45–110 mm and nothing we enumerate passes on axis much above 6 mm at EFL
+100, so the next element counts need an on-axis construction (weak surfaces
+near the stop, the beam kept small through the chain) before a wider field
+is worth asking for.  Then a distortion-aware inner objective (the
 distortion-limited seeds are the ones the wavefront solve cannot move), the
 stop position as a variable (`var_stop` exists, off by default), and Luis's
-CODE V column.
+CODE V column after the weekend.
