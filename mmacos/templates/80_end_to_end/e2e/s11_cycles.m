@@ -26,13 +26,17 @@
 %   ('sens', 'perf', or 'both', the default) selects the chain, so the two
 %   can run in two MATLAB sessions at once.
 %
-%   Gates as numbers, when both chains have run: the probed chain's final
-%   contrast within P.sens.efc_ratio_max of the perfect chain's; the
-%   probed chain's per-cycle estimate error at its fresh Jacobian under
-%   P.sens.rel_err_max every cycle (the stage-10 control, generalized);
-%   every cycle's end no brighter than its start; strokes under 50 nm.
-%   Reported: the per-cycle table of both chains, the cycle at which each
-%   stopped and why, the Jacobian wall time, the goal's distance.
+%   Gates as numbers: the probed chain reaches the goal within the cap,
+%   and, when both chains have run, in at most P.sens.cycles.extra_cycles_max
+%   cycles more than the perfect chain (the lab's measure; the two chains
+%   stop on the same goal rule at different overshoots -- one cycle can
+%   gain 25x -- so their ends are not a sensing comparison and the
+%   per-cycle-index ratio is reported instead); the probed chain's
+%   per-cycle estimate error at its fresh Jacobian under P.sens.rel_err_max
+%   every cycle (the stage-10 control, generalized); every cycle's end no
+%   brighter than its start; strokes under 50 nm.  Reported: the per-cycle
+%   table of both chains, the cycle at which each stopped and why, the
+%   Jacobian wall time.
 %
 %   Products: s11_{sens,perf}_state.mat, ctb_dm_jacobian_N512_e2e_{sens,perf}_c<k>.{mat,fp.json},
 %   ctb_efc_e2e_{sens,perf}_c<k>.{mat,png}, s11_cycles.png, s11_report.txt, s11_run.mat
@@ -104,9 +108,19 @@ if isfield(R, 'sens')
     rel = [R.sens.cycles.est_rel0];
     G.estimate = struct('v', max(rel), 'ok', all(rel < Q.rel_err_max), 'say', sprintf('the probed chain''s estimate at every fresh Jacobian within %.2f of the field (worst %.3e over %d cycles)', Q.rel_err_max, max(rel), numel(rel)));
 end
+if isfield(R, 'sens')
+    G.goal_sens = struct('v', R.sens.c_final, 'ok', strcmp(R.sens.stop_reason, 'goal'), ...
+        'say', sprintf('the probed chain reaches the goal %.1e: %.3e after %d cycles, stop ''%s''', C.goal, R.sens.c_final, numel(R.sens.cycles), R.sens.stop_reason));
+end
 if isfield(R, 'sens') && isfield(R, 'perf')
-    G.vs_perfect = struct('v', R.sens.c_final/R.perf.c_final, 'ok', R.sens.c_final < Q.efc_ratio_max * R.perf.c_final, ...
-        'say', sprintf('the probed chain ends at %.3e, %.2fx the perfect chain''s %.3e (gate %.1fx; %d vs %d cycles)', R.sens.c_final, R.sens.c_final/R.perf.c_final, R.perf.c_final, Q.efc_ratio_max, numel(R.sens.cycles), numel(R.perf.cycles)));
+    % the two chains stop on the same goal rule at different overshoots (one cycle can gain 25x), so their
+    % ends are not a sensing comparison; the lab's measure is the cycles to the goal, and the per-cycle-index
+    % ratio is reported beside it
+    ns = numel(R.sens.cycles);  np = numel(R.perf.cycles);
+    G.cycles_to_goal = struct('v', ns - np, 'ok', strcmp(R.sens.stop_reason, 'goal') && ns <= np + C.extra_cycles_max, ...
+        'say', sprintf('the probed chain reaches the goal in %d cycles against the perfect chain''s %d (gate: at most %d more)', ns, np, C.extra_cycles_max));
+    m = min(ns, np);  rat = [R.sens.cycles(1:m).c_end] ./ [R.perf.cycles(1:m).c_end];
+    G.vs_perfect = struct('v', rat, 'ok', true, 'say', sprintf('REPORTED, not gated: the probed chain''s end over the perfect chain''s at the same cycle index: %s (cycles 0..%d); the ends %.3e vs %.3e', mat2str(rat, 3), m-1, R.sens.c_final, R.perf.c_final));
 end
 gn = fieldnames(G);  allok = true;
 for k = 1:numel(gn), say('    [%s] %s', tern_(G.(gn{k}).ok, 'PASS', 'FAIL'), G.(gn{k}).say);  allok = allok && G.(gn{k}).ok;  rep{end+1} = sprintf('   [%s] %s', tern_(G.(gn{k}).ok, 'PASS', 'FAIL'), G.(gn{k}).say); end

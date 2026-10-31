@@ -324,7 +324,11 @@ P.sens = struct( ...
         'max',       10, ...    % the cap: cycles 0 .. max
         'niter',     20, ...    % loop iterations per cycle (stalls earlier)
         'stop_gain', 1.05, ...  % a cycle gaining less than 5 % converges
-        'goal',      1e-8));    % the goal performance (the bench's single
-                                % relinearization reaches 3.8e-9 on a 3e-7
-                                % halo); reaching it stops the chain
+        'goal',      1e-8, ...  % the goal performance (the bench's single
+        ...                     % relinearization reaches 3.8e-9 on a 3e-7
+        ...                     % halo); reaching it stops the chain
+        'extra_cycles_max', 2));% gate: the probed chain reaches the goal
+                                % in at most this many cycles more than
+                                % perfect sensing (the ends are not the
+                                % measure: one cycle can overshoot 25x)
 end
