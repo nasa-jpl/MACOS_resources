@@ -59,6 +59,28 @@ Ours, term by term:
   on the same rays except that it never writes the chief (`OPD` loops
   `iRay = 2..nRay`); the gate pins that identity to 2e-16, and the omission
   is 0.1 % of the RMS at 741 rays, 1e-4 at 7081.
+* **A virtual exit pupil** (2026-10-31).  When the paraxial exit pupil lies
+  BEYOND the image plane -- the stop inside a rear group's front focal
+  distance, or ahead of a diverging front: the retrofocus form of every long
+  entry -- the engine's FEX keeps the vertex at the pupil station but signs
+  the radius by the station-to-image distance, so the sphere's centre lands
+  on the far side of the station and every ray misses it (and the image-plane
+  trace behind it dies: the first eight-meniscus trains read "vignetting" at
+  a 1 mm pupil).  The evaluator checks FEX's centre against the chief's image
+  point (read from the image Return, which precedes the pupil Return) and,
+  when it is off, re-places the sphere as the MIRROR sphere: the same centre,
+  the same radius, the vertex r before the image along the chief -- the
+  geometry FEX writes for a real pupil -- and the engine evaluates its near
+  crossing (`F.xp_virtual`).  The near and far crossings of one sphere differ
+  by rho^2 / r, second order in the transverse aberration: 2e-7 wave at D 1 mm
+  and 3.5e-4 wave (0.2 % of the RMS) at D 5 mm on the trains that found it;
+  the engine on the mirror sphere matches the independent tracer to 2e-9
+  wave.  `tIodc2010` pins both and the must-fail (FEX's own sphere: 741 of
+  741 rays lost).  A CALIB deck with `OptFEX= Yes` has the same defect inside
+  the engine (the solve dies at round 1 on such a lens); the deck's own
+  sphere is now written at the mirror vertex and `iodc2010_solve(..., 'fex',
+  false)` solves on it -- ON-AXIS only, since a fixed sphere is wrong for an
+  off-axis chief.  The engine-side fix is queued for Dave's ruling.
 * **Pupil sampling.**  A collimated source whose beam diameter is the
   **paraxial** entrance-pupil diameter D (the stop imaged into object space by
   the y-nu trace in `iodc2010_paraxial.m`), the chief ray aimed through the
@@ -162,7 +184,7 @@ sized clear apertures as `CIR`.)
 | `iodc2010_gate.m` | engine vs tracer on the same rays; EFL; convergence; sphere-radius sensitivity |
 | `iodc2010_seq.m` | the CODE V `.seq` for the cross-check |
 | `iodc2010_search.m` | the first ladder: the CALIB spacing solve inside an R × stop scan on one seed, each candidate scaled to EFL 100 and scored |
-| `iodc2010_solve.m` | the inner solve: CALIB on the spacings in rounds (re-emitted from its own result), a thickness floor (active set), the stop filled on axis, scaled to EFL 100 |
+| `iodc2010_solve.m` | the inner solve: CALIB on the spacings in rounds (re-emitted from its own result), a thickness floor (active set), the stop filled on axis, scaled to EFL 100; `'fex', false` writes `OptFEX= No` (the deck's own sphere) -- recorded, not usable: the LM comes back singular (the on-axis section) |
 | `iodc2010_forms.m` | the forms: eight shapes per element, Petzval-balanced sign patterns, seed spacings in units of R, stop places; paraxially screened and scaled |
 | `iodc2010_groups.m` | the groups: converging / diverging / converging groups of equal elements, b = a + c, power from the separations |
 | `iodc2010_chain.m` | the chains: four and more elements as a chain of zero-Petzval pair units (an equi-convex and an equi-concave element, power from their spacing), links long enough for an intermediate image; names carry the gap values |
@@ -541,13 +563,66 @@ every one of them at D ≤ 4 mm; the two six-element relays that distortion
 ends (12.8–13.0° at D < 2.2 mm) join `f3_bicv_pcx_pcx_g3_back` as the lenses
 a wavefront objective cannot move further.
 
+## The on-axis construction (2026-10-31 p.m.): the pupil wall measured
+
+Dave's order was the pupil first.  Before another family went into the loop,
+the on-axis capacity -- the largest entrance pupil a lens passes on axis at
+EFL 100, by a log-bisection of D on the evaluator (33 rays across, the stop
+in object space so D = 2a) -- was measured on every construction the
+problem's physics suggests, seeds first, then under three inner solvers.
+Every number below is from the scratch runs `axis_char1..8` of that
+afternoon (the scripts are not products; the constructions are described so
+they can be rebuilt).
+
+**Seeds, unoptimized** (capacity in mm; every one ends by RMS, i.e.
+spherical aberration):
+
+| construction | best | note |
+|---|---|---|
+| one thick equi-convex, t = 1.5 R (R 77, the near-ball) | **10.4** | 9.7 / 9.0 / 8.5 at t = 1.0 / 0.5 / 0.1 R; Petzval unbalanced |
+| the forms family (pre-screen, D_target 10) | ≥ 10 (capped) | `f3_pcx_pcx_bicv` at R 41 and 82 reached the cap with RMS 0.048 |
+| shells: a converger then m thick menisci placed γ R before the running cone target | 5.2 | most placements infeasible: a thick equi-convex's cone target lies closer than one radius, so no shell fits behind it; where one fits it halves the capacity |
+| trains of K adjacent zero-Petzval pair units | 6.6 (K 2) | a pair-unit train's focal length is bounded below by ~0.96 R √(pitch/u) ≥ 0.96 R: at EFL 100 its R cannot exceed ~100 mm without an internal focus (K ≥ 4 adjacent units focus inside) |
+| the chain relays of 10-31 (R 3.6 m, 36.5 m) | 2.5 | the beam inside is 47× the entrance pupil (unit marginal heights 1 → 4.2 → 8.9 → 46.9; stop semi-diameter 53.7 mm at D 2.5): the aberration scale is the internal beam, not D -- RMS 0.045 / 0.72 / 11.5 waves at D 2.5 / 5 / 10, the D⁴ of spherical aberration |
+| the retrofocus form of the long entries: an equi-concave front, a 3-30 R gap over which the beam expands ×M, a rear train of 3-17 thick menisci + the balancing equi-convex (288 built, 108 feasible, Fig. 6-10 of the paper) | 6.4 | 5.3-6.0 for the 8-15-element trains at R 250-1040; the capacity does not grow with R because M/R stays 0.008-0.010: the rear always works at the system's own f-number on a beam ∝ R, so its aberration in waves grows ∝ R |
+
+**Under the solvers, D held** (the stop moved behind the last surface for the
+solve so the pupil is real -- on axis the wavefront does not depend on where
+the stop is -- then put back):
+
+| solver | seed | result |
+|---|---|---|
+| CALIB on the spacings (OptFEX, 5 rounds × 15 it) | 4-element retrofocus, capacity 6.4 | D 20: 1.18 waves on axis, the lens returned passes 2.7; D 40: 11.6 waves |
+| the same, as a pupil climb in 1.2× steps | the same | 6.4 → 8.5 at the first step, then every step loses; the 8-meniscus trains clamp a gap in round 1 and never accept a round |
+| bounded least squares outside the engine (`lsqnonlin` on log spacings, floors as bounds, the per-ray OPD at 21 across as the residual, the lens re-scaled to EFL 100 at every evaluation; 41 iterations, 500-840 evaluations per step) | 6- and 10-element retrofocus | at D 7: 0.57 → 0.35 waves, capacity 6.1-6.2; the solver stretches the lens (1.6 → 4.4 m) and stalls |
+| CALIB with `OptFEX= No` (the deck's own sphere) | any | the LM's derivative columns all vanish (`gaussj: singular matrix (2)` after the probes): an engine item, with the FEX one |
+
+**What this says.**  No seed family passes much above 6 mm, and no local
+solve over the spacings climbs from there, because with the radii pinned to
+one value the spacings are the ONLY continuous variables and no enumerated
+sign pattern starts near a balanced solution: the spherical aberration of a
+thick train at f/10 is tens of waves and the balance the entries reached
+(f/0.9 at 110 mm for Isenberg, no intermediate image, 10-15 m, ~40 elements)
+is a global-optimizer result with the curvatures RELAXED -- Sec. 4 of the
+paper: a constraint function c_j (c − c_j)(c + c_j) with zeros at 0 and ±c,
+weighted low so the curvatures roam, then high so they snap.  CALIB has the
+radius as DOF 7 of `VarElt` but no penalty target.  The on-axis construction
+therefore needs a relax-and-snap inner stage (free radii with the constraint
+penalty, then the snap and a spacing re-solve), either as an engine target or
+in MATLAB around the engine's trace; a spacing-only solve of any family is
+measured not to reach the pupil.  Decision for Dave.
+
+The afternoon also found the virtual-pupil defect (the metric section above):
+every retrofocus seed with its stop ahead of the rear group had read
+"vignetting at 1 mm" through FEX's mis-centred sphere, and CALIB had died on
+them at round 1 for the same reason.
+
 ## Next
 
-The pupil, not the field, is what every family lacks: the frontier sits at
-D 45–110 mm and nothing we enumerate passes on axis much above 6 mm at EFL
-100, so the next element counts need an on-axis construction (weak surfaces
-near the stop, the beam kept small through the chain) before a wider field
-is worth asking for.  Then a distortion-aware inner objective (the
-distortion-limited seeds are the ones the wavefront solve cannot move), the
-stop position as a variable (`var_stop` exists, off by default), and Luis's
-CODE V column after the weekend.
+Ruling needed: the relax-and-snap inner stage for the pupil (above), and the
+engine's FEX/SXP for a pupil beyond the image (with it, CALIB's field solves on
+retrofocus lenses; the `OptFEX= No` singular LM beside it).  Then the
+distortion-aware inner objective (a MATLAB-side objective around the engine's
+trace serves both: the distortion-limited seeds are the ones the wavefront
+solve cannot move), the stop position as a variable (`var_stop` exists, off by
+default), and Luis's CODE V column after the weekend.

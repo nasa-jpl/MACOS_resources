@@ -40,7 +40,7 @@ arguments
     P struct
     p struct
     path (1,:) char
-    opt struct = struct()     % CALIB block (see iodc2010_solve): .fields_deg .max_iters .var_surf .var_fp .var_stop .tol .ray_grid .standoff .fov_weights
+    opt struct = struct()     % CALIB block (see iodc2010_solve): .fields_deg .max_iters .var_surf .var_fp .var_stop .tol .ray_grid .standoff .fov_weights .fex
 end
 N = L.N;
 do_opt = ~isempty(fieldnames(opt));
@@ -61,6 +61,11 @@ key = [items.z] + 1e-9 * strcmp({items.kind}, 'surf');   % stop first at equal z
 
 z_img = P.z_img;
 z_xp0 = P.z_xp;  if ~isfinite(z_xp0), z_xp0 = z_img - 1e6; end
+% a pupil BEYOND the image plane (virtual) is written as its MIRROR sphere: same centre
+% (the image point), same radius, the vertex before the image -- the geometry the engine
+% evaluates (iodc2010_eval's note); FEX re-places it per field anyway, and a CALIB deck
+% with OptFEX= No (an on-axis solve) traces this sphere as written
+z_xp0 = z_img - abs(z_img - z_xp0);
 
 % ---- the source start: well in front of the first element.  A CALIB deck
 %      backs off further (opt.standoff, default the lens's whole length): the
@@ -119,7 +124,7 @@ if do_opt
     w('         OptWFElt=  %d', numel(items) + 2);
     w('       OptMaxItrs=  %d', opt.max_iters);
     if isfield(opt, 'tol') && ~isempty(opt.tol), w('           OptTol=  %s', nm(opt.tol)); end
-    w('           OptFEX=  Yes');
+    if isfield(opt, 'fex') && ~opt.fex, w('           OptFEX=  No'); else, w('           OptFEX=  Yes'); end
     if isfield(opt, 'ray_grid') && ~isempty(opt.ray_grid), w('       OptRayGrid=  %d', opt.ray_grid); end
     fo = opt.fields_deg(opt.fields_deg > 0);
     for th = fo(:).'

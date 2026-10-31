@@ -84,6 +84,24 @@ classdef tIodc2010 < matlab.unittest.TestCase
             d  = fzero(@(dd) abs(iodc2010_paraxial(mk(dd), tc.p.lambda_nm).efl) - 100, d0);
             L  = mk(d);
         end
+        function L = retro(tc, D)
+            % a retrofocus train whose exit pupil lies BEYOND the image plane: one equi-concave
+            % front, a 3 R gap, eight menisci bent toward the object and the balancing
+            % equi-convex, the stop just ahead of the rear group (inside its front focal
+            % distance), scaled to |EFL| 100 with the entrance pupil D
+            R0 = 100;  sgn = [-1 1];  t = [30 300];  glass = {'N-BK7', 'air'};
+            for k = 1:9
+                if k < 9, sgn = [sgn, 1, 1]; else, sgn = [sgn, 1, -1]; end %#ok<AGROW>
+                t = [t, 30, 5];  glass = [glass, {'N-BK7', 'air'}]; %#ok<AGROW>
+            end
+            t(end) = NaN;
+            L = iodc2010_lens('R', R0, 'sgn', sgn, 't', t, 'glass', glass, 'stop', [t(1) + t(2) - 3.5, 1], 'name', 'retro8');
+            P = iodc2010_paraxial(L, tc.p.lambda_nm);
+            sc = 100 / abs(P.efl);
+            L.R = R0 * sc;  L.t = L.t * sc;  L.z = L.z * sc;  L.stop = [L.stop(1) * sc, 1];
+            P = iodc2010_paraxial(L, tc.p.lambda_nm);
+            L.stop(2) = D / P.D;
+        end
         function L = singlet(tc, a_s)
             n = iodc2010_glass(tc.p.glass, tc.p.lambda_nm);
             L = iodc2010_lens('R', (n - 1) * 100, 'sgn', [1 0], 't', [6 NaN], ...
@@ -109,6 +127,46 @@ classdef tIodc2010 < matlab.unittest.TestCase
                 'the chief''s omission from the map is visible at 33 across (the gate can tell the two apart)');
             tc.verifyGreaterThan(G.rms_engine_waves, 1, 'the gate field is aberrated enough to see an index or sign error');
             tc.verifyEqual(G.dist_pct, 100 * (G.yR_engine_mm - G.yP_mm) / G.yP_mm, 'AbsTol', 1e-9);
+        end
+
+        function test_virtual_exit_pupil_is_scored_on_the_mirror_sphere(tc)
+            % a pupil beyond the image plane: FEX mis-centres its sphere and every ray would miss;
+            % the evaluator re-places it (same centre, same radius, vertex before the image) and the
+            % engine's wavefront on it matches the independent tracer; the far crossing of the same
+            % sphere (the pupil's true vertex) differs by rho^2 / r, second order.  Must-fail: the
+            % engine on FEX's own sphere loses all 741 rays (the 2026-10-31 run-down).
+            L = tc.retro(5);  L.semidia = repmat(tc.p.semidia_default, 1, L.N);
+            P = iodc2010_paraxial(L, tc.p.lambda_nm);
+            tc.verifyEqual(abs(P.efl), 100, 'AbsTol', 1e-9);
+            tc.verifyGreaterThan(P.z_xp, P.z_img, 'the case: the paraxial exit pupil lies beyond the image plane');
+            pq = tc.p;  pq.nGridpts = 33;
+            E = iodc2010_emit(L, P, pq, fullfile(tc.tmp, 'retro8.in'));
+            macos.load_rx(E.path);
+            F = iodc2010_eval(E, P, pq, 0, 'rays', true);
+            tc.verifyTrue(F.xp_virtual, 'the evaluator saw the virtual pupil');
+            tc.verifyEqual(F.nLost, 0, 'every ray reaches the image through the mirror sphere');
+            tc.verifyEqual(F.nValid, 741);
+            tc.verifyTrue(isfinite(F.rms_waves) && F.rms_waves > 0.01 && F.rms_waves < 0.1, sprintf('rms %.4f', F.rms_waves));
+            r = abs(F.xp.rad);  C = F.ray.chief_img;
+            tc.verifyEqual(F.xp.vpt, C - r * F.ray.chief_dir_img, 'AbsTol', 1e-6, 'the mirror vertex: r before the image along the chief');
+            tc.verifyEqual(r, abs(P.z_xp - P.z_img), 'RelTol', 1e-6, 'the radius is the pupil distance');
+            % the independent tracer on the same rays, on the mirror sphere and on the true virtual one
+            ok = F.ray.ok_e1 & F.ray.ok_xp & F.ray.ok_fp;  d = F.ray.dir_in;
+            P1e = F.ray.pos_e1(:, ok);  s0 = d.' * (P1e - P1e(:, 1)) + 50;  p0 = P1e - d * s0;
+            Tm = iodc2010_reftrace(L, P, p0, d, struct('C', C, 'R', r, 'V', F.xp.vpt));
+            Tv = iodc2010_reftrace(L, P, p0, d, struct('C', C, 'R', r, 'V', C + r * F.ray.chief_dir_img));
+            lam = E.lambda_mm;
+            We = F.ray.opl_xp(ok) - F.ray.opl_xp(1);  We = We - mean(We);
+            Wm = Tm.W - mean(Tm.W);  Wv = Tv.W - mean(Tv.W);
+            tc.verifyLessThan(max(abs(We - Wm)) / lam, 1e-6, 'engine vs tracer on the mirror sphere');
+            tc.verifyLessThan(max(abs(Wm - Wv)) / lam, 1e-3, 'near vs far crossing of the same sphere: second order');
+            tc.verifyEqual(sqrt(mean(Wv.^2)) / lam, F.rms_waves, 'RelTol', 5e-3, 'the RMS on the true virtual sphere, to 0.5 %');
+            % must-fail: FEX's own sphere loses every ray
+            macos.set_src_fov('src_dir', [0; 0; 1], 'src_pos', [0; 0; P.z_ep - 100]);
+            macos.stop(E.iStop);  macos.fex(1);
+            tr = macos.trace(E.iXP);  rx = macos.get_ray_info(tr.nRays);
+            tc.verifyEqual(nnz(rx.ok_trace), 0, 'FEX''s sphere: centre on the far side, no ray reaches it');
+            macos.modify();
         end
 
         function test_paraxial_trace_matches_the_plano_convex_closed_form(tc)
