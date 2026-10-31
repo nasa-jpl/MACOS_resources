@@ -231,6 +231,48 @@ classdef tIodc2010 < matlab.unittest.TestCase
             end
         end
 
+        function test_chain_units_are_zero_petzval_and_the_long_link_images(tc)
+            % two units, two spacings, two links, every stop place: the grids' product, Petzval zero
+            % by construction, |EFL| 100, D 10, and a link beyond the unit's focal length makes an
+            % intermediate image while a short one does not
+            [C, ci] = iodc2010_chain(tc.p, 'n_units', 2, 'unit_gap', [0.3 1], 'link_gap', [0.5 4]);
+            tc.verifyEqual(ci.n_chains, 4 * 4 * 2, 'orders x unit gaps x links');
+            tc.verifyEqual(ci.n_tried, ci.n_chains * 5, 'front, two unit gaps, the link, back');
+            tc.verifyGreaterThan(ci.n_seeds, 0.5 * ci.n_tried);
+            names = arrayfun(@(c) c.L.name, C, 'UniformOutput', false);
+            tc.verifyEqual(numel(unique(names)), numel(names), 'names are unique');
+            n = iodc2010_glass('N-BK7', tc.p.lambda_nm);
+            f_unit = @(u) 1 / (u * (2 * (n - 1))^2);        % the unit's focal length in units of R
+            for i = 1:numel(C)
+                L = C(i).L;  P = iodc2010_paraxial(L, tc.p.lambda_nm);
+                tc.verifyEqual(L.N, 8, 'four elements');
+                tc.verifyEqual(abs(P.efl), 100, 'AbsTol', 1e-9, L.name);
+                tc.verifyGreaterThan(P.z_img, L.z(end), 'the image is real and beyond the lens');
+                tc.verifyEqual(P.D, 10, 'RelTol', 1e-9, 'the seed stop is sized for D_target');
+                nb = [1, P.n_after(1:end-1)];  pw = P.c .* (P.n_after - nb);
+                tc.verifyEqual(nnz(pw > 0), nnz(pw < 0), ['Petzval balance: ' L.name]);
+                tc.verifyEqual(nnz(pw(1:4) > 0), 2, ['each unit is balanced on its own: ' L.name]);
+                tc.verifyEqual(C(i).intermediate, any(sign(P.h_marg(2:end)) ~= sign(P.h_marg(1))), L.name);
+                % the flag against first order: the marginal ray crosses the axis inside the link
+                % when the link exceeds the first unit's (thick-lens) focal distance; test the
+                % clear cases only -- 4 R against f_unit(1) = 0.93 R images, 0.5 R against
+                % f_unit(0.3) = 3.1 R does not
+                u1 = C(i).gaps_R(1);  lk = C(i).gaps_R(2);
+                if lk > 2 * f_unit(u1), tc.verifyTrue(C(i).intermediate, ['long link images: ' L.name]); end
+                if lk < 0.5 * f_unit(u1), tc.verifyFalse(C(i).intermediate, ['short link does not: ' L.name]); end
+            end
+            tc.verifyGreaterThan(ci.n_intermediate, 0);
+            tc.verifyLessThan(ci.n_intermediate, ci.n_seeds);
+            % the symmetric subset: the mirrored chains with the stop at the central link only
+            [Cs, cs] = iodc2010_chain(tc.p, 'n_units', 2, 'unit_gap', [0.3 1], 'link_gap', [0.5 4], 'symmetric', true);
+            tc.verifyEqual(cs.n_chains, 2 * 2 * 2, 'order x u x link, the mirror fixed');
+            tc.verifyEqual(cs.n_tried, cs.n_chains, 'one stop place');
+            for i = 1:numel(Cs)
+                tc.verifyEqual(Cs(i).stop_place, 'l1');
+                tc.verifyEqual(Cs(i).pattern, -fliplr(Cs(i).pattern), 'mirror symmetric signs');
+            end
+        end
+
         function test_calib_deck_fields_start_on_the_source_plane(tc)
             L = tc.pair();  L.semidia = inf(1, L.N);
             P = iodc2010_paraxial(L, tc.p.lambda_nm);

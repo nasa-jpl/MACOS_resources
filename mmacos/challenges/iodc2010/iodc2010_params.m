@@ -62,6 +62,11 @@ function p = iodc2010_params()
 %     climb_D          pupils (mm) the climb is run at besides the lens's own
 %     climb            iodc2010_climb overrides (steps, n_fields, grow, tol,
 %                      reweight, w_floor, score_grid)
+%     chain            iodc2010_chain overrides (n_units, unit_gap, link_gap,
+%                      symmetric, stop_places) when 'chain' is among families
+%   The chain runs (p.chain, a cell of entries; stage 'chain'): each entry
+%   names its output directory under search/ and carries the outer-loop
+%   fields that differ from p.outer -- at least 'chain', the pair-unit grids.
 p = struct();
 p.lambda_nm       = 532;
 p.glass           = 'N-BK7';
@@ -92,4 +97,12 @@ p.outer = struct('families', {{'forms', 'groups'}}, 'n_elts', [2 3], ...
     'solve', struct('rounds', 4, 'iters_per_round', 12, 'floor_glass_R', 0.03, 'floor_air_R', 0.01, 'var_stop', false, 'ray_grid', 31), ...
     'n_climb', 3, 'climb_D', [4 7 12], ...
     'climb', struct('steps', 8, 'n_fields', 4, 'grow', 1.3, 'tol', 0.03, 'reweight', false, 'w_floor', 0.1, 'score_grid', 21));
+% The chain runs (iodc2010_run('stage', 'chain')): four and six elements as
+% chains of zero-Petzval pair units (iodc2010_chain), each run the outer loop
+% with p.outer's options, 'families' {'chain'} and the entry's fields over
+% them, in search/<name>/.  Six units' grids are coarser: the count is the
+% grids' product (2 orders x unit gaps x links per unit).
+p.chain = { ...
+    struct('name', 'chain4', 'chain', struct('n_units', 2, 'unit_gap', [0.1 0.3 1 3], 'link_gap', [0.5 1.5 4 10])), ...
+    struct('name', 'chain6', 'chain', struct('n_units', 3, 'unit_gap', [0.3 1], 'link_gap', [1.5 4 10]))};
 end
