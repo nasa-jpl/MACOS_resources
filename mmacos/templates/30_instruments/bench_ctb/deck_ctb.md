@@ -1,18 +1,21 @@
-<!-- CTB coronagraph diffraction-model progress deck, v6 2026-10-29.
+<!-- CTB coronagraph diffraction-model progress deck, v7 2026-10-31.
      Build: python3 make_brief_slides.py deck_ctb.md
      Sources: bench_ctb/CTB_PROP_STATUS.md (sessions 4-14) + committed
      committed figures in THIS directory (mask families + leg fix +
      export, pol-ifo ab494ec..a060ef0/46d0bc6; DM layer + EFC,
      dev-candidate ea64552; physics layers + vector vortex,
-     dev-candidate 29edb1d/9ea80e5+; the telescope slides 14-15 from
-     e2e stages 8-9, templates/80_end_to_end/e2e/s8_coronagraph.m and
-     s9_diffraction.m, figures ctb_e2e_*.png copied from their products
-     and the mmacos manual's chapter 2).  Style: doc/DECK_STYLE.md +
-     STYLE_REPORTS.md section 5 (gate run 2026-10-29: clean).       -->
+     dev-candidate 29edb1d/9ea80e5+; the telescope slides 14-17 from
+     e2e stages 8-11, templates/80_end_to_end/e2e/s8_coronagraph.m,
+     s9_diffraction.m, s10_sensing.m and s11_cycles.m, figures
+     ctb_e2e_*.png copied from their products (s9_fields, s10_probe,
+     s11_cycles) and the mmacos manual's chapter 2; the numbers from
+     s9/s10/s11_report.txt, 2026-10-30, and PLAN_CONSOLIDATION 3a).
+     Style: doc/DECK_STYLE.md + STYLE_REPORTS.md section 5 (gate run
+     2026-10-31: clean).                                              -->
 
 # The Coronagraph Testbed Model
 End-to-end diffraction on an all-reflective testbed — eight off-axis parabolas, two deformable mirrors — validated against PROPER
-D. C. Redding with Claude Code — 26 August 2026, with the telescope slides added 29 October 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record); the telescope model in templates/80_end_to_end/e2e (stages 8 and 9).
+D. C. Redding with Claude Code — 26 August 2026, with the telescope slides added 29–31 October 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record); the telescope model in templates/80_end_to_end/e2e (stages 8 to 11).
 ~ Note 2026-09-16: the deformable-mirror model was questioned and confirmed by a traced footprint (the beam at the DMs is 21.2 mm; the 32 x 32 lattice at 0.67 mm spans it; every loop number stands).  What the trace found instead: the bench carries half the sheet's intended fill (the source cone is set as a half-angle where the engine takes a full angle), 47% of the DM's clear aperture rather than 95%; self-consistent throughout, and whether to regenerate at the intended beam is an open decision.  The diffraction layer, complete and validated: propagation prescriptions cross-checked against PROPER, dark-zone contrast with the standard mask families head-to-head, an off-axis companion, a hand-off package an external PROPER user runs with no macos, the two deformable mirrors closing a wavefront-control loop on the model itself — and the physics layered on top: finite bandpass, the coated train's polarization, and the vector vortex with a measured verdict on the polarizer-sandwich trade.
 
 ## 1 — The bench and the model | Two prescriptions, one physical train; every mask plane bracketed by its own exit-pupil reference sphere
@@ -113,7 +116,7 @@ D. C. Redding with Claude Code — 26 August 2026, with the telescope slides add
 - Where the correction works hardest: with the 50% Lyot stop, 32 actuators steer light cleanly to about 8 λ/D on the final image scale — the inner half of the zone deepens 40×, the outer 25×, and the largest strokes ring the Lyot edge image on the mirror.
 ::: full
 ![Before and after at the camera; contrast versus iteration, with the DM1-only loop overlaid stalling two decades short; the stroke maps commanded on both DMs. Dashed circles mark the 3–15 λ/D zone.](ctb_efc.png){h=2.1}
-~ Sensing is assumed perfect — the loop reads the model's complex field directly. Estimating that field from camera images alone (pairwise probing, as a testbed must) is the next layer of realism.
+~ Sensing is assumed perfect here — the loop reads the model's complex field directly. Slides 16–17 close the loop on fields estimated from probe images, as a testbed must.
 
 ## 10 — Deeper: the loop on the vortex chain | 1.7×10⁻⁸ → 6.8×10⁻¹⁵ at half-nanometer strokes — this chain leaves nothing the mirrors cannot remove
 ::: left
@@ -172,18 +175,33 @@ D. C. Redding with Claude Code — 26 August 2026, with the telescope slides add
 ::: full
 - **The stop against the shadow.** An annular Lyot stop — the bench's 0.50 disk with a central blocker — scanned over the blocker radius: 0.08 of the pupil radius gives 5.3×10⁻⁷ (97% throughput), 0.12 gives 6.3×10⁻⁷, 0.16 gives 7.0×10⁻⁷, 0.20 gives 6.9×10⁻⁷ (84%). The smallest blocker that covers the shadow's image is the best of the scan; the curve is not monotonic because the blocker's own edge diffracts.
 - **The loop.** The control matrix re-measured on the telescope chain with the annular stop (1760 actuators, two pokes each, 59 min): 5.3×10⁻⁷ → 1.4×10⁻⁷ in 7 iterations at 7.8/6.2 nm rms, then re-measured about that state (71 min) and continued: → 6.7×10⁻⁸ in 10 more at 8.6/8.4 nm. Eight times overall against the bench's own thirty-six (2.9×10⁻⁷ → 8.1×10⁻⁹, 3.8×10⁻⁹ relinearized): what remains is the shadow's diffraction outside the blocker, an amplitude hole at the pupil's centre that the mirrors fill only with strokes past their linear range. The step the bench's regularization grid proposes on the brighter halo asks DM2's edge actuators for 65 nm peaks — outside the linear range (the achieved field change correlates 0.34 with the prediction) — so the grid runs a decade further and the loop takes smaller steps.
-- **What is next on this train.** Pairwise probing on the telescope model (the estimator of slide 9's footnote, now built for the bench), the anamorphic lattice (a resampling of the field at the first diffraction plane, an engine change), and an apodizer designed for the obscured pupil instead of a blocker.
 ![The first loop on the telescope chain with the annular stop: the camera before and after (5.3×10⁻⁷ → 1.4×10⁻⁷), contrast against iteration, the commanded strokes on both DMs — concentrated at the pupil's centre, on the shadow's image.](ctb_e2e_efc.png){h=2.1}
 
-## 16 — Next | Toward a real coronagraph model, in dependency order
+## 16 — Sensing the field on the telescope | Pairwise probing on the telescope's 5.3×10⁻⁷ halo: the bench's default probe (37 nm) reads the field 47% off, a 0.3× probe reads it to 4.4%, and the estimate needs a control matrix measured about the current state
+::: left
+- **The probes.** Three pairs of ±sinc probes on DM1, their fields predicted from the control matrix; the estimator (Give'on, Kern & Shaklan 2011) solves each pixel's field from the pair differences. The default amplitude rule, probe intensity equal to the speckle level, gives 37 nm (0.94 rad of wavefront) on this halo, twenty times the bench's: the probe's second-order response leaves the estimate 47% off the field. The error falls as the amplitude squared: 0.3× (11 nm) reads it to 4.4%, 0.1× to 0.5%.
+- **Two bench diagnostics that do not transfer.** The probe-intensity ratio reads 1.22 at every amplitude here (1.02 on the bench): the second-order field cancels in the pair difference and survives in the sum, so on a bright halo it flags a gross mismatch only. And the estimate wants the matrix about the current state: at the dug state (6.7×10⁻⁸) the flat-state matrix estimates the field 33% off, the matrix about its own point 1.2%.
+- **The loop on estimates.** Matrix held fixed: 5.3×10⁻⁷ → 1.9×10⁻⁷ in three iterations, 1.34× perfect sensing's 1.4×10⁻⁷; re-measured on the estimate: → 7.7×10⁻⁸ against 6.7×10⁻⁸. The line search scores the measured contrast, so a wrong estimate costs depth, never stability. Photons: 10¹⁰ per image at the bare peak costs 12% error at the 0.3× probe; 10⁸ (fifty per speckle pixel) leaves no linear probe usable.
+::: right
+![Stage 10's own figure: the floor against probe amplitude (star: the 0.3× pick), the intensity diagnostic, the floor against photons; the per-pixel error and the error maps at the pick.](ctb_e2e_probe.png){h=4.2}
+
+## 17 — Recompute-and-restart cycles to 10⁻⁸ | Measuring the control matrix about the loop's own state and restarting takes the telescope's dark zone to the 10⁻⁸ goal: perfect sensing in 4 cycles (57 iterations, 9.7×10⁻¹⁰), probe estimates in 5 (31 iterations, 5.6×10⁻⁹)
+::: left
+- **The procedure.** The standard practice for driving contrast down: measure the matrix about the state (3520 chain runs, 62–74 min each here), run the loop until no step improves or 20 iterations, measure again from where it ended; stop at the goal 10⁻⁸, at a cycle gaining under 5%, or at ten cycles. Resumable from a state file; six matrices measured.
+- **Both chains reach the goal.** Perfect sensing: 5.3×10⁻⁷ → 1.4×10⁻⁷ → 6.7×10⁻⁸ → 2.4×10⁻⁸ → 9.7×10⁻¹⁰, the last cycle alone 25×. Probe estimates: → 1.9×10⁻⁷ → 7.4×10⁻⁸ → 4.7×10⁻⁸ → 1.7×10⁻⁸ → 5.6×10⁻⁹: one cycle more and 26 fewer iterations, a cycle on estimates stalling sooner. Strokes under 12 nm rms on both mirrors throughout.
+- **Where the estimate runs out.** Within 4.4% of the field at the first four fresh matrices, 17% at the fifth (from 1.7×10⁻⁸): at that depth the error concentrates in about 1% of the pixels, where the probes' own field is near a null and the per-pixel solve is ill-conditioned (five pairs instead of three: 13%). The loop dug to the goal on that estimate anyway. Next: a per-pixel solve weighted by the probes' energy.
+::: right
+![Stage 11's own figure: contrast against iteration, probed (squares; dotted, its estimate) and perfect sensing (circles); verticals, a matrix re-measured.](ctb_e2e_cycles.png){h=4.2}
+
+## 18 — Next | Toward a real coronagraph model, in dependency order
 ::: full
-- Realistic sensing. The loop reads the model's complex field directly; a testbed estimates it from camera images (pairwise probing). That estimator is the remaining step between these floors and lab-representative ones — and FALCO, the community's standard wavefront-control software, can then drive the same DMs (the hybrid Lyot mask enters there, since its design comes from that control loop).
+- Sensing at depth. The probe estimate is the lab's view of the field; below 10⁻⁸ its per-pixel solve needs weighting where the probes' field is near a null (slide 17), and the model's beam needs the anamorphic lattice (a resampling of the field at the first diffraction plane, an engine change). FALCO, the community's standard wavefront-control software, can then drive the same DMs from the same images (the hybrid Lyot mask enters there, since its design comes from that control loop).
 - Aberrations and drifts. As-built mirror surface maps (measured-quality power spectra), then alignment drifts as a time series against the delivered control loop — dark-zone maintenance, and how long the hole survives between corrections.
 - Validation against testbed data — the capstone. Needs a named dataset from a real bench and the measured (not design) parameters that produced it.
 ~ Mechanical layer delivered and merged: a prescription generator that reproduces both hand-built models to round-off, regression tests pinning the validated numbers (two suites, 16 checks green), the example README, and the exit-pupil-finder guard in the engine (pushed).
-~ Everything on slides 9–13 is reconstructible at other parameters with one call — ctb_study, in the backup section; slides 14–15 with the thread's stages 8 and 9.
+~ Everything on slides 9–13 is reconstructible at other parameters with one call — ctb_study, in the backup section; slides 14–17 with the thread's stages 8 to 11.
 
-## 17 — References | Sources for the mask families and the control method; every formula taken from the paper itself
+## 19 — References | Sources for the mask families, the control method and the estimator; every formula taken from the paper itself
 ::: full
 - Band-limited masks: Kuchner & Traub 2002, ApJ 570, 900 (4th order); Kuchner, Crepp & Ge 2005, ApJ 628, 466 (8th order).
 - Apodized-pupil Lyot: Soummer 2005, ApJ 618, L161 (the prolate apodizer); Soummer et al. 2011, ApJ 729, 144 (the GPI instrument configuration used here).
@@ -191,6 +209,7 @@ D. C. Redding with Claude Code — 26 August 2026, with the telescope slides add
 - Vortex: Mawet et al. 2005, ApJ 633, 1191; Foo, Palacios & Swartzlander 2005, Opt. Lett. 30, 3308; Jenkins 2008, MNRAS 384, 515 (the even-charge rejection property).
 - Vector vortex: Mawet et al. 2009, Opt. Express 17, 1902 (the liquid-crystal-polymer VVC and its retardance-leakage term); Mawet et al. 2010, ApJ 709, 53 (laboratory results and first light). The 2×2 Jones form on slide 13 is the standard rotating-half-wave-plate algebra, re-derived in the driver's help text.
 - Wavefront control: Give'on et al. 2007, Proc. SPIE 6691 (electric-field conjugation, the correction solve of slide 9).
+- Focal-plane sensing: Give'on, Kern & Shaklan 2011, Proc. SPIE 8151 (pair-wise probing, the estimator of slides 16–17).
 - Diffraction reference code: PROPER — Krist 2007, Proc. SPIE 6675 (the arbiter for every propagation cross-check in this deck).
 ~ A companion three-slide deck (ctb_mask_families, committed beside the drivers) carries the code map: which script builds which mask, and the parameters a user can change.
 
