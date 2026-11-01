@@ -280,5 +280,5 @@ w('          nECoord=  -6');
 end
 
 function s = medium_(g)
-if isnumeric(g), s = sprintf('n=%.6g', g); else, s = char(g); end
+if isnumeric(g), s = sprintf('n=%.6g', g); elseif isstruct(g), s = char(g.name); else, s = char(g); end
 end

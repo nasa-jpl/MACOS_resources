@@ -1,0 +1,38 @@
+# macos.design.lens_catalog -- vendor lens prescriptions (fill in your own parts).
+#
+# Two record types, one per line, fields separated by '|':
+#
+#   part  | <part> | <vendor> | <R1;R2;...> | <t1;t2;...> | <glass1;glass2;...> | <D> | <EFL> | <BFL> | <lambda_nm> | <source>
+#   glass | <name> | <B1 B2 B3 C1 C2 C3> | <nd> | <source>
+#
+# Units mm and nm.  Radii in the CODE V sign convention (light travels from
+# R1 toward the last surface; a radius is positive when its centre lies
+# downstream), Inf for plano.  A cemented interface is ONE radius (a vendor
+# table that lists R2 and R3 separately for a cemented pair lists the same
+# number twice: enter it once).  t(k) is the centre thickness from surface k
+# to k+1; glass(k) the medium between them ('air' for an air-spaced pair).
+# EFL, BFL and lambda_nm are the vendor's quoted values: macos.design.lens_catalog
+# returns them beside the Lens and the tests check the paraxial solve against them.
+#
+# A glass the engine table (macos_f90/macos_glass_list.txt) does not carry is
+# given here as its Sellmeier row (n^2 - 1 = sum B_i L2/(L2 - C_i), L2 in um^2);
+# nd is the published index at 587.56 nm, the check the loader's test applies.
+# The deck carries the row as GlassCoef=, so the engine traces it exactly.
+# Lines starting with '#' are comments.
+
+# --- glasses not in the engine table ------------------------------------------
+# (none needed by the parts below: N-SF5 and N-F2 joined the engine table in
+# macos 4ed926b4, Schott datasheet rows).  A line for your own glass looks like
+#   glass | N-F2 | 1.39757037 0.159201403 1.2686543 0.00995906143 0.0546931752 119.248346 | 1.62005 | SCHOTT Zemax catalog 2017-01-20b via refractiveindex.info
+# and a table glass of the same name takes precedence over the engine's row.
+
+# --- parts ---------------------------------------------------------------------
+# The VSG2 collimator and imager (templates/40_benches/vsg_wip/vsg2_params.m).
+# The glasses resolve from the engine table by name; every emitted deck still
+# carries GlassCoef= (a build without the rows traces the same glass).
+# Newport lists the glasses as "N-BK7/N-SF5" and "N-BK7 and N-F2" without saying
+# which element is which; the crown (N-BK7) is the front, biconvex element, as
+# the radii require for a positive achromat ("steepest convex surface should
+# face the infinite conjugate").
+part | PAC097AR.14 | Newport | 455.878;-336.756;-1010.204 | 11.0;6.5 | N-BK7;N-SF5 | 76.2 | 750 | 741.8 | 589 | newport.com/p/PAC097AR.14 product page, specifications table, fetched 2026-11-01
+part | PAC095AR.14 | Newport | 140.890;-101.720;-454.867 | 14.5;4.0 | N-BK7;N-F2 | 76.2 | 250 | 240.1 | 589 | newport.com/p/PAC095AR.14 product page, specifications table (R2 = R3 = -101.720 listed for the cemented face), fetched 2026-11-01
