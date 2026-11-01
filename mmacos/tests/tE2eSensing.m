@@ -150,6 +150,33 @@ classdef tE2eSensing < matlab.unittest.TestCase
             tc.verifyTrue(any(R.worst_elt(end) == [tc.e.DM1 tc.e.DM2]), sprintf('the worst ray departs at a grid DM (element %d)', R.worst_elt(end)));
         end
 
+        function test_grid_dm_c1_no_steps(tc)
+            % THE GATE FOR THE FIX (CCL 2026-10-31): the same cycle-4 state and probe on the same
+            % deck re-emitted with GridSrfOrder= 3 (the engine's C1 bicubic): no ray steps at any
+            % amplitude and the odd response is linear.  Red on an engine whose FreeFormSrf
+            % ignores GridSrfOrder (before 2026-10-31), green after.
+            root = fullfile(fileparts(mfilename('fullpath')), '..');
+            e2e = fullfile(root, 'templates', '80_end_to_end', 'e2e');
+            sf = fullfile(e2e, 's11_sens_state.mat');  jf = fullfile(e2e, sprintf('ctb_dm_jacobian_N%d_e2e_sens_c4.mat', tc.ModelSize));
+            tc.assumeTrue(isfile(sf) && isfile(jf), 'stage 11''s cycle-4 state and Jacobian (local products of s11_cycles) are needed');
+            St = load(sf);  J4 = load(jf);  a = St.cycles(4).a_end;
+            r3 = ctb_dm_rx('rx_in', fullfile(e2e, 's9_coupled.in'), 'rx_out', fullfile(tc.work, 's9_coupled_dm_c3.in'), 'order', 3);
+            tc.verifyTrue(contains(fileread(r3.rx_out), 'GridSrfOrder=  3'), 'the emitter writes the keyword');
+            chain = {'elt', tc.e, 'r_lyot_inner_frac', tc.LyotInner};
+            ch3 = ctb_chain('rx', r3.rx_out, 'model_size', tc.ModelSize, chain{:});
+            S = ctb_probe_shapes(J4.dm(1), J4.outer_lamD, 3);
+            R = ctb_dm_linearity(ch3, J4, a, S(:, 1), [0.3 1 2], 'say', []);
+            fprintf('[c1 steps] amps %s nm: steps %s, max step %s nm, odd_dev %s\n', mat2str(R.amps_nm), mat2str(R.n_step), mat2str(R.max_step_nm, 3), mat2str(R.odd_dev, 3));
+            tc.verifyEqual(R.n_step, zeros(size(R.n_step)), 'GridSrfOrder= 3: no ray steps');
+            tc.verifyLessThan(R.odd_dev(end), 0.05, 'GridSrfOrder= 3: the odd response per unit amplitude is the same at 0.3 and 2 nm');
+            % the chain on the order-3 deck is the same optics: its static dark zone is the order-1 one to a few percent
+            apply = @(dm, c) cellfun(@(q, v) q.apply(v), dm, c, 'UniformOutput', false);
+            dm = cell(1, 2);
+            for k = 1:2, d = J4.dm(k);  dm{k} = ctb_dm('ielt', d.ielt, 'ng', d.ng, 'gdx_mm', d.gdx_mm, 'nact', d.nact, 'pitch_mm', d.pitch_mm, 'beam_d_mm', d.beam_d_mm, 'coupling', d.coupling); end
+            apply(dm, a);  E3 = ch3.run();  c3 = mean(abs(E3(ch3.dz_mask(3, 5))).^2) / ch3.peak_bare;
+            fprintf('[c1 steps] cycle-4 state dark zone (3-5 lambda/D): order 3 %.4e (order 1 recorded %.4e)\n', c3, St.cycles(5).c_start);
+        end
+
         function test_efc_closes_on_the_estimate(tc)
             out = ctb_efc('jac', tc.J, 'niter', 3, 'save', false, ...
                 'sensing', struct('probe_rel', tc.PickRel));

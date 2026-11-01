@@ -84,7 +84,7 @@ names = regexp(fileread(fullfile(exdir, 's9_coupled.in')), '(?m)^\s*EltName=\s*(
 for f = fieldnames(e).'
     assert(strcmp(names{e.(f{1})}, f{1}), 's10_sensing: station %s is element %d of s9_coupled.in, named %s', f{1}, e.(f{1}), names{e.(f{1})});
 end
-r = ctb_dm_rx('rx_in', fullfile(exdir, 's9_coupled.in'), 'rx_out', fullfile(exdir, 's9_coupled_dm.in'));   % the DM deck (and flat256.txt beside it), as stage 9 wrote it
+r = ctb_dm_rx('rx_in', fullfile(exdir, 's9_coupled.in'), 'rx_out', fullfile(exdir, 's9_coupled_dm.in'), 'order', P.grid_order);   % the DM deck (and flat256.txt beside it), as stage 9 wrote it
 chain_pick = {'elt', e, 'r_lyot_inner_frac', li_pick};
 ch = ctb_chain('rx', r.rx_out, 'model_size', MODEL, chain_pick{:});   % the chain owns the session from here
 o9  = load(fullfile(exdir, 'ctb_efc_e2e_coupled.mat'));     % stage 9's perfect-sensing EFC, fixed G

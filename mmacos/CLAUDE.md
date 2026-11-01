@@ -63,6 +63,23 @@ just `use macos_api_mod` + link the lib.  Likewise pymacos's
 
 ## Gotchas
 
+### Heavy jobs run in their own memory-capped scope (2026-10-31)
+
+The three editor crashes of 2026-10-31 were the kernel OOM killer taking a 23-GB MATLAB (a units bug in a
+test) that lived in VS Code's own cgroup; systemd then failed the whole scope -- the editor, every Claude
+session on it, every nohup/setsid job.  Launch every MATLAB run, build and gate as
+`systemd-run --user --scope -p MemoryMax=12G -p MemorySwapMax=0 <script>`: a `--scope` keeps the shell's
+environment and tty (a `--user` SERVICE does not: `matlab -batch` segfaults there and the CLI gate reads every
+deck as 'noprompt'), and the cap makes a runaway die alone.  Log the hog's RSS when a run dies at the cap.
+
+### A private mex needs a private templates tree too (2026-10-31)
+
+`ctb_chain`, `ctb_dm_rx` and most `templates/` functions `addpath(here/../../../src)` before their first
+engine call.  A MATLAB run that puts a private `src/` (a side-tree mex) on the path and then calls a template
+function loads the SHARED mex: `which('mmacos')` printed before the call lies.  Prove the engine with
+`[~, mx] = inmem('-completenames')` after the first trace, and build a side tree with its own `templates/`
+copy (the big `.mat` products symlinked) so `here/../../../src` resolves inside it.
+
 ### Header-key rewrites must be line-anchored (2026-10-30)
 
 The engine's header keys nest: `OptRayGrid=` ends in `yGrid=`, `OptChfRayDir=` / `JZLouChfRayDir=` end in
