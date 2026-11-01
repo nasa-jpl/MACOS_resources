@@ -17,7 +17,7 @@ From this directory, after `run('<path-to>/mmacos/mmacos_setup.m')`:
     doublet                                         % the defaults
     out = doublet('FLINT', 'SF2', 'FNUM', 4)
 
-Choices (name-value): `EFL_MM` 100, `FNUM` 5, `CROWN` 'N-BK7', `FLINT` 'F2', `T_MM` [6 2.5], `LAM_NM` [486.1327 587.5618 656.2725] (F, d, C), `VENDOR_PART` 'PAC095AR.14' ('' skips stage 5), `NGRID` 63, `MODEL` 128, `OUTDIR` `./out`.  The run writes `out/doublet_report.txt`, `out/doublet.mat` and its decks.  It takes about 6 s.
+Choices (name-value): `EFL_MM` 100, `FNUM` 5, `CROWN` 'N-BK7', `FLINT` 'F2', `T_MM` [6 2.5], `LAM_NM` [486.1327 587.5618 656.2725] (F, d, C), `VENDOR_PART` 'PAC095AR.14' ('' skips stage 5), `NGRID` 63, `MODEL` 128, `OUTDIR` `./out`.  The run writes `out/doublet_report.txt`, `out/doublet_focus.png` (the chromatic focal-shift curve), `out/doublet.mat` and its decks.  It takes about 6 s.
 
 **Metric** (stated before the numbers): RMS wavefront error in waves at each wavelength, over the full aperture, on the exit-pupil sphere centred on the chief ray's image point (`macos.opd_ref('chief')`), piston removed, tilt and focus kept.  Every lens is scored on one image plane, the paraxial achromat's d focus, which is the plane CALIB holds.  One wavelength per trace.  Focal positions are the engine's near-axis back focal distances.
 

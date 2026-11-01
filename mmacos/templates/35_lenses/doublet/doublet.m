@@ -39,7 +39,8 @@
 %
 %  Run:  >> doublet                      the defaults below
 %        >> out = doublet('FLINT', 'SF2', 'FNUM', 4)
-%  Returns OUT (also OUTDIR/doublet.mat) and writes OUTDIR/doublet_report.txt.
+%  Returns OUT (also OUTDIR/doublet.mat) and writes OUTDIR/doublet_report.txt and
+%  OUTDIR/doublet_focus.png (the chromatic focal-shift curve).
 % =====================================================================
 function out = doublet(varargin)
 exdir = fileparts(mfilename('fullpath'));
@@ -144,6 +145,18 @@ fprintf('      paraxial achromat:  F %+.5f   C %+.5f   (y-nu: F %+.5f  C %+.5f)\
 fprintf('      CALIB lens:         F %+.5f   C %+.5f   (y-nu: F %+.5f  C %+.5f)\n', zEc(1) - zEc(2), zEc(3) - zEc(2), zPc(1) - zPc(2), zPc(3) - zPc(2));
 fprintf('      secondary spectrum (paraxial achromat, d focus - F/C focus): engine %+.5f mm, textbook -%.5f mm (thin lens)\n', ss_e, ss_tb);
 zs_e = zEc;  zs_p = zPc;
+fprintf('      worst RMS across the band: CALIB %.4f, paraxial achromat %.4f waves\n', max(rc), max(r0));
+% the chromatic focal-shift curve, paraxial (y-nu) over the band, the engine's three traces marked
+lam_c = linspace(450, 700, 51);
+f0 = arrayfun(@(l) L0.paraxial(l).bfl, lam_c) - z0(2);
+fc = arrayfun(@(l) Lc.paraxial(l).bfl, lam_c) - zPc(2);
+fig = figure('Visible', 'off', 'Position', [100 100 640 400]);
+plot(lam_c, 1e3 * f0, 'b-', lam_c, 1e3 * fc, 'r-', 'LineWidth', 1.4);  hold on;
+plot(LAM_NM, 1e3 * (zE0 - zE0(2)), 'bo', LAM_NM, 1e3 * (zEc - zEc(2)), 'rs', 'LineWidth', 1.3, 'MarkerSize', 8);
+grid on;  xlabel('wavelength (nm)');  ylabel('back focal distance minus its d value (\mum)');
+legend({'paraxial achromat (y-nu)', 'CALIB at F, d, C (y-nu)', 'engine, one trace per wavelength', ''}, 'Location', 'north');
+title(sprintf('%s + %s achromat, f = %g mm: chromatic focal shift', CROWN, FLINT, EFL_MM));
+exportgraphics(fig, fullfile(OUTDIR, 'doublet_focus.png'), 'Resolution', 110);  close(fig);
 
 %% -- Stage 5 -- a vendor achromat from the catalog ------------------------
 vend = struct();
