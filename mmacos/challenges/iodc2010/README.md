@@ -670,16 +670,56 @@ So the relaxation does what the entrants' did (0.04 wave at f/5 with six
 elements of one glass), the snap recovers most of it for nine of twelve
 surfaces, and the last three fixes lose it: the on-axis pupil moved from 5.3
 to 10.9 mm, past the 10.4-mm baseline by a hair, not to the 20 the relaxed
-lens had.  What the last fixes need is a choice, not a nearest-value rule
-(both signs and plano tried, the best kept -- 3 re-solves per fix), and a
-Petzval weight that holds (a hard balance of the counts at the snap).  The
-full stage (`p.axis`: 4 seeds × D 20 / 40 / 80) was launched at the end of the
-session; its table is `search/axis/axis_relax.csv` when it lands.
+lens had.
+
+**The stage's first run** (`p.axis`: the four best seeds by capacity × D 20 /
+40 / 80; 41 seeds measured in 40 s, 12 relaxes in 44 min; `search/axis/axis_relax.csv`,
+the best lens's deck / report / `.seq` kept):
+
+| seed | capacity | target D | free RMS at D (waves) | snapped RMS | snapped pattern | capacity after | R / length (mm) |
+|---|---|---|---|---|---|---|---|
+| thick equi-convex | 10.37 | 20 / 40 / 80 | 2.06 / 34 / 673 | 2.2 / 37 / 759 | `[1 -1]` | 10.89 (all three) | 65 / 142 |
+| `retro_nf1_G3_m2_t0p3_g0p05_first_rear` (4 elements) | 6.36 | 20 | 0.069 | 1.06 | `[0 0 0 0 1 0 1 1]` | 13.12 | 84 / 153 |
+| the same | | 40 | 0.86 | 10.6 | the same | 14.90 | 95 / 1229 |
+| the same | | 80 | 65 | lost rays | | 0 (rejected) | |
+| `retro_nf1_G3_m2_t0p3_g0p3_first_rear` | 6.23 | 20 | 16.7 | 0.56 | `[0 0 -1 -1 1 0 1 1]` | 15.34 | 102 / 359 |
+| the same | | 40 | 76 | 1.25 | `[0 1 0 -1 1 1 1 1]` | **16.92** | 79 / 243 |
+| the same | | 80 | 14.6 | lost rays | | 0 (rejected) | |
+| `retro_nf2_G3_m2_t0p6_g0p05_last_rear` (6 elements) | 6.17 | 20 | 0.021 | 2.23 | `[0 0 0 0 1 1 1 0 0 1 1 -1]` | 10.89 | 65 / 252 |
+| the same | | 40 | 10.5 | 10.0 | `[0 0 0 0 0 0 0 0 1 0 1 -1]` | 15.04 | 97 / 289 |
+| the same | | 80 | lost rays | lost rays | | 0 (rejected) | |
+
+The on-axis best is now **16.9 mm** (a 4-element lens, R 79, 243 mm long,
+`retro_nf1_G3_m2_t0p3_g0p3_first_rear_relax_D40`), 63 % above the 10.4-mm
+baseline and 2.7× its seed; every relax beat its seed except the singlet's
+three (10.9 each, the thick equi-convex re-found).  What the table says:
+
+* **The free stage is iteration-starved at the larger targets**: 60
+  iterations reach 0.02-0.07 wave at D 20 on the 4- and 6-element seeds but
+  0.9-76 waves at D 40 and 15-673 at D 80 (the sequential fixes, 25
+  iterations each, then went on improving -- 16.7 → 0.56 on the third seed --
+  so the solver was still descending, not stuck).  `iters_free` is the first
+  knob to raise, with the pupil targets as a ladder (relax at 20, then from
+  that lens at 40) rather than three cold starts.
+* **The snap goes plano-heavy**: the free solution spreads its curvature
+  over every surface at a fraction of k_c, and the nearest-value rule makes
+  the small ones plano -- the 6-element seed at D 40 came back with two
+  curved surfaces of twelve.  A choice at each fix (all three values, the
+  best kept) and a k_c chosen to maximize the number of curved surfaces that
+  snap cleanly would keep the elements working.
+* **D 80 is out of reach of the snap at this element count**: the relaxed
+  lenses lose rays there and so do the snapped ones.  The entries at that
+  pupil have 10-40 elements; the stage's seeds have 1-6.
+* The Petzval weight of 1 did not hold the balance (the best pattern has
+  five converging surfaces and one diverging); a hard count balance at the
+  snap belongs with the choice above.
 
 ## Next
 
-The snap's last fixes (above: try all three values, keep the best; hold the
-Petzval balance), then the stage's table into this record.  Ruling needed: the
+The snap as a choice (try all three values at each fix, keep the best; a
+hard Petzval count balance), the free stage with more iterations and the
+pupil targets as a ladder, then more elements (8-12) for the 40-80 mm
+pupils.  Ruling needed: the
 engine's FEX/SXP for a pupil beyond the image (with it, CALIB's field solves on
 retrofocus lenses; the `OptFEX= No` singular LM beside it).  Then the
 distortion-aware inner objective (a MATLAB-side objective around the engine's
