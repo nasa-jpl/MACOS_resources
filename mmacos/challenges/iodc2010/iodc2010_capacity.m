@@ -11,8 +11,11 @@ function [Dc, info] = iodc2010_capacity(L, p, opts)
 %   beat and what the 2026-10-31 record quotes for every seed family (README
 %   "The on-axis construction").
 %
+%   A probe also applies the problem's thickness rule -- every glass edge and
+%   air space positive at the marginal ray's height -- so the capacity is a
+%   pupil the metric's rules accept, not the wavefront alone.
 %   info: .rms (the RMS at Dc, waves), .reason (what fails just above Dc:
-%   'rms' | 'vignetting' | 'passes at D_hi'), .n_probes.
+%   'rms' | 'vignetting' | 'edge' | 'passes at D_hi'), .n_probes.
 arguments
     L struct
     p struct
@@ -43,6 +46,15 @@ function F = probe_(L, D, pq, deck)
 P0 = iodc2010_paraxial(L, pq.lambda_nm);
 L.stop(2) = L.stop(2) * D / P0.D;  L.semidia = inf(1, L.N);
 P = iodc2010_paraxial(L, pq.lambda_nm);
+% the problem's thickness rule at this pupil: every glass edge and air space positive at the
+% marginal ray's height (the scorer's rules check, on the paraxial height here; the relax
+% stage's 26.8-mm lens of 2026-10-31 passed the wavefront with two edges 0.1 mm negative)
+h = abs(P.h_marg) * D / 2;  c = iodc2010_curv(L);
+sag = c .* h.^2 ./ (1 + sqrt(max(0, 1 - c.^2 .* h.^2)));
+edge = L.t(1:L.N-1) - sag(1:L.N-1) + sag(2:L.N);
+if any(edge <= 0) || any(abs(c) .* h >= 1)
+    F = struct('pass', false, 'reason', 'edge', 'rms_waves', NaN, 'nLost', 0, 'nLaunched', 0);  return
+end
 E = iodc2010_emit(L, P, pq, deck);
 macos.load_rx(E.path);
 F = iodc2010_eval(E, P, pq, 0);

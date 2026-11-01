@@ -159,7 +159,7 @@ end
 rel = namedargs2cell(p.axis.relax);
 rows = {};  best = [];  bestCap = 0;
 for j = 1:height(T)
-    L0 = seedmap(char(T.name(j)));  Lstart = L0;
+    L0 = seedmap(char(T.name(j)));  Lstart = L0;  bestStart = T.capacity(j);
     for Dt = p.axis.D_targets
         % the ladder: each pupil target relaxed from the previous target's snapped lens (p.axis.ladder),
         % else every target from the seed
@@ -167,7 +167,7 @@ for j = 1:height(T)
         fprintf('relax %s at D %g (seed capacity %.2f; start = %s)\n', L0.name, Dt, T.capacity(j), tern_(isequaln(Lstart.t, L0.t), 'the seed', 'the previous target''s lens'));
         [Ls, ri] = iodc2010_relax(Lstart, pa, 'D_target', Dt, 'deck', fullfile(pa.outdir, [L0.name '_relax.in']), 'quiet', false, rel{:});
         Ls.name = [L0.name '_relax_D' strrep(sprintf('%g', Dt), '.', 'p')];
-        if ri.capacity > 0, Lstart = Ls; end
+        if ri.capacity > bestStart, Lstart = Ls;  bestStart = ri.capacity; end   % the ladder climbs from the BEST lens so far, never from a worse one (run 2: the singlet went 10.9 -> 8.9 -> 6.4 stepping from each result)
         S = iodc2010_score(Ls, pa, 'quiet', true, 'deck', fullfile(pa.outdir, [Ls.name '.in']));
         row = struct('seed', L0.name, 'name', Ls.name, 'D_target', Dt, 'capacity_seed', ri.capacity_seed, 'rms_free', ri.rms_free, ...
             'rms_snapped', ri.rms_snapped, 'sgn', mat2str(ri.sgn), 'capacity', ri.capacity, 'above', ri.capacity_reason, ...

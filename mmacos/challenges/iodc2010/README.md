@@ -714,12 +714,61 @@ three (10.9 each, the thick equi-convex re-found).  What the table says:
   five converging surfaces and one diverging); a hard count balance at the
   snap belongs with the choice above.
 
+**The second run** (2026-10-31 evening to 11-01, 5 h in the capped scope;
+Dave's "Push. Then TO start next"): the snap as a CHOICE (a curvature more
+than 0.15 k_c off its nearest grid value tries both neighbouring values and
+keeps the better re-solve) under a HARD Petzval count balance (a value the
+surfaces still free could not balance is refused), the seeds picked per
+element count (1 / 4 / 6 / 8 / 10 / 12), each pupil target relaxed from the
+previous target's snapped lens, 120 free iterations.  Every capacity
+re-measured with the edge rule in the meter (unchanged; `axis_relax.csv`
+carries `capacity_edge`, `rules_at_capacity`):
+
+| seed (elements) | seed capacity | D 20 → 40 → 80 rungs, capacity after (mm) | best | run 1 (unbalanced, no ladder) |
+|---|---|---|---|---|
+| thick equi-convex (1) | 10.37 | 8.87 → 8.95 → 6.36 | 8.95 | 10.89 |
+| `retro_nf1_G3_m2_t0p3_g0p05_first_rear` (4) | 6.36 | 9.22 → 9.97 → 9.97 | 9.97 | 14.90 |
+| `retro_nf2_G3_m2_t0p6_g0p05_last_rear` (6) | 6.17 | 3.30 → 5.28 → 8.87 | 8.87 | 15.04 |
+| `retro_nf2_G3_m4_t0p3_g0p05_last_rear` (8) | 5.94 | 13.91 → **26.80** → 26.80 | **26.80** | not relaxed |
+| `retro_nf1_G3_m8_t0p3_g0p3_last_rear` (10) | 5.49 | 11.00 → 15.49 → 13.24 | 15.49 | not relaxed |
+| `retro_nf2_G3_m8_t0p3_g0p05_last_rear` (12) | 5.99 | 9.68 → 4.60 → 6.36 | 9.68 | not relaxed |
+
+The on-axis best is now **26.8 mm**, a Petzval-BALANCED 8-element lens (R
+59.7, 251 mm long, signs `[0 0 0 0 +1 0 +1 +1 +1 +1 +1 +1 +1 +1 -1 0]`: five
+converging and five diverging surfaces, six planos;
+`retro_nf2_G3_m4_t0p3_g0p05_last_rear_relax_D40`), 2.6× the 10.4-mm baseline,
+1.6× run 1's unbalanced 16.9, 4.5× its seed.  What this run says:
+
+* **The balance costs the small lenses and pays on the larger ones.**  The
+  4- and 6-element lenses lost a third to two thirds of their unbalanced
+  pupils (14.9 → 10.0, 15.0 → 8.9); the 8-element lens, which run 1 never
+  relaxed (its seed measured 5.9, below the overall top four), took 26.8
+  under the balance.  Element count buys the pupil, as the entries say.
+* **The choice matters:** of the snap's ambiguous fixes, the two candidates'
+  re-solves differed by more than 3× in 29 of 48 (the log lines carry
+  both, e.g. `<-1:3.18 +0:198.2>`); the nearest value alone would have taken
+  the wrong one each time.
+* **The ladder stepped from worse lenses:** it took any passing lens as the
+  next start, so the singlet went 8.9 → 9.0 → 6.4 and the 12-element lens
+  9.7 → 4.6 → 6.4; the rule now climbs from the BEST lens so far (fixed for
+  the next run).  D 80 is still unreached: every 80-mm rung returned the
+  40-mm lens or worse.
+* **The edge rule is in the meter.**  The scorer rejected the 26.8-mm lens
+  at the 40-mm pupil by two edges 0.1 and 0.005 mm negative at that
+  footprint (the relax's soft wall at weight 10 let them through; it is now
+  a wall with a 0.2 % R margin), and `iodc2010_capacity` now applies the
+  rule at the marginal height, so a quoted capacity is a pupil the rules
+  accept; at 26.8 mm this lens passes them.
+* **Cost:** 30-45 min per relax at 10-12 elements (39-47 variables, 120 +
+  N × 25 iterations, two re-solves per ambiguous fix); 5 h for the run.
+
 ## Next
 
-The snap as a choice (try all three values at each fix, keep the best; a
-hard Petzval count balance), the free stage with more iterations and the
-pupil targets as a ladder, then more elements (8-12) for the 40-80 mm
-pupils.  Ruling needed: the
+The field on the on-axis lenses: the 26.8-mm lens has a REAL exit pupil
+(140.8 mm, the image at 251), so `iodc2010_climb` can run on it at its own
+D and below -- the first merit from a relaxed lens.  Then the pupil again
+with more elements at R 60-100 (the 8-element lens's regime) and the free
+stage warm-started along the ladder (now from the best lens).  Ruling needed: the
 engine's FEX/SXP for a pupil beyond the image (with it, CALIB's field solves on
 retrofocus lenses; the `OptFEX= No` singular LM beside it).  Then the
 distortion-aware inner objective (a MATLAB-side objective around the engine's
