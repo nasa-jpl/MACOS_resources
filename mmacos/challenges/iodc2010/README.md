@@ -762,13 +762,33 @@ converging and five diverging surfaces, six planos;
 * **Cost:** 30-45 min per relax at 10-12 elements (39-47 variables, 120 +
   N × 25 iterations, two re-solves per ambiguous fix); 5 h for the run.
 
+**The field on the 26.8-mm lens** (2026-11-01, `iodc2010_climb` at its own
+pupil and below, the merit on the same meter as the 93.8 record; 44 s in all):
+
+| D (mm) | the lens as it stands, semi-field | after the climb | merit |
+|---|---|---|---|
+| 26.8 | 0.03° | 0.04° (one step solved, every other `image-inside` or `calib-failed`) | 1.0 |
+| 20 | 0.41° | 0.40° | 8.0 |
+| 15 | 0.84° | 0.84° | 12.5 |
+| 10 | 1.56° | 1.54° | **15.4** |
+
+So the first merit from a relaxed lens is 15.4, against the 93.8 of the
+3-element seed climb: the on-axis construction buys the pupil (26.8 mm) and
+nothing of the field, as it was built to, and the spacing-only climb cannot
+add any -- the relaxed lens's air gaps sit at 0.7-1.0 mm, 0.012-0.017 R,
+on the solve's 0.01 R floor, so CALIB's first move clamps a gap and the
+round is refused.  Measured, not a surprise: the field has to be IN the
+relaxation.
+
 ## Next
 
-The field on the on-axis lenses: the 26.8-mm lens has a REAL exit pupil
-(140.8 mm, the image at 251), so `iodc2010_climb` can run on it at its own
-D and below -- the first merit from a relaxed lens.  Then the pupil again
-with more elements at R 60-100 (the 8-element lens's regime) and the free
-stage warm-started along the ladder (now from the best lens).  Ruling needed: the
+The relax solver with the field in its residual: the per-ray OPD at the
+design fields 0 / θ/2 / θ (and the distortion row the climb lacks), D and θ
+both held, the bracket on θ outside it as `iodc2010_climb` does -- the
+merit-shaped relax, which is also the distortion-aware inner objective of
+the standing order.  Then the pupil again with more elements at R 60-100
+(the 8-element lens's regime) and the free stage warm-started along the
+ladder (now from the best lens).  Ruling needed: the
 engine's FEX/SXP for a pupil beyond the image (with it, CALIB's field solves on
 retrofocus lenses; the `OptFEX= No` singular LM beside it).  Then the
 distortion-aware inner objective (a MATLAB-side objective around the engine's
