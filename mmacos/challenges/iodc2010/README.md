@@ -782,6 +782,18 @@ relaxation.
 
 ## Next
 
+**Parked 2026-11-01 (Dave's word, through CCL).**  The state of record is
+resources a341a8c (the choice snap under the hard Petzval balance, the
+ladder), 19c8d09 (run 2: the balanced 8-element lens passes 26.80 mm on axis,
+the edge rule in the capacity meter) and 97f0f53 (the field on that lens:
+merit 15.4 at D 10 against the 93.8 best so far); the macos tree is unchanged
+since 035b18c7.  The runner's products under `search/` (442 untracked files,
+the five hours of relaxes among them) are not committed; the whole folder is
+copied to `~/dev/MACOS_sandbox/iodc2010_search_2026-11-01/` so the repository
+re-clone does not erase them.  Resume point: the merit-shaped relax as the
+next paragraph states it.  The engine's FEX for a virtual exit pupil (the
+OPEN entry in `macos_f90/notes/pupil_fex_stop.md`) stays open for Dave.
+
 The relax solver with the field in its residual: the per-ray OPD at the
 design fields 0 / θ/2 / θ (and the distortion row the climb lacks), D and θ
 both held, the bracket on θ outside it as `iodc2010_climb` does -- the
