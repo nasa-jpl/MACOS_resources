@@ -319,7 +319,7 @@ r(nr+2+N) = ctx.wP * sqrt(nr) * petzval_(kap, Ls);                          % Pe
 % edge thickness at the marginal height, glass and air: a soft wall
 sag = c .* h.^2 ./ (1 + sqrt(max(0, 1 - c.^2 .* h.^2)));
 edge = Ls.t(1:N-1) - sag(1:N-1) + sag(2:N);
-r(nr+3+N:nr+1+2*N) = 10 * sqrt(nr) * max(0, -edge) / Ls.R;
+r(nr+3+N:nr+1+2*N) = 1e3 * sqrt(nr) * max(0, 0.002 * Ls.R - edge) / Ls.R;   % a wall with a 0.2 % R margin: the first ladder run's best lens had two edges 0.1 mm negative at a weight of 10
 end
 
 function iif_(c, varargin)
