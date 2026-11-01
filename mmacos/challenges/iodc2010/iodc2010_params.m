@@ -65,7 +65,8 @@ function p = iodc2010_params()
 %     chain            iodc2010_chain overrides (n_units, unit_gap, link_gap,
 %                      symmetric, stop_places) when 'chain' is among families
 %   The on-axis stage (p.axis; stage 'axis'): retro (iodc2010_retro grids),
-%     top_k, D_targets, capacity_grid, relax (iodc2010_relax overrides).
+%     top_k (per element count), D_targets, ladder, capacity_grid, relax
+%     (iodc2010_relax overrides).
 %   The chain runs (p.chain, a cell of entries; stage 'chain'): each entry
 %   names its output directory under search/ and carries the outer-loop
 %   fields that differ from p.outer -- at least 'chain', the pair-unit grids.
@@ -113,8 +114,12 @@ p.outer = struct('families', {{'forms', 'groups'}}, 'n_elts', [2 3], ...
 % construction"): 10.4 mm (the thick equi-convex), 5.3-6.4 (retrofocus
 % trains), 2.5 (the chain relays).
 p.axis = struct('retro', struct('n_front', [1 2], 'gap_R', [3 10], 'n_men', [2 4 8], 'tau_R', [0.3 0.6], 'g_R', [0.05 0.3]), ...
-    'top_k', 4, 'D_targets', [20 40 80], 'capacity_grid', 33, ...
-    'relax', struct('iters_free', 60, 'iters', 25, 'mu', [0.01 0.1 1 10 100], 'score_grid', 21));
+    'top_k', 1, 'D_targets', [20 40 80], 'capacity_grid', 33, 'ladder', true, ...
+    'relax', struct('iters_free', 120, 'iters', 25, 'score_grid', 21));
+% top_k is PER ELEMENT COUNT (1, 4, 6, 10, 12 elements); ladder = each pupil
+% target relaxed from the previous target's snapped lens.  The first run
+% (2026-10-31, top_k 4 overall, no ladder, 60 free iterations, the
+% nearest-value snap): best 16.92 mm, README "Relax and snap".
 p.chain = { ...
     struct('name', 'chain4', 'chain', struct('n_units', 2, 'unit_gap', [0.1 0.3 1 3], 'link_gap', [0.5 1.5 4 10])), ...
     struct('name', 'chain6', 'chain', struct('n_units', 3, 'unit_gap', [0.3 1], 'link_gap', [1.5 4 10]))};

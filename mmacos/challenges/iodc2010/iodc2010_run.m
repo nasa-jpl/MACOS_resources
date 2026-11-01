@@ -149,14 +149,25 @@ A.seeds = struct2table([rows{:}], 'AsArray', true);
 writetable(A.seeds, fullfile(pa.outdir, 'axis_seeds.csv'));
 fprintf('axis: capacities in %.0f s; best seed %.2f mm (%s)\n', toc(t0), max(A.seeds.capacity), A.seeds.name{find(A.seeds.capacity == max(A.seeds.capacity), 1)});
 seedmap = containers.Map();  for i = 1:numel(C), seedmap(C(i).L.name) = C(i).L; end
-T = sortrows(A.seeds(A.seeds.capacity > 0, :), 'capacity', 'descend');
+% the top_k seeds by capacity PER ELEMENT COUNT (the 40-80 mm pupils need the larger counts, whose
+% seeds measure lower than the small ones)
+T = table();
+for ne = unique(A.seeds.nElt).'
+    Tn = sortrows(A.seeds(A.seeds.nElt == ne & A.seeds.capacity > 0, :), 'capacity', 'descend');
+    T = [T; Tn(1:min(p.axis.top_k, height(Tn)), :)]; %#ok<AGROW>
+end
 rel = namedargs2cell(p.axis.relax);
 rows = {};  best = [];  bestCap = 0;
-for j = 1:min(p.axis.top_k, height(T))
-    L0 = seedmap(char(T.name(j)));
+for j = 1:height(T)
+    L0 = seedmap(char(T.name(j)));  Lstart = L0;
     for Dt = p.axis.D_targets
-        fprintf('relax %s at D %g (seed capacity %.2f)\n', L0.name, Dt, T.capacity(j));
-        [Ls, ri] = iodc2010_relax(L0, pa, 'D_target', Dt, 'deck', fullfile(pa.outdir, [L0.name '_relax.in']), 'quiet', false, rel{:});
+        % the ladder: each pupil target relaxed from the previous target's snapped lens (p.axis.ladder),
+        % else every target from the seed
+        if ~p.axis.ladder, Lstart = L0; end
+        fprintf('relax %s at D %g (seed capacity %.2f; start = %s)\n', L0.name, Dt, T.capacity(j), tern_(isequaln(Lstart.t, L0.t), 'the seed', 'the previous target''s lens'));
+        [Ls, ri] = iodc2010_relax(Lstart, pa, 'D_target', Dt, 'deck', fullfile(pa.outdir, [L0.name '_relax.in']), 'quiet', false, rel{:});
+        Ls.name = [L0.name '_relax_D' strrep(sprintf('%g', Dt), '.', 'p')];
+        if ri.capacity > 0, Lstart = Ls; end
         S = iodc2010_score(Ls, pa, 'quiet', true, 'deck', fullfile(pa.outdir, [Ls.name '.in']));
         row = struct('seed', L0.name, 'name', Ls.name, 'D_target', Dt, 'capacity_seed', ri.capacity_seed, 'rms_free', ri.rms_free, ...
             'rms_snapped', ri.rms_snapped, 'sgn', mat2str(ri.sgn), 'capacity', ri.capacity, 'above', ri.capacity_reason, ...

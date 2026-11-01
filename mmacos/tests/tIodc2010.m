@@ -171,15 +171,16 @@ classdef tIodc2010 < matlab.unittest.TestCase
 
         function test_relax_and_snap_raises_the_pupil_and_lands_on_the_grid(tc)
             % the on-axis construction on the symmetric pair at a 12 mm pupil: the free stage leaves
-            % the curvatures OFF the grid (the relaxation did something), the sequential snap fixes one
-            % surface per stage and ends with every curvature on the grid at the common magnitude the
-            % free solution implied, the result is a green lens (one R, signs, Rk cleared, |EFL| 100,
-            % the stop sized for D) and its on-axis capacity is not below the seed's (measured 10.58
-            % against 10.07 at 25 + 4 x 8 iterations, 2026-10-31).  Small iteration counts keep it
-            % near a minute.
+            % the curvatures OFF the grid (the relaxation did something), the snap fixes one surface
+            % per stage (a choice between the two neighbouring grid values where ambiguous) and ends
+            % with every curvature on the grid at the common magnitude the free solution implied, the
+            % result is a green lens (one R, signs, Rk cleared, |EFL| 100, the stop sized for D) and
+            % its on-axis capacity is not below the seed's (measured 10.58 against 10.07 with the
+            % nearest-value snap at 25 + 4 x 8 iterations, 2026-10-31).  Small iteration counts keep
+            % it near two minutes.
             tc.assumeTrue(~isempty(which('lsqnonlin')), 'needs the Optimization Toolbox');
             L = tc.pair();
-            [Ls, ri] = iodc2010_relax(L, tc.p, 'D_target', 12, 'iters_free', 25, 'iters', 8, 'mu', [0.1 1 10 100], ...
+            [Ls, ri] = iodc2010_relax(L, tc.p, 'D_target', 12, 'iters_free', 25, 'iters', 8, 'petzval_balance', false, ...
                 'deck', fullfile(tc.tmp, 'pair_relax.in'));
             kc = ri.kappa_common;
             tc.verifyGreaterThan(max(abs(abs(ri.kappa_free) / kc - round(abs(ri.kappa_free) / kc))), 0.02, 'the free stage left the grid');
@@ -191,6 +192,16 @@ classdef tIodc2010 < matlab.unittest.TestCase
             fprintf('relax test: free %.4f -> snapped %.4f waves at D 12; capacity %.2f vs the seed''s %.2f (kc %.3f, sgn %s)\n', ...
                 ri.rms_free, ri.rms_snapped, ri.capacity, ri.capacity_seed, kc, mat2str(Ls.sgn));
             tc.verifyGreaterThanOrEqual(ri.capacity, ri.capacity_seed, sprintf('capacity %.2f vs the seed''s %.2f', ri.capacity, ri.capacity_seed));
+            % the hard Petzval count balance: the symmetric pair has two converging surfaces and no
+            % diverging one; with the balance on, the snapped pattern has equal counts whatever the
+            % free solution asked for
+            [Lb, rb] = iodc2010_relax(L, tc.p, 'D_target', 12, 'iters_free', 10, 'iters', 5, 'capacity', false, ...
+                'deck', fullfile(tc.tmp, 'pair_relax_bal.in'));
+            nb = [1, 1.51947, 1, 1.51947];  na = [1.51947, 1, 1.51947, 1];
+            conv = nnz((Lb.sgn == 1 & na > nb) | (Lb.sgn == -1 & na < nb));
+            dv   = nnz((Lb.sgn == -1 & na > nb) | (Lb.sgn == 1 & na < nb));
+            tc.verifyEqual(conv, dv, sprintf('balanced counts: %s', mat2str(Lb.sgn)));
+            tc.verifyEqual(height(rb.stages), 1 + L.N);
         end
 
         function test_paraxial_trace_matches_the_plano_convex_closed_form(tc)
