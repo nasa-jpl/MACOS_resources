@@ -188,6 +188,10 @@ sized clear apertures as `CIR`.)
 | `iodc2010_forms.m` | the forms: eight shapes per element, Petzval-balanced sign patterns, seed spacings in units of R, stop places; paraxially screened and scaled |
 | `iodc2010_groups.m` | the groups: converging / diverging / converging groups of equal elements, b = a + c, power from the separations |
 | `iodc2010_chain.m` | the chains: four and more elements as a chain of zero-Petzval pair units (an equi-convex and an equi-concave element, power from their spacing), links long enough for an intermediate image; names carry the gap values |
+| `iodc2010_capacity.m` | the on-axis pupil capacity: a log-bisection of D on the evaluator (the baseline meter of the on-axis record) |
+| `iodc2010_retro.m` | the retrofocus family: a weak equi-concave front, a long gap, a thick meniscus rear train with the balancing equi-convex (the paper's Figures 6-11) |
+| `iodc2010_relax.m` | relax and snap: curvatures free with the spacings in a least squares around the engine's trace, then snapped surface by surface to ±R / plano at the common magnitude the free solution implies |
+| `iodc2010_curv.m` | the signed curvature per surface (one R and signs, or the relaxed lens's `Rk`) -- every reader of the shape goes through it |
 | `iodc2010_climb.m` | the merit-shaped inner objective: the design field bracketed on the lens's own semi-field with CALIB inside, the fields re-weighted toward the worst one (iteratively re-weighted least squares); never returns worse than its start |
 | `iodc2010_outer.m` | the outer loop: forms → pre-screen by the seed's own merit → solve → score → the (D, θ) ladder → the climb → the map against the top ten |
 | `iodc2010_run.m` | the runner: `evaluate` (the bundled lenses or yours), `gate`, `search` |
@@ -203,6 +207,7 @@ R = iodc2010_run('stage', 'search');                                      % the 
 R = iodc2010_run('stage', 'outer');                                       % the outer design loop (search/outer/)
 R = iodc2010_run('stage', 'outer', 'outer', struct('stage', 'climb'));    % resume: the merit-shaped climb on the solved table
 R = iodc2010_run('stage', 'chain');                                       % four and six elements, the chain family (search/chain4/, search/chain6/)
+R = iodc2010_run('stage', 'axis');                                        % the on-axis construction: capacities, relax and snap (search/axis/)
 L = iodc2010_lens('R', 80, 'sgn', [1 0 0 -1], 't', [6 62.94 6 NaN], ...  % your own lens
                   'glass', {'N-BK7','air','N-BK7','air'}, 'stop', [37.47 3.5], 'name', 'mine');
 R = iodc2010_run('lens', L, 'nGridpts', 97);
@@ -617,9 +622,64 @@ every retrofocus seed with its stop ahead of the rear group had read
 "vignetting at 1 mm" through FEX's mis-centred sphere, and CALIB had died on
 them at round 1 for the same reason.
 
+## Relax and snap (2026-10-31 evening, Dave's ruling: "Relax and snap -- yes!")
+
+`iodc2010_relax.m`, `iodc2010_run('stage','axis')` (artifacts in `search/axis/`:
+`axis_seeds.csv` = every seed's on-axis capacity, `axis_relax.csv` = each
+relax at each pupil target, the snapped lenses' decks / reports / `.seq`).
+The stage is a MATLAB least-squares (`lsqnonlin`) around the engine's trace,
+CCL's recommendation over an engine penalty target (no engine change, no
+corpus A/B; the distortion-aware objective rides the same solver):
+
+* **Variables:** every surface's curvature κ_j, continuous, and the log of
+  every gap; the lens re-scaled to |EFL| = 100 at every evaluation (the
+  problem is scale-free but for the EFL), the stop re-sized to hold D.
+* **Residual:** the engine's per-ray OPD on axis at D (21 rays across), plus
+  the Petzval sum, soft walls on the edge thickness of every gap and on the
+  beam staying inside every sphere (a ray outside the sphere is a surface
+  miss, which no residual can grade), and a graded row for lost rays.
+* **The free stage, then the snap.**  The free stage lets the curvatures
+  roam.  The grid is then ±k_c and plano with **k_c the common magnitude the
+  free solution implies** (the median |κ| of its curved surfaces): κ's units
+  are arbitrary under the re-scale, so a free solution at ±0.5 IS a green
+  lens of twice the radius -- the first product run snapped to 1 and moved
+  every surface by half its curvature (320 waves, every ray lost).  The snap
+  is SEQUENTIAL: the free curvature nearest its grid value is fixed, the rest
+  re-solved, surface by surface; the entrants' cubic c_j(c − c_j)(c + c_j)
+  pulled up in stages is kept as `'snap', 'pull'` for the record -- with a
+  local solver it stalls 0.18 off the grid at every weight (the cubic has no
+  gradient near 0.58 c).
+* **Seeds:** `iodc2010_retro` (the retrofocus family above, now a product)
+  and the thick equi-convex; each seed's capacity by `iodc2010_capacity`
+  (the log-bisection of the previous section, now a product); the
+  `p.axis.top_k` best relaxed at every `p.axis.D_targets`.
+
+**First result** (the 6-element retrofocus seed `retro_nf1_G3_m4_t0p6_g0p3_last_rear`,
+R 260, capacity 5.33, at a 20-mm target; 611 s):
+
+| stage | RMS on axis at D 20 (waves) | R (mm) | note |
+|---|---|---|---|
+| seed | (fails above 5.33 mm) | 259.6 | |
+| free (61 iterations) | **0.041** | 16.1 | the relaxation reaches the limit at 20 mm: a conventional small fast lens |
+| k_c = 0.492 → fixes 1-5 (two planos, three +R) | 0.0176 → **0.0002** | 9.6 | the snap costs nothing for five surfaces |
+| fixes 6-9 | 0.02 / 0.003 / 0.013 / 0.007 | 6-10 | |
+| fixes 10-12 (the last three, the most ambiguous) | 0.77 / 0.69 / **2.24** | 53 | the last fixes break it: the free solution's remaining curvatures sit 0.4 k_c off any grid value |
+| snapped `[0 0 1 1 0 1 1 1 1 0 1 0]`, capacity | | 107.7 | **10.89 mm** against the seed's 5.33 and the baseline 10.4; Petzval −0.17 (unbalanced: the weight 1 did not hold it) |
+
+So the relaxation does what the entrants' did (0.04 wave at f/5 with six
+elements of one glass), the snap recovers most of it for nine of twelve
+surfaces, and the last three fixes lose it: the on-axis pupil moved from 5.3
+to 10.9 mm, past the 10.4-mm baseline by a hair, not to the 20 the relaxed
+lens had.  What the last fixes need is a choice, not a nearest-value rule
+(both signs and plano tried, the best kept -- 3 re-solves per fix), and a
+Petzval weight that holds (a hard balance of the counts at the snap).  The
+full stage (`p.axis`: 4 seeds × D 20 / 40 / 80) was launched at the end of the
+session; its table is `search/axis/axis_relax.csv` when it lands.
+
 ## Next
 
-Ruling needed: the relax-and-snap inner stage for the pupil (above), and the
+The snap's last fixes (above: try all three values, keep the best; hold the
+Petzval balance), then the stage's table into this record.  Ruling needed: the
 engine's FEX/SXP for a pupil beyond the image (with it, CALIB's field solves on
 retrofocus lenses; the `OptFEX= No` singular LM beside it).  Then the
 distortion-aware inner objective (a MATLAB-side objective around the engine's

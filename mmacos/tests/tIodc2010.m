@@ -169,6 +169,30 @@ classdef tIodc2010 < matlab.unittest.TestCase
             macos.modify();
         end
 
+        function test_relax_and_snap_raises_the_pupil_and_lands_on_the_grid(tc)
+            % the on-axis construction on the symmetric pair at a 12 mm pupil: the free stage leaves
+            % the curvatures OFF the grid (the relaxation did something), the sequential snap fixes one
+            % surface per stage and ends with every curvature on the grid at the common magnitude the
+            % free solution implied, the result is a green lens (one R, signs, Rk cleared, |EFL| 100,
+            % the stop sized for D) and its on-axis capacity is not below the seed's (measured 10.58
+            % against 10.07 at 25 + 4 x 8 iterations, 2026-10-31).  Small iteration counts keep it
+            % near a minute.
+            tc.assumeTrue(~isempty(which('lsqnonlin')), 'needs the Optimization Toolbox');
+            L = tc.pair();
+            [Ls, ri] = iodc2010_relax(L, tc.p, 'D_target', 12, 'iters_free', 25, 'iters', 8, 'mu', [0.1 1 10 100], ...
+                'deck', fullfile(tc.tmp, 'pair_relax.in'));
+            kc = ri.kappa_common;
+            tc.verifyGreaterThan(max(abs(abs(ri.kappa_free) / kc - round(abs(ri.kappa_free) / kc))), 0.02, 'the free stage left the grid');
+            tc.verifyEqual(ri.stages.max_pull(end), 0, 'the last sequential fix leaves every curvature on the grid');
+            tc.verifyEqual(height(ri.stages), 1 + L.N, 'one free stage, then one fix per surface');
+            tc.verifyTrue(isempty(Ls.Rk) && all(ismember(Ls.sgn, [-1 0 1])), 'a green lens again');
+            tc.verifyEqual(abs(iodc2010_paraxial(Ls, tc.p.lambda_nm).efl), 100, 'AbsTol', 1e-9);
+            tc.verifyEqual(iodc2010_paraxial(Ls, tc.p.lambda_nm).D, 12, 'RelTol', 1e-9, 'the stop is sized for D_target');
+            fprintf('relax test: free %.4f -> snapped %.4f waves at D 12; capacity %.2f vs the seed''s %.2f (kc %.3f, sgn %s)\n', ...
+                ri.rms_free, ri.rms_snapped, ri.capacity, ri.capacity_seed, kc, mat2str(Ls.sgn));
+            tc.verifyGreaterThanOrEqual(ri.capacity, ri.capacity_seed, sprintf('capacity %.2f vs the seed''s %.2f', ri.capacity, ri.capacity_seed));
+        end
+
         function test_paraxial_trace_matches_the_plano_convex_closed_form(tc)
             n = iodc2010_glass('N-BK7', 532);
             L = tc.singlet(5);  P = iodc2010_paraxial(L, 532);

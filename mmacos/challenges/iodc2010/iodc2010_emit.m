@@ -155,12 +155,13 @@ for it = 1:numel(items)
             w('             iElt=  %d', ie);
             w('          EltName=  S%d', k);
             w('          Element=  Refractor');
-            if L.sgn(k) == 0
+            ck = iodc2010_curv(L, k);
+            if ck == 0
                 w('          Surface=  Flat');
                 w('            KrElt=  -1.0E+22');
             else
                 w('          Surface=  Conic');
-                w('            KrElt=  %s', nm(-L.sgn(k) * L.R));
+                w('            KrElt=  %s', nm(-1 / ck));
             end
             w('            KcElt=  0.0E+00');
             w('           psiElt=  0.0E+00  0.0E+00  1.0E+00');

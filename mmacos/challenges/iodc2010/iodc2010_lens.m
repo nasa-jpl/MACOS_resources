@@ -25,6 +25,10 @@ function L = iodc2010_lens(varargin)
 %              the scan's largest field by iodc2010_score ("no mounting material
 %              beyond the clear aperture", the loophole the paper names).
 %     name     a label for reports and file names.
+%     Rk       (the relax-and-snap stage only) 1xN signed radii, Inf = plano:
+%              when present the evaluator chain (paraxial, emit, seq) reads the
+%              curvatures from it instead of sgn / R -- a RELAXED lens, not a
+%              green lens until iodc2010_relax snaps it (Rk cleared, R / sgn set).
 %
 %   Derived (filled here): z (1xN vertex positions, z(1) = 0), N.
 %
@@ -37,6 +41,7 @@ p.addParameter('glass',   {},  @iscellstr);
 p.addParameter('stop',    [],  @(x) isnumeric(x) && numel(x) == 2);
 p.addParameter('semidia', [],  @isnumeric);
 p.addParameter('name',    'lens', @ischar);
+p.addParameter('Rk',      [],  @isnumeric);   % RELAXED lens (iodc2010_relax): a signed radius per surface, Inf = plano; overrides R/sgn in the evaluator chain
 p.parse(varargin{:});
 L = p.Results;
 
@@ -52,6 +57,10 @@ if ~isempty(L.semidia)
     assert(numel(L.semidia) == N && all(L.semidia > 0), 'iodc2010_lens: semidia must be 1xN positive');
 end
 L.sgn   = L.sgn(:).';
+if ~isempty(L.Rk)
+    assert(numel(L.Rk) == N && all(L.Rk ~= 0), 'iodc2010_lens: Rk needs one nonzero (or Inf) radius per surface');
+    L.Rk = L.Rk(:).';
+end
 L.t     = L.t(:).';
 L.glass = L.glass(:).';
 L.N     = N;
