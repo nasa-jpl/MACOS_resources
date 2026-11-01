@@ -139,6 +139,7 @@ fprintf('\n[3] CALIB rounds at %s deg, EFL held at %g: %d of %d accepted; merit 
     mat2str(cal_f), EFL_MM, nnz([rounds.accepted]), numel(rounds), merit0, best);
 fprintf('      R = [%s] mm, gaps [%s] mm\n', sprintf('%.3f ', L1.R), sprintf('%.3f ', L1.t));
 print_scan(S1);
+fprintf('      edge of the field: RMS %.3f waves, distortion %+.3f %%, reported not fitted\n', S1.rms(end), S1.dist(end));
 
 %% -- Figure + report -------------------------------------------------------
 fig = figure('Visible', 'off', 'Position', [100 100 720 360]);

@@ -18,6 +18,7 @@ target plus our worked answer) live in [`../challenges/`](../challenges).
 | **T4** linear-model sensitivities (dw/dx, dw/dz, dw/dgrid) | [`50_sensitivities/`](50_sensitivities) | `../../sensitivities/run_dwdx_multi.m` (asset decks live here) |
 | **T5** visualization of x, z, grid errors | [`60_visualization/`](60_visualization) | `view_rx_demo/view_rx_demo.m` |
 | **T6** time-sequence simulation | [`70_simulation/`](70_simulation) | `../templates/80_end_to_end/e2e/s7_simulate.m` (pointer — see that directory's README) |
+| — lenses (refractive design) | [`35_lenses/`](35_lenses) | `singlet/singlet.m` (best-form bending), then `doublet/doublet.m` (cemented achromat + the vendor `lens_catalog`) and `triplet/triplet.m` (Cooke triplet, the field); every lens is a `macos.design.Lens`, placed on a bench by `Bench.add_optic` |
 | — benches | [`40_benches/`](40_benches) | `bench_layout/example_bench_layout.m` |
 | — end-to-end flows | [`80_end_to_end/`](80_end_to_end) | `e2e/` (s1–s9), `e2e2/` |
 | — polarization | [`90_polarization/`](90_polarization) | `bench_ifo_pol/example_bench_ifo_pol.m` (Jones + the pol-component error budget); `tg_psi_dm/` = a polarization phase-shifting Twyman-Green gauging a DM, with `demo_tg_psi.m` as its narrated cut; `tg_psi_dm_v2/` = the same rig with a REAL cemented MacNeille PBS cube instead of the ideal-polarizer bookkeeping (`demo_tg_psi_v2.m`) |
@@ -78,6 +79,14 @@ A line marked *(no README)* is read from the entry script's first comment.
 | [`coro_experiments/`](30_instruments/coro_experiments) | Coronagraph division-of-labor experiments (Sprint 1, E1–E4) |
 | [`coro_planet_demo/`](30_instruments/coro_planet_demo) | Illustrated coronagraph + off-axis planet injection |
 | [`coro_walkthrough/`](30_instruments/coro_walkthrough) | Coronagraph walkthrough (illustrated manual example) |
+
+### `35_lenses/` — lenses (refractive design)
+
+| directory | what it is |
+|---|---|
+| [`singlet/`](35_lenses/singlet) | best-form singlet: the bending that minimizes spherical aberration |
+| [`doublet/`](35_lenses/doublet) | cemented achromat from its glass pair, and vendor achromats from a catalog |
+| [`triplet/`](35_lenses/triplet) | Cooke triplet: the first lens that carries a field |
 
 ### `40_benches/` — benches (the DM-gauge campaigns)
 
