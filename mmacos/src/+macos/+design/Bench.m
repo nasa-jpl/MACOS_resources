@@ -39,6 +39,16 @@ classdef Bench < handle
 %                            (converging, psi=+chief pairing).  DIST
 %                            locates the POWERED (front) surface; focus
 %                            lands ~f beyond it.
+%     add_optic(L, dist, ...)           a real N-surface lens
+%                                       (macos.design.Lens): signed
+%                                       radii, conics, thicknesses and
+%                                       CATALOG GLASSES (GlassElt/
+%                                       GlassCoef, so the engine traces
+%                                       the dispersion).  DIST locates
+%                                       the powered surface, as
+%                                       add_lens; same overlap guard
+%                                       per gap.  Lens.plano(f, D, ...)
+%                                       is add_lens's singlet.
 %     add_bs_reflect(dist, out, ...)    beam-splitter REFLECT encounter:
 %                                       flat mirror turning the chief to
 %                                       direction OUT.  Second output is
@@ -241,6 +251,114 @@ methods
                 L.i_flat = b.push(flt);
         end
         L.Kr = pow.Kr;  L.Kc = Kc;  L.thickness = t;  L.mode = opts.mode;
+    end
+
+    % -----------------------------------------------------------------
+    function O = add_optic(b, L, dist, opts)
+        %ADD_OPTIC  A real lens (macos.design.Lens) on the chief ray.
+        %   O = B.ADD_OPTIC(L, DIST) places the N surfaces of L along the
+        %   current chief ray, every surface normal to it and centred on it,
+        %   in L's own order (its CODE V radii are signed along the chief:
+        %   a positive radius has its centre downstream).  DIST has
+        %   add_lens's meaning: it locates the POWERED surface -- the lens's
+        %   only powered surface when it has one (a plano singlet), else
+        %   surface 1 -- unless 'at' names another (an index, 'front' or
+        %   'back').  The chief ends at the last vertex, so the next DIST is
+        %   measured from there (add_lens's rule too).
+        %
+        %   Each surface is a Refractor: KrElt = -R with psiElt = the chief
+        %   direction (the converging-front pairing of add_lens), Surface=
+        %   Conic with KcElt = K, or Flat for an infinite radius.  The medium
+        %   after surface k is written as IndRef (the index at the bench
+        %   wavelength) and, for a catalog glass, GlassElt=/GlassType=
+        %   Sellmeier/GlassCoef= with the engine table's six coefficients, so
+        %   the engine traces the named glass at whatever Wavelen the deck
+        %   carries.  A numeric medium is IndRef alone (add_lens's form).
+        %
+        %   Guard (add_lens's, per gap): the axial gap between faces k and k+1
+        %   at the clear radius (L.semidia, else L.D/2) must be positive, or
+        %   the faces cross inside the beam and the trace is silent garbage;
+        %   such a lens is refused (error id macos:design:Bench:overlap).
+        %
+        %   Options
+        %     'at'         'powered' (default) | 'front' | 'back' | k
+        %     'reverse'    true: place L.flip() (the lens turned around)
+        %     'apertures'  write ApType= Circular from L.semidia (default:
+        %                  true when L.semidia is set)
+        %   Returns O: .idx (1xN element indices) .i_first .i_last .at (the
+        %   surface DIST located) .thickness (first to last vertex) .lens
+        %   (the Lens as placed) .n (the gap indices at the bench wavelength).
+        arguments
+            b
+            L (1,1) macos.design.Lens
+            dist (1,1) double {mustBePositive}
+            opts.at = 'powered'
+            opts.reverse (1,1) logical = false
+            opts.apertures = []
+        end
+        if opts.reverse, L = L.flip(); end
+        N = L.N;
+        if ischar(opts.at) || isstring(opts.at)
+            switch char(opts.at)
+                case 'powered'
+                    kp = L.powered();
+                    if numel(kp) == 1, at = kp; else, at = 1; end
+                case 'front', at = 1;
+                case 'back',  at = N;
+                otherwise, error('Bench.add_optic: ''at'' must be ''powered'', ''front'', ''back'' or a surface index');
+            end
+        else
+            at = opts.at;
+            assert(isscalar(at) && at == round(at) && at >= 1 && at <= N, ...
+                'Bench.add_optic: ''at'' = %g is not a surface of %s (1..%d)', at, L.name, N);
+        end
+        apert = opts.apertures;
+        if isempty(apert), apert = ~isempty(L.semidia); end
+        assert(~apert || ~isempty(L.semidia), 'Bench.add_optic: ''apertures'' needs L.semidia');
+
+        % the face-overlap guard at the clear radius, per gap
+        if ~isempty(L.semidia) || isfinite(L.D)
+            e = L.edge_thickness();
+            bad = find(~(e > 0), 1);
+            if ~isempty(bad)
+                if ~isempty(L.semidia), r = max(L.semidia(bad:bad+1)); else, r = L.D/2; end
+                error('macos:design:Bench:overlap', ['Bench.add_optic: %s gap %d (surfaces %d-%d) ' ...
+                    'is %.4g thick at r=%.4g against %.4g on axis -> faces overlap in the beam.'], ...
+                    L.name, bad, bad, bad+1, e(bad), r, L.t(bad));
+            end
+        end
+        z = L.z;
+        lead = dist - (z(at) - z(1));
+        assert(lead > 0, ...
+            'Bench.add_optic: dist %.3g puts surface 1 of %s %.3g behind the current point.', ...
+            dist, L.name, -lead);
+
+        lam_nm = b.wavelen * macos.design.Bench.nm_per_unit(b.baseunits);
+        nm = L.names();
+        idx = zeros(1, N);  ngap = zeros(1, N - 1);
+        for k = 1:N
+            e = b.blank(nm{k}, 'Refractor');  e.psi = b.dir;
+            if isfinite(L.R(k))
+                e.surface = 'Conic';  e.Kr = -L.R(k);  e.Kc = L.K(k);
+            end
+            if k < N
+                g = L.glass{k};
+                [ngap(k), S] = macos.design.glass(g, lam_nm);
+                e.indref = ngap(k);
+                if ~isempty(S.B)
+                    e.glass = S.name;  e.glasscoef = [S.B S.C];
+                end
+            else
+                e.indref = 1.0;
+            end
+            if apert
+                e.aptype = 'Circular';  e.aprad = L.semidia(k);
+            end
+            if k == 1, e.vpt = b.step(lead); else, e.vpt = b.step(L.t(k-1)); end
+            idx(k) = b.push(e);
+        end
+        O = struct('idx', idx, 'i_first', idx(1), 'i_last', idx(N), 'at', at, ...
+            'thickness', L.span, 'lens', L, 'n', ngap);
     end
 
     % -----------------------------------------------------------------
@@ -946,6 +1064,18 @@ methods
                 ln{end+1} = sprintf('       Retardance=  %.10E', e.retard);
             end
             ln{end+1} = sprintf('           IndRef=  %.6E', e.indref);
+            % a NAMED glass (add_optic): the catalog row as GlassCoef=, written
+            % AFTER GlassElt=/GlassType= so the deck's own six coefficients are
+            % the ones traced (the engine's GlassElt= lookup is a prefix match;
+            % macos.design.glass).  The engine recomputes the index from them at
+            % every trace, so the deck is right at any Wavelen; IndRef above is
+            % the index at the build wavelength, for the reader.
+            if ~isempty(e.glass)
+                ln{end+1} = sprintf('         GlassElt=  %s', e.glass);
+                ln{end+1} =         '        GlassType=  Sellmeier';
+                ln{end+1} = sprintf('        GlassCoef=  %s', strjoin(arrayfun(@(v) sprintf('%.12G', v), ...
+                    e.glasscoef, 'UniformOutput', false), '  '));
+            end
             ln{end+1} = sprintf('           Extinc=  %.6E', e.extinc);
             ln{end+1} =         '            nCoat=  0';
             % Model-A thin-film stack (the polarization path).  MUST follow
@@ -1163,6 +1293,7 @@ methods (Access = private)
             'gridfile', '', 'gridn', 0, 'griddx', 0, ...
             'polaxis', [1;0;0], 'retard', 0.0, ...   % pol-element fields (TrPolarizer/WavePlate)
             'coat', zeros(0,3), ...   % Model-A stack, OUTERMOST first: [n k thk_waves]
+            'glass', '', 'glasscoef', [], ...   % named glass AFTER this surface (add_optic): GlassElt/GlassCoef
             'proptype', 'Geometric', ...   % per-element PropType= (leg FROM this element)
             'zelt', 1e22, 's', b.path_len);
     end
@@ -1249,6 +1380,20 @@ methods (Static)
         assert(k > 0, 'Bench.refract: total internal reflection.');
         t = eta*d + (eta*cosi - sqrt(k))*nh;
         t = macos.design.Bench.unit(t);
+    end
+
+    function f = nm_per_unit(u)
+        %NM_PER_UNIT  Nanometres per bench length unit (the glass resolver's wavelength).
+        switch u
+            case 'm',  f = 1e9;
+            case 'cm', f = 1e7;
+            case 'mm', f = 1e6;
+            case 'um', f = 1e3;
+            case 'nm', f = 1;
+            case 'in', f = 2.54e7;
+            case 'ft', f = 3.048e8;
+            otherwise, error('Bench.nm_per_unit: unknown unit %s', u);
+        end
     end
 
     function z = conic_sag(Rmag, Kc, r)
