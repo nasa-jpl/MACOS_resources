@@ -17,7 +17,9 @@ classdef Lens
 %     glass      1x(N-1) cell: the medium AFTER surface k -- a catalog name
 %                ('N-BK7', resolved by macos.design.glass from the engine's
 %                table), 'air' (an air-spaced element), or a NUMBER (a fixed,
-%                non-dispersive index, e.g. the 1.5 of Bench.add_lens)
+%                non-dispersive index, e.g. the 1.5 of Bench.add_lens), or a
+%                Sellmeier row struct('name', B, C) for a glass the engine
+%                table lacks (macos.design.lens_catalog)
 %     D          clear diameter the face-overlap guard is checked at
 %                (NaN = no guard unless semidia is given)
 %     semidia    [] or 1xN clear semi-diameters; when given, each surface is
@@ -191,8 +193,9 @@ methods (Access = private)
         assert(numel(L.glass) == N - 1, 'Lens: glass needs one medium per gap (N-1)');
         for k = 1:N - 1
             g = L.glass{k};
-            assert((ischar(g) || isstring(g)) || (isnumeric(g) && isscalar(g) && g >= 1), ...
-                'Lens: glass{%d} must be a catalog name, ''air'' or an index >= 1', k);
+            assert((ischar(g) || isstring(g)) || (isnumeric(g) && isscalar(g) && g >= 1) || ...
+                (isstruct(g) && all(isfield(g, {'name', 'B', 'C'}))), ...
+                'Lens: glass{%d} must be a catalog name, ''air'', an index >= 1 or a Sellmeier row struct', k);
         end
         if ~isempty(L.semidia)
             assert(numel(L.semidia) == N && all(L.semidia > 0), 'Lens: semidia must be 1xN positive');

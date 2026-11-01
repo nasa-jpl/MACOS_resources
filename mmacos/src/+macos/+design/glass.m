@@ -8,6 +8,10 @@ function [n, S] = glass(name, lambda_nm, opts)
 %     S.file   the table file the row was read from
 %   n = macos.design.glass(1.5, ...) returns a NUMERIC index as given (a fixed,
 %   non-dispersive medium; S.B and S.C empty).  'air' (any case) is 1.
+%   n = macos.design.glass(struct('name','N-F2','B',[..],'C',[..]), ...) uses
+%   that Sellmeier row as given: a glass the engine table does not carry
+%   (macos.design.lens_catalog supplies these; the emitters write the row as
+%   GlassCoef=, so the engine traces it exactly).
 %   LAMBDA_NM may be a vector; n then has its shape.
 %
 %   The table is macos_f90/macos_glass_list.txt, the file the engine reads at
@@ -37,6 +41,14 @@ arguments
     lambda_nm double {mustBePositive}
     opts.file (1,:) char = ''
 end
+if isstruct(name)
+    assert(isscalar(name) && all(isfield(name, {'name', 'B', 'C'})) && numel(name.B) == 3 && numel(name.C) == 3, ...
+        'macos.design.glass: a glass row is struct(''name'', .., ''B'', [1x3], ''C'', [1x3])');
+    B = name.B(:).';  C = name.C(:).';
+    n = sellmeier_(B, C, lambda_nm);
+    S = struct('name', char(name.name), 'B', B, 'C', C, 'file', '(row given)');
+    return
+end
 if isnumeric(name)
     assert(isscalar(name) && name >= 1, 'macos.design.glass: a numeric index must be a scalar >= 1');
     n = name * ones(size(lambda_nm));
@@ -58,11 +70,15 @@ if isempty(i)
         name, T.file, numel(T.names));
 end
 B = T.coef(i, 1:3);  C = T.coef(i, 4:6);
+n = sellmeier_(B, C, lambda_nm);
+S = struct('name', T.names{i}, 'B', B, 'C', C, 'file', T.file);
+end
+
+function n = sellmeier_(B, C, lambda_nm)
 L2 = (lambda_nm * 1e-3).^2;
 n2 = 1;
 for k = 1:3, n2 = n2 + B(k) * L2 ./ (L2 - C(k)); end
 n = sqrt(n2);
-S = struct('name', T.names{i}, 'B', B, 'C', C, 'file', T.file);
 end
 
 % -------------------------------------------------------------------------
