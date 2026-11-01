@@ -282,6 +282,16 @@ P.coro = struct( ...
     ...                         % tE2eCoroFold replays THIS one
         'fold_m', 0.3, 'tilt_deg', 8, 'sign', 1, 'flip_at', 4, 'scale', 1));
 
+% ================= the DM grid interpolation (stages 9-11) =================
+P.grid_order = 1;           % GridSrfOrder= of the DM blocks ctb_dm_rx emits: 1 =
+                            % bilinear (every committed stage record), 3 = the
+                            % engine's C1 bicubic (2026-10-31).  Bilinear cells
+                            % kink a ray whose footprint crosses a cell edge:
+                            % the probe estimate at depth and the cycles' floor
+                            % carry it (macos notes/surfaces.md, "Grid surfaces
+                            % are C0").  A change re-measures every Jacobian
+                            % truth of the stages.
+
 % ================= stage 10: sensing the coupled dark zone =================
 % Pairwise probing (the CTB's ctb_probe_estimate, Give'on 2011) on the
 % stage-9 model: the dark-zone field estimated from probe images only,

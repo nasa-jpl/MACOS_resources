@@ -62,7 +62,7 @@ need = {'s9_coupled.in', 's9_run.mat', 's10_run.mat'};
 for k = 1:numel(need), assert(isfile(fullfile(exdir, need{k})), 's11_cycles: run s9_diffraction and s10_sensing first (%s missing)', need{k}); end
 S9 = load(fullfile(exdir, 's9_run.mat'));  S10 = load(fullfile(exdir, 's10_run.mat'), 'pick_rel', 'probe_nm_pick');
 e = S9.e;  li_pick = S9.S.coupled.lyot_pick;
-r = ctb_dm_rx('rx_in', fullfile(exdir, 's9_coupled.in'), 'rx_out', fullfile(exdir, 's9_coupled_dm.in'));
+r = ctb_dm_rx('rx_in', fullfile(exdir, 's9_coupled.in'), 'rx_out', fullfile(exdir, 's9_coupled_dm.in'), 'order', P.grid_order);
 chain_pick = {'elt', e, 'r_lyot_inner_frac', li_pick};
 ch = ctb_chain('rx', r.rx_out, 'model_size', MODEL, chain_pick{:});
 say('\n==================== e2e s11 -- recompute-and-restart cycles on the coupled telescope + CTB model (%s)', which);

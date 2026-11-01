@@ -112,7 +112,7 @@ e = struct('DM1', ix.DM1, 'DM2', ix.DM2, 'Apodizer', ix.Apodizer, 'FPM', ix.FPM,
            'Lyot', ix.Lyot, 'ExitPupil', ix.ExitPupil, 'FPA', ix.FPA);
 
 %% -- [2] the DM deck -----------------------------------------------------
-r = ctb_dm_rx('rx_in', compact.out, 'rx_out', fullfile(exdir, 's9_coupled_dm.in'));
+r = ctb_dm_rx('rx_in', compact.out, 'rx_out', fullfile(exdir, 's9_coupled_dm.in'), 'order', P.grid_order);
 say('[2] %s: DMs at %s, base unit %g m, grid %d (%.4g m)', r.rx_out, mat2str(r.ielt), r.cbm, r.ng, r.gdx_mm(1));
 say('    station map: DM1 %d DM2 %d Apodizer %d FPM %d Lyot %d ExitPupil %d FPA %d', e.DM1, e.DM2, e.Apodizer, e.FPM, e.Lyot, e.ExitPupil, e.FPA);
 

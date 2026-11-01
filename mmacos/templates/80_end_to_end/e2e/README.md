@@ -14,7 +14,7 @@ here are thin narrative drivers over them.  s3–s6 already work this
 way (`run_segmentation`/`run_sensitivities`/`run_met`/`run_compare`);
 s1–s2 promote to `run_design` in a later recast pass.
 
-All user knobs live in **`e2e_params.m`** — one file, commented.  Each
+All user knobs live in **`e2e_params.m`** — one file, commented (`P.grid_order` among them: the DM blocks' `GridSrfOrder=`, 1 = bilinear as every committed stage record was measured, 3 = the engine's C1 bicubic; a change re-measures the Jacobian truths).  Each
 stage consumes the previous stage's saved artifacts (`.in` + `.mat` +
 sidecars), so a knob change re-runs from the first stage it affects.
 

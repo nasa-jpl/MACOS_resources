@@ -20,6 +20,12 @@ function out = ctb_dm_rx(opts)
 %     'rx_out'   output deck (default ctb_dm.in beside rx_in)
 %     'dms'      element names to augment (default {'DM1','DM2'})
 %     'ng'       nGridMat (default 256; model_size must be >= ng)
+%     'order'    GridSrfOrder= (default 1, bilinear): 3 = the engine's C1
+%                bicubic (continuous normal).  Bilinear cells kink a ray
+%                whose footprint crosses a cell edge by the two cells'
+%                slope difference (macos notes/surfaces.md, "Grid surfaces
+%                are C0"); 3 removes the kink.  The committed e2e stages
+%                were measured at 1.
 %     'span_mm'  grid span, base units (default 2*ApVec(1) of each DM:
 %                the full element aperture; rays outside get no figure)
 %     'gridfile' flat seed grid name (default 'flat<ng>.txt', written
@@ -39,6 +45,7 @@ function out = ctb_dm_rx(opts)
         opts.rx_out   (1,:) char = ''
         opts.dms      (1,:) cell = {'DM1','DM2'}
         opts.ng       (1,1) double {mustBeInteger, mustBePositive} = 256
+        opts.order    (1,1) double {mustBeMember(opts.order, [1 3])} = 1
         opts.span_mm  double = []
         opts.gridfile (1,:) char = ''
     end
@@ -125,6 +132,7 @@ function out = ctb_dm_rx(opts)
                     sprintf("         nGridMat=  %d", opts.ng)
                     "         GridFile=  " + string(opts.gridfile)
                     sprintf("        GridSrfdx=%.17G", g)
+                    sprintf("     GridSrfOrder=  %d", opts.order)
                     sprintf("            pData=  %.17G  %.17G  %.17G", cur.VptElt(1:3))
                     sprintf("            xData=  %.17G  %.17G  %.17G", x)
                     sprintf("            yData=  %.17G  %.17G  %.17G", y)
@@ -148,7 +156,7 @@ function out = ctb_dm_rx(opts)
     end
 
     out = struct('rx_out',opts.rx_out, 'dms',{cellstr(names)}, 'ielt',ielt, ...
-                 'ng',opts.ng, 'gdx_mm',gdx_mm, 'span_mm',span_mm, ...
+                 'ng',opts.ng, 'order',opts.order, 'gdx_mm',gdx_mm, 'span_mm',span_mm, ...
                  'gridfile',gf, 'cbm',cbm);
     fprintf('[ctb_dm_rx] %s: %s at iElt [%s], ng=%d, gdx=[%s] mm\n', ...
         opts.rx_out, strjoin(cellstr(names), ','), num2str(ielt), ...
