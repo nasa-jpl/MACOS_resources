@@ -47,7 +47,8 @@ else
     stop_done = false;
 end
 for k = 1:L.N
-    if L.sgn(k) == 0, Rtxt = '0.0'; else, Rtxt = sprintf('%.10f', L.sgn(k) * L.R); end
+    ck = iodc2010_curv(L, k);
+    if ck == 0, Rtxt = '0.0'; else, Rtxt = sprintf('%.10f', 1 / ck); end
     if k < L.N, t = L.t(k); else, t = P.z_img - L.z(k); end
     in_gap = ~stop_done && z_s >= L.z(k) && (k == L.N || z_s < L.z(k + 1));
     if in_gap

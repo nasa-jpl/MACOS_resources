@@ -36,7 +36,7 @@ end
 N = L.N;
 n_after = zeros(1, N);
 for k = 1:N, n_after(k) = iodc2010_glass(L.glass{k}, lambda_nm); end
-c = L.sgn / L.R;
+c = iodc2010_curv(L);
 
 % --- unit marginal ray from infinity: y1 = 1, u0 = 0
 [ym, um] = trace_(L, n_after, c, 1, 0);
