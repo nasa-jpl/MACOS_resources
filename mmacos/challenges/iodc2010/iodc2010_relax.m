@@ -47,11 +47,21 @@ function [Ls, info] = iodc2010_relax(L, p, opts)
 %                 free solution at +-0.5 is a green lens of twice the
 %                 radius -- the first product run snapped to 1 and moved
 %                 every surface by half its curvature; info.kappa_common).
-%                 opts.snap = 'sequential' (default): the free curvature
-%                 nearest its grid value (|kappa| < 0.5 -> plano, else the
-%                 sign) is fixed there and the remaining variables re-solved
-%                 (opts.iters), surface by surface until every shape is on
-%                 the grid -- the last re-solve is the spacing-only one.
+%                 opts.snap = 'choice' (default): the free curvature nearest
+%                 its grid value is fixed there and the remaining variables
+%                 re-solved (opts.iters), surface by surface until every
+%                 shape is on the grid -- the last re-solve is the
+%                 spacing-only one; a curvature farther than opts.ambiguous
+%                 x kc from the grid tries BOTH neighbouring values (plano
+%                 and the sign, or the two signs) and keeps the better
+%                 re-solve (the first stage run, 2026-10-31: the nearest-value
+%                 rule went plano-heavy, six elements to two curved surfaces,
+%                 and the last fixes lost the solution).  With
+%                 opts.petzval_balance the count balance is HARD: a candidate
+%                 value is refused when the surfaces still free could not
+%                 restore equal converging and diverging counts, so the last
+%                 fixes are forced to the balance (a soft weight of 1 did not
+%                 hold it).  'sequential' is the nearest value only.
 %                 'pull': opts.mu in turn (opts.iters each), the pull
 %                 re-aimed at every stage, then one snap and a spacing
 %                 re-solve.  MEASURED on the first 6-element seed at D 20
@@ -84,7 +94,9 @@ arguments
     opts.petzval_weight (1,1) double = 1
     opts.floor_glass_R (1,1) double = 0.03
     opts.floor_air_R (1,1) double = 0.01
-    opts.snap (1,:) char = 'sequential'   % 'sequential': fix one curvature at a time (nearest the grid first), re-solve between; 'pull': the mu stages, then one snap
+    opts.snap (1,:) char = 'choice'       % 'choice': fix one curvature at a time, nearest the grid first, an AMBIGUOUS one by trying its two neighbouring grid values and keeping the better re-solve; 'sequential': the nearest value only; 'pull': the mu stages, then one snap
+    opts.ambiguous (1,1) double = 0.15    % a curvature farther than this (x kc) from its nearest grid value is ambiguous (2 re-solves)
+    opts.petzval_balance (1,1) logical = true   % HARD: the snapped pattern has equal converging and diverging surface counts (a candidate that cannot be balanced by the surfaces still free is refused)
     opts.score_grid (1,1) double = 21
     opts.n_res (1,1) double = 300
     opts.deck (1,:) char = ''
@@ -134,15 +146,48 @@ switch opts.snap
         [xs, ~, ~, flag, out] = lsqnonlin(fun, xs, lbs, ubs, lsq(opts.iters));
         rows{end+1} = row_(xs, fun, ctx, 'snap + spacings', Inf, flag, out, toc(t_all));
         say('   %s\n', rows{end}.line);
-    case 'sequential'
+    case {'sequential', 'choice'}
         fixed = false(1, N);  xs = x;  lbs = lb;  ubs = ub;
+        cd = convdiv_(L);                                     % per surface: [conv, div] contribution of +1 and -1
         for s = 1:N
             d = abs(xs(1:N) - snap_(xs(1:N), kc));  d(fixed) = Inf;
-            [~, j] = min(d);
-            kj = snap_(xs(j), kc);  xs(j) = kj;  lbs(j) = kj;  ubs(j) = kj;  fixed(j) = true;
-            fun = @(x) resid_(x, ctx, 0, snap_(x(1:N), kc));
-            [xs, ~, ~, flag, out] = lsqnonlin(fun, xs, lbs, ubs, lsq(opts.iters));
-            rows{end+1} = row_(xs, fun, ctx, sprintf('fix S%d = %+d (%d of %d)', j, round(kj / kc), s, N), Inf, flag, out, toc(t_all)); %#ok<AGROW>
+            [dj, j] = min(d);
+            k0 = round(snap_(xs(j), kc) / kc);
+            cands = k0;
+            if strcmp(opts.snap, 'choice') && dj > opts.ambiguous * kc
+                other = sign(xs(j));  if k0 ~= 0, other = 0; end      % the other neighbour: the sign when plano is nearest, plano otherwise
+                if other == 0 && k0 == 0, other = sign(xs(j)); end
+                cands = [k0, other];
+            end
+            if opts.petzval_balance                                   % refuse what the free surfaces cannot balance
+                ok = false(size(cands));
+                for q = 1:numel(cands)
+                    kk = round(xs(1:N) / kc);  kk(~fixed) = 0;  kk(j) = cands(q);
+                    imb = balance_(kk, fixed | ((1:N) == j), cd);
+                    ok(q) = abs(imb) <= N - nnz(fixed) - 1;
+                end
+                if ~any(ok)                                          % every neighbour refused: the balancing value
+                    kk = round(xs(1:N) / kc);  kk(~fixed) = 0;
+                    for q = [-1 0 1]
+                        kk(j) = q;  if abs(balance_(kk, fixed | ((1:N) == j), cd)) <= N - nnz(fixed) - 1, cands = q;  ok = true;  break; end
+                    end
+                else
+                    cands = cands(ok);
+                end
+            end
+            best = [];  tried = '';
+            for q = 1:numel(cands)
+                kj = cands(q) * kc;
+                xq = xs;  xq(j) = kj;  lq = lbs;  uq = ubs;  lq(j) = kj;  uq(j) = kj;
+                fun = @(x) resid_(x, ctx, 0, snap_(x(1:N), kc));
+                [xq, resn, ~, flag, out] = lsqnonlin(fun, xq, lq, uq, lsq(opts.iters));
+                tried = [tried sprintf(' %+d:%.4f', cands(q), sqrt(resn / nr))]; %#ok<AGROW>
+                if isempty(best) || resn < best.resn, best = struct('x', xq, 'lb', lq, 'ub', uq, 'k', cands(q), 'resn', resn, 'flag', flag, 'out', out, 'fun', fun); end
+            end
+            xs = best.x;  lbs = best.lb;  ubs = best.ub;  fixed(j) = true;
+            tag = sprintf('fix S%d = %+d (%d of %d)', j, best.k, s, N);
+            if numel(cands) > 1, tag = [tag ' <' strtrim(tried) '>']; end %#ok<AGROW>
+            rows{end+1} = row_(xs, best.fun, ctx, tag, Inf, best.flag, best.out, toc(t_all)); %#ok<AGROW>
             say('   %s\n', rows{end}.line);
         end
     otherwise
@@ -175,6 +220,25 @@ row = struct('stage', stage, 'mu', mu, 'rms_waves', sqrt(mean(r(1:ctx.nr).^2)), 
     'evals', out.funcCount, 's', s);
 row.line = sprintf('%-22s rms %8.4f waves  off-grid %.3f  Petzval %+.3f  R %7.1f  oal %8.1f  (flag %d, %d it)  %.0f s', ...
     stage, row.rms_waves, row.max_pull, row.petzval, Lr.R, Lr.z(end), flag, out.iterations, s);
+end
+
+function cd = convdiv_(L)
+% per surface, the [converging, diverging] count a +1 / -1 shape contributes: air->glass +R converges,
+% glass->air -R converges (iodc2010_forms' rule); cd(k, :) = [count for +1, count for -1] as +1 conv / -1 div
+cd = zeros(L.N, 2);
+n_after = zeros(1, L.N);  for k = 1:L.N, n_after(k) = iodc2010_glass(L.glass{k}, 532); end
+nb = [1, n_after(1:end-1)];
+for k = 1:L.N
+    if n_after(k) > nb(k), cd(k, :) = [+1, -1]; else, cd(k, :) = [-1, +1]; end   % +1 shape: conv (+1) entering glass, div (-1) leaving
+end
+end
+
+function imb = balance_(kk, fixed, cd)
+% converging minus diverging surfaces among the FIXED shapes kk (+1 / 0 / -1)
+imb = 0;
+for k = find(fixed)
+    if kk(k) == 1, imb = imb + cd(k, 1); elseif kk(k) == -1, imb = imb + cd(k, 2); end
+end
 end
 
 function k = snap_(kap, kc)
