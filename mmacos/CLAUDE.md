@@ -63,6 +63,14 @@ just `use macos_api_mod` + link the lib.  Likewise pymacos's
 
 ## Gotchas
 
+### `matlab -batch` can drop the tail of its log at exit (2026-11-01)
+
+`matlab -batch` with the mex loaded can drop the tail of its buffered stdout/stderr at exit: a run's
+products (.mat, reports, decks) are complete, the log is not, and rc is 0.  Log through `diary(file)` and
+call `diary off` before `exit(0)`.  Measured 2026-11-01 on the doublet template (TO, lens templates beat):
+the products complete, the -batch log cut mid-stage-5, the diary rerun whole; evidence in
+`~/dev/MACOS_sandbox/silent_stop_2026-11-01/` (Dave's ruling "Add it", relayed by CCL).
+
 ### Heavy jobs run in their own memory-capped scope (2026-10-31)
 
 The three editor crashes of 2026-10-31 were the kernel OOM killer taking a 23-GB MATLAB (a units bug in a
