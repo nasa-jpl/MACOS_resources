@@ -2,7 +2,7 @@
 
 A single-purpose camera whose telescope and instrument are one design: two mirrors, a corrector behind the primary's hole, a filter and one detector.  The relay's power is part of the camera's focal length.  That is what sets this family apart from an observatory front end feeding a `Bench` (the mmacos manual's chapter 2 thread).
 
-The worked case is the narrow-angle channel of the **Mars Observer Camera**.  The MACOS manual carries its deck as `ImageDemo.in` (Appendix A).  Malin et al. 1992 (*J. Geophys. Res.* 97(E5), 7699, Table 1) publish it as "a 35-cm aperture, 3.5-m focal length (f/10) Ritchey-Chretién telescope", with a 2048 × 1 line array of 13 µm pixels, 3.7 µrad per pixel, a 0.44° field and a 500–900 nm band.
+The worked case is the camera whose deck the MACOS manual carries as `ImageDemo.in` (Appendix A): a 350 mm, f/10 Ritchey–Chrétien imager with a 2048-pixel line array of 13 µm pixels (3.7 µrad per pixel, a 0.44° field) and a 500–900 nm band.  These design values are the runner's defaults, and the stripped deck is checked against them.
 
 The design layer under it is `macos.design.cass_camera` and `macos.design.camera_emit`.  The mirrors come from `Telescope`'s closed form, or are given outright.  Relay elements are `macos.design.Lens` objects.  The y-nu trace runs through the folded train, and the deck is scored with `macos.design.lens_eval`.
 
@@ -27,7 +27,7 @@ The first re-solves shift m and undo part of the balance.  The rounds settle as 
 
 From this directory, after `run('<path-to>/mmacos/mmacos_setup.m')`:
 
-    small_camera                                          % the defaults: the MOC narrow angle
+    small_camera                                          % the defaults: ImageDemo.in's camera
     out = small_camera('D_MM', 200, 'EFL_MM', 2400, 'PIXEL_UM', 9)
 
 Choices (name-value):
@@ -56,7 +56,7 @@ The run writes `out/small_camera_report.txt`, `out/small_camera_field.png`, `out
 
 ## What a run gives
 
-The defaults: the MOC narrow-angle channel.
+The defaults: ImageDemo.in's camera.
 
 - **As found, stripped.** The strip removes 36 Zernike terms from the primary.
   - Mirrors: R1 933.79, K1 −1.00972; R2 156.59, K2 −1.93228; separation 400.260 mm.
@@ -90,7 +90,7 @@ The defaults: the MOC narrow-angle channel.
 
 - **Sampling.**  The pixel is 3.714 µrad, against λ/D = 2.0 µrad at 700 nm.  Q = λN/p is 0.385, 0.538 and 0.692 at 500, 700 and 900 nm, so the camera is undersampled ×5.2, ×3.7 and ×2.9 against Nyquist (Q = 2).  The optics are diffraction-limited across the band, and the camera's resolution is set by the pixel.
 
-**Off the worked case.**  `small_camera('D_MM', 200, 'EFL_MM', 2400, 'PIXEL_UM', 9)` is f/12 with the MOC corrector scaled ×0.571.  It keeps its seed (0.0987 waves): round 1 does not beat it, and round 2 loses rays beyond the shadow, which ends the rounds.  The spec path re-balances a corrector of the found form near its own f-number.  A new corrector shape is design work, not this runner's.
+**Off the worked case.**  `small_camera('D_MM', 200, 'EFL_MM', 2400, 'PIXEL_UM', 9)` is f/12 with the found corrector scaled ×0.571.  It keeps its seed (0.0987 waves): round 1 does not beat it, and round 2 loses rays beyond the shadow, which ends the rounds.  The spec path re-balances a corrector of the found form near its own f-number.  A new corrector shape is design work, not this runner's.
 
 ## Findings about the deck
 

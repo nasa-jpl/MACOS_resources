@@ -4,11 +4,10 @@
 % =====================================================================
 %  A single-purpose camera whose telescope and instrument are ONE design: two
 %  mirrors, a corrector behind the primary's hole, a filter, one detector.  The
-%  worked case is the Mars Observer Camera's narrow-angle channel, whose deck
-%  the MACOS manual carries as ImageDemo.in (Appendix A): published as "a 35-cm
-%  aperture, 3.5-m focal length (f/10) Ritchey-Chretien telescope", a 2048 x 1
-%  line array of 13 um pixels, 3.7 urad per pixel, a 0.44 deg field and a
-%  500-900 nm band (Malin et al. 1992, J. Geophys. Res. 97(E5) 7699, Table 1).
+%  worked case is the deck the MACOS manual carries as ImageDemo.in (Appendix
+%  A): a 350 mm, f/10 Ritchey-Chretien imager with a 2048-pixel line array of
+%  13 um pixels and a 500-900 nm band -- the design values the defaults below
+%  carry, and the stripped deck is checked against.
 %
 %  The stages:
 %    1  the deck as found, STRIPPED: the primary's Zernike figure removed, the
@@ -37,7 +36,7 @@
 %  100 (yR - yP)/yP with yP the paraxial chief height on that plane.  The
 %  diffraction limit quoted is Marechal's 0.0714 wave.
 %
-%  Run:  >> small_camera                          the defaults (the MOC narrow angle)
+%  Run:  >> small_camera                          the defaults (ImageDemo.in's camera)
 %        >> out = small_camera('D_MM', 200, 'EFL_MM', 2400, 'PIXEL_UM', 9)
 %  Returns OUT (also OUTDIR/small_camera.mat); writes OUTDIR/small_camera_report.txt
 %  and OUTDIR/small_camera_field.png.
@@ -46,7 +45,7 @@ function out = small_camera(varargin)
 exdir = fileparts(mfilename('fullpath'));
 
 % ====================  USER DESIGN CHOICES  ==========================
-o.DECK         = '';           % the found deck ('' = the macos manual's ImageDemo.in beside this checkout)
+o.DECK         = '';           % the found deck ('' = the macos manual's ImageDemo.in)
 o.D_MM         = 350;          % aperture (mm)
 o.EFL_MM       = 3500;         % camera focal length (mm)
 o.PRIMARY_FNUM = NaN;          % primary f-number (NaN = the found deck's)
@@ -66,9 +65,13 @@ for i = 1:2:numel(varargin)
     o.(varargin{i}) = varargin{i+1};
 end
 OUTDIR = o.OUTDIR;  NGRID = o.NGRID;  lams = o.BAND_NM(:).';  l0 = lams(2);
-if isempty(o.DECK)
-    res = fileparts(fileparts(fileparts(fileparts(exdir))));          % .../MACOS_resources
-    o.DECK = fullfile(fileparts(res), 'macos', 'docs', 'macos-manual', 'examples', 'ImageDemo.in');
+if isempty(o.DECK)             % the macos checkout: $MACOS_HOME (= macos_f90), else beside MACOS_resources
+    rel = fullfile('docs', 'macos-manual', 'examples', 'ImageDemo.in');
+    o.DECK = fullfile(fileparts(getenv('MACOS_HOME')), rel);
+    if isempty(getenv('MACOS_HOME')) || ~isfile(o.DECK)
+        res = fileparts(fileparts(fileparts(fileparts(exdir))));      % .../MACOS_resources
+        o.DECK = fullfile(fileparts(res), 'macos', rel);
+    end
 end
 assert(isfile(o.DECK), 'small_camera: the found deck %s is not there (set DECK)', o.DECK);
 if ~exist(OUTDIR, 'dir'), mkdir(OUTDIR); end
@@ -77,7 +80,8 @@ mar = 0.0714;
 buf = containers.Map('KeyType', 'double', 'ValueType', 'char');
 say = @(varargin) say_(buf, sprintf(varargin{:}));
 fprintf('====================================================================\n');
-fprintf(' Small dedicated imager | the found deck %s\n', o.DECK);
+[~, dn, de] = fileparts(o.DECK);
+fprintf(' Small dedicated imager | the found deck %s\n', [dn de]);
 fprintf(' spec: D %g mm, f %g mm (f/%.4g), %d x %g um pixels, band %s nm\n', o.D_MM, o.EFL_MM, ...
     o.EFL_MM / o.D_MM, o.NPIX, o.PIXEL_UM, mat2str(lams));
 fprintf('====================================================================\n');
