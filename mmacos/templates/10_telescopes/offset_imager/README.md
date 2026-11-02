@@ -42,7 +42,7 @@ it would not trace -- the F8 rule), and scores the final step exactly
 like any `oi_story` run.  On the t5 instance the walk reaches 69.8 nm
 at the target 15x15deg box (8531x better than the cold start, exit gate
 PASS; clearance becomes the binding constraint -- see
-`t5_walk/t5_walk_REPORT.md`).  Driver: `run_t5_walk.m`.
+`t5_walk/t5_walk_REPORT.md`, a dev-branch run record).  Driver: `run_t5_walk.m`.
 
 ## The adjacent problem: one warm-started step off the walk
 
@@ -156,7 +156,8 @@ nGridpts 41, 11×11 map.
 ## Choosing an envelope, offset, and seed (read before a new instance)
 
 Compiled from the t4 retraction and the t5 unguided experiment
-(challenges/rodgers3/PACKET.md addendum + t5_unguided_REPORT.md):
+(challenges/rodgers3/PACKET.md addendum + the dev-branch record
+`t5_unguided_REPORT.md`):
 
 - **Feasibility screen first**: the field walk `tan(offset) x
   |spacings(1)|` is what separates an unobscured W-fold.  Keep it above

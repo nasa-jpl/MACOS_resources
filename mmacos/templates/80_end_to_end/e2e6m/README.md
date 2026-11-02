@@ -10,7 +10,8 @@ Every knob lives in **`e2e6m_params.m`**.  Each stage consumes the
 previous stage's saved `.in` + `.mat`, so a knob change re-runs from the
 first stage it affects.  The narrative — every question raised, every
 decision and its result, every gate outcome — is in
-**`e2e6m_LOG.md`**; read that first if you are picking this up.
+**`e2e6m_LOG.md`** on the dev branch (the log does not ship on `main`);
+read that first if you are picking this up.
 
 ## The three hard numbers (Dave, 2026-08-24)
 

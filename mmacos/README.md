@@ -19,8 +19,8 @@ n = mmacos('load_rx', '/path/Rx_Cass')
 opd = mmacos('opd');
 ```
 
-91 commands wired (13 hand-written + 78 auto-generated from
-`macos_api_mod.F90` signatures).  No validation, no unit conversion —
+163 commands wired (15 hand-written + 148 auto-generated from
+`macos_api_mod.F90` signatures; the inventory is `src/mmacos_gen_cmds.txt`).  No validation, no unit conversion —
 exact pass-through to the Fortran API.
 
 ### 2. `+macos/` function package (primary user surface)
@@ -56,7 +56,8 @@ macos.perturb(2, 'rotation', [1e-6;0;0], 'translation', [0;0;1e-9], ...
 dx_mm = macos.dx_at(n, 'mm');                % 'm' default; 'mm', 'cm', 'um', 'native'
 ```
 
-~165 functions in `+macos/`.  Validation via `arguments` blocks, struct
+About 190 functions in `+macos/`, plus the `+design` (48), `+channels`
+(19) and `+budget` (17) sub-packages.  Validation via `arguments` blocks, struct
 returns for multi-field results, SI ↔ BaseUnits conversion via CBM,
 split `get_X` / `set_X` so MATLAB autocomplete surfaces both halves
 of each contract.
@@ -99,7 +100,8 @@ make unittest                                         # full matlab.unittest sui
 ### macOS (Apple Silicon)
 
 Fully supported — `make` (gfortran) and `run_mmacos_tests.sh` build a
-`mmacos.mexmaca64` bundle and run green (validated: fast suite 226/0).
+`mmacos.mexmaca64` bundle and run green; the Mac release gate runs the
+same groups from a clean clone (record: `../../macos/MAC_PORT.md` Part 2).
 Darwin specifics are handled automatically (MATLAB at `/Applications/
 MATLAB_R*.app`, `maca64` arch, `-bundle`+dynamic_lookup link, `-mcpu=native`).
 Two things to know:
@@ -131,39 +133,45 @@ Two layers:
 | Layer | Run | Purpose |
 |---|---|---|
 | Quick smoke | `make test` | `test_mmacos.m` (raw mex) and `test_macos_pkg.m` (+macos + Session).  `fprintf`-style — easy to read while debugging.  ~10 s. |
-| Full unittest | `make unittest` | 50 `matlab.unittest` tests across 5 classes in `tests/`.  Assertion-based regression layer.  ~6 s cold + 5 s suite. |
+| Full unittest | `make unittest` / `./run_mmacos_tests.sh` | 164 `matlab.unittest` classes in `tests/`, about 1,100 test methods.  The assertion-based regression layer: an engine fix, a binding change or a design-layer feature lands with a test that fails without it. |
 
-Unittest classes:
+The suite runs as groups, one `matlab -batch` per model size (the engine
+must not be re-initialized at a different `model_size` within one process):
 
-| Class | Coverage |
-|---|---|
-| `tMmacosCmd` | Raw `mmacos('cmd', ...)` mex surface |
-| `tMacosPkg` | `+macos/` function package |
-| `tMacosSession` | `macos.Session` class delegation |
-| `tCrossSurface` | State coherence across all three surfaces |
-| `tPerturbRoundtrip` | CPERTURB_PROG round-trip invariants (incl. the 1-ULP psi residual; pinned so a prospective renormalize fix lands cleanly) |
-| `tCodeVGrating` | CodeV grating-API regression (Phase 4 slice 1) |
-| `tCodeVApeMasks*`, `tCodeVObsMasks*` | CodeV mask regressions, 8 classes (Phase 4 slice 2) |
-| `tProperCompareCassFF` | PROPER vs mmacos Cass-FarField comparison (Phase 5 slice 1) |
+| Group | Run | Holds |
+|---|---|---|
+| `quick` | `./run_mmacos_tests.sh quick` | the dev-loop smoke subset (command dispatch, the +macos and Session veneers, perturb round-trip, compose, exit pupil); ~30 s |
+| `fast` | `./run_mmacos_tests.sh fast` | every model-128 class except the masks: bindings, sensitivities, the design layer, segmentation, metrology, polarization, calibration, the lens and camera templates; 44 min serial, about half with `-j 4` (measured 2026-10-27) |
+| `masks` | `./run_mmacos_tests.sh masks` | the CodeV aperture and obscuration mask regressions (model 128, ~10 min) |
+| `freeform` | `./run_mmacos_tests.sh freeform` | the model-256 design-metric group: freeform composites, CALIB, the viewer, the afocal and offset-imager challenges, dW/dsurf; the group a design-layer change must leave green |
+| `proper` | `./run_mmacos_tests.sh proper` | the PROPER comparisons (Cass far field at 512, the coronagraph chain at 1024) |
+| `ctb` | `./run_mmacos_tests.sh ctb` | the coronagraph-testbed diffraction chain and the end-to-end sensing and cycles classes (model 512) |
+| `polfloor` | `./run_mmacos_tests.sh polfloor` | the polarized contrast floor (256) and the polarized coronagraph chain (512) |
+| `bench1024` | `./run_mmacos_tests.sh bench1024` | the model-1024 bench gate (`tCophiBench`, ~22 min, ~12 GB); not part of the full run |
+| (none) | `./run_mmacos_tests.sh` | the full run: fast, masks, freeform, the exit-pupil-dome gate, the 512 groups (PROPER, pupil aperture, polarized contrast, CTB, pupil-find method), PROPER at 1024 and the engine memory/endurance classes; each group reports its own green or red |
 
-The Phase 5 PROPER suite requires MATLAB PROPER v3.3.1 at
-`~/dev/proper_matlab/` (download from
-[sourceforge.net/projects/proper-library](https://sourceforge.net/projects/proper-library/files/)).
-`run_mmacos_tests.sh` auto-adds it to the path; tests skip with a
-helpful error if `prop_begin` isn't resolvable.
+`-j N` shards any mode over N MATLAB sessions (one class per unit, never
+two model sizes in one process; the job count is clamped to the free
+memory at about 4 GB a shard).  Every run snapshots `git status` before
+and after and fails if a test modified a tracked file.  The PROPER groups
+need MATLAB PROPER v3.3.1 at `~/dev/proper_matlab/` (download from
+[sourceforge.net/projects/proper-library](https://sourceforge.net/projects/proper-library/files/));
+the runner adds it to the path, and those tests skip with a message if
+`prop_begin` is not resolvable.
 
 Filter options:
 ```bash
 ./run_mmacos_tests.sh tMacosPkg        # one class
-./run_mmacos_tests.sh -k roundtrip     # method names matching substring
+./run_mmacos_tests.sh -k roundtrip     # methods matching a substring
+./run_mmacos_tests.sh -j 4 fast        # the fast group over four sessions
 ```
 
 ## Codegen
 
 `src/gen_mex_wrappers.py` parses `~/dev/macos/macos_f90/macos_api_mod.F90`
-and emits `src/mmacos_gen.F` (78 `do_<name>` mex helpers plus a
+and emits `src/mmacos_gen.F` (148 `do_<name>` mex helpers plus a
 `gen_dispatch` fallback that the main `mexFunction` falls through to
-after its 13 hand-written cases).  Re-run after any api signature
+after its 15 hand-written cases).  Re-run after any api signature
 change (from `src/`):
 
 ```bash
@@ -180,8 +188,6 @@ Two signatures still need hand-written helpers if exercised:
 `perturb_elt` (collides with the array-form `prb_elt`; the array form
 wins under the cmd name `prb_elt`, codegen emits the single form under
 `perturb_elt`).
-
-## Files
 
 ## Where to go next (the layers above the mex)
 
@@ -202,17 +208,20 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
 - **`challenges/`** — stated design targets with our worked answer
   (rodgers1, rodgers2, afocal4).  Start at `challenges/README.md`.
 
+## Files
+
 | File | Role |
 |---|---|
-| `src/mmacos_mex.F` | Hand-written mex helpers + dispatcher (13 cmds) |
-| `src/mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (78 cmds) |
+| `src/mmacos_mex.F` | Hand-written mex helpers + dispatcher (15 cmds) |
+| `src/mmacos_gen.F` | Auto-generated mex helpers + `gen_dispatch` (148 cmds) |
 | `src/gen_mex_wrappers.py` | Codegen script |
 | `src/mmacos_gen_cmds.txt` | Machine-readable full cmd inventory |
-| `src/+macos/` | Function-package user surface (23 funcs + `Session.m`) |
+| `src/+macos/` | Function-package user surface (about 190 functions + `Session.m`; sub-packages `+design`, `+channels`, `+budget`) |
 | `src/mmacos.mexa64` | Built mex (add `mmacos/src` to the MATLAB path) |
-| `tests/` | matlab.unittest suite (5 classes, 50 tests) |
+| `tests/` | matlab.unittest suite (164 classes) |
+| `tests/shard_partition.py`, `tests/timings/` | the `-j N` shard partitioner and the per-class timings it balances on |
 | `tests/private/rx_fixture_path.m` | Shared Rx-corpus locator |
-| `run_mmacos_tests.sh` | Bash entrypoint for the unittest suite |
+| `run_mmacos_tests.sh` | Bash entrypoint for the unittest suite (groups, `-j N`, clean-tree guard) |
 | `test_mmacos.m` | Raw-mex quick smoke (used by `make test`) |
 | `test_macos_pkg.m` | +macos + Session quick smoke |
 | `test_state_after_roundtrip.m` | Diagnostic probe for the ULP residual |
@@ -223,6 +232,5 @@ wins under the cmd name `prb_elt`, codegen emits the single form under
 Links against:
 - `libsmacos.a` (carries `macos_api_mod`, the SMACOS engine, etc.)
 - `libfitslib.a` (FITS I/O — pulled in by smacos's plot stack)
-- Optionally `libnpsol.a` + `liblapacklib.a` + `libblaslib.a` when the
-  macos tree was built with `-DUSE_NPSOL=ON`
+- the SLSQP library (the constrained-optimization path)
 - MATLAB `libmx.so` + `libmex.so` + `libmat`

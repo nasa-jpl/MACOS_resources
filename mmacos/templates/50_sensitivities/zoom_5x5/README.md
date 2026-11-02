@@ -2,9 +2,9 @@
 
 The fixture for a CONFIGURATIONS axis on the `dw_d*` supervisors: a
 sensitivity Jacobian evaluated per (zoom position, field point) rather
-than per field alone.  Design sketch and open questions:
-[`../../../design/PLAN_CONFIGURATIONS.md`](../../../design/PLAN_CONFIGURATIONS.md)
-§6.
+than per field alone.  Design sketch and open questions: `design/PLAN_CONFIGURATIONS.md` §6
+(dev branch only); the shipped description is "The configuration axis"
+in `../../../sensitivities/README.md`.
 
 **Status:** shipped.  The `'configs'` option is on all four
 `macos.dw_d*_multi` supervisors and on `run_sensitivities`; the four

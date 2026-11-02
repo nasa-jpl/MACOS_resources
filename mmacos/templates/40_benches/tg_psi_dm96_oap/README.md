@@ -149,7 +149,7 @@ dir via `P.param_file` (keep `mGridMat ≥` the DM grid, 384 here).
 
 The OAPs fold in the BS plane (off-axis dist = f·|sin(180−2·AOI)|); the tail is
 re-tuned for the OAP focuser. BS, DM, reference flat, field lens, camera and the
-polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.md`**.
+polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.md`** (dev branch only).
 
 ## Files
 
@@ -157,7 +157,7 @@ polarization optics are as the lens rig. Full deck report: **`REPORT_gauge_ifo.m
 |---|---|
 | `tg96_params.m` | every knob of record + `bench.optics`, OAP fold AOIs, `calib_mode`, `place.*`, `d4`, `loop.*`, `battery.deck`/`noise`, `pzt.step_err`, `loop.cam_*` |
 | `tg96_run.m`    | Stage A–E + Stage PLACE (D1) + Stage MATRIX (D2) + Stage DECK (deck items 1+2: rows/capture/photons) + Stage D4 + Stage LOOP (D7, +PZT step error, +camera drift), one path for lens+OAP |
-| `REPORT_gauge_ifo.md` | the gauge-deck report (the IFO lanes): rows on the 30 nm surface, capture range, the three phase-shift forms, lenses-vs-OAPs, parts lists |
+| `REPORT_gauge_ifo.md` (dev branch only) | the gauge-deck report (the IFO lanes): rows on the 30 nm surface, capture range, the three phase-shift forms, lenses-vs-OAPs, parts lists |
 | `tg96_place.m`  | window placement from the ray affine (`dmg_frame`) + directional-parity + robust affine refit |
 | `tg96_apply_parity.m` | detector-mm → field pixel under the resolved field-array parity |
 | `tg96_tail.m`   | re-tune FL_F/FL_Kc/D_MASK_FL/DET_TRIM per optics (unaligned null), **gated by a multi-site row read by lattice deconvolution** — see "The tail of record" |
@@ -394,7 +394,7 @@ the OAP reflective gauge images the DM, reads a localized differential as well a
 lens (single 0.9948/2.2pm), and its differential is robust to the 12.9 nm null and to
 OAP misalignment — the fold's cost is astigmatism cross-talk (~0.42) on dense/high-
 order patterns (random-10nm 0.75 vs lens 0.99). Full numbers + tables + departures in
-**`REPORT_oap.md`**.
+**`REPORT_oap.md`** (dev branch only).
 
 ## Closed-loop hold metric (D7) — the on-orbit servo mode
 
@@ -415,4 +415,4 @@ cross-talk (a benign-looking 0.95 dense gain open-loop) becomes the DOMINANT
 closed-loop floor — 3 pm noise-only at 3.4e13, the 2 pm walk floors at 4.1 pm
 (never 3), thermal 39 pm, step floor ~27.6%. **The loop distinguishes the lens
 (holds) from the OAP (does not) where the open-loop battery did not.** Numbers +
-the ZWFS comparison table in **`REPORT_oap.md`**.
+the ZWFS comparison table in **`REPORT_oap.md`** (dev branch only).

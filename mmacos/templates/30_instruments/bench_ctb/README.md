@@ -717,5 +717,5 @@ coronagraph on the thread's telescope (the coupled model, probing on it,
 and the recompute-and-restart cycles to 1e-8).
 Source is `deck_ctb.md`; regen with `python3 make_brief_slides.py
 deck_ctb.md` (figures are the committed PNGs in this directory).
-Style: `doc/DECK_STYLE.md` + `doc/STYLE_REPORTS.md` §5 (gate run
-2026-10-31, clean).
+Style: `doc/DECK_STYLE.md` + `doc/STYLE_REPORTS.md` §5 (the latter dev branch
+only; gate run 2026-10-31, clean).

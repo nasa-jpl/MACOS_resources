@@ -1,6 +1,6 @@
 # afocal4 — a 30× afocal telescope with a controlled interface pupil
 
-The user-facing example arc of `../PLAN_AFOCAL4.md`: build an afocal telescope in the
+The user-facing example arc of `../PLAN_AFOCAL4.md` (the plan; dev branch only): build an afocal telescope in the
 MACOS design layer and score **both** its image quality and its interface-pupil quality.
 The demonstration is J.M. Rodgers' 30× coaxial afocal TMA benchmark
 (`../rodgers2/`) and his assertion that a fourth mirror is needed for pupil control.
@@ -71,7 +71,7 @@ cleared curve converged) are delivered.**
 | `afocal4_pack_seed.m` | a **compliant** seed at a given operating point — his front end first, the weakest field mirror that clears the bound with margin.  A wall needs a compliant seed or it is a cage. |
 | `afocal4_s4b.m` | **the S4b driver**: the constraint in numbers, the anchor, the buildable trade (via `afocal4_ladder('prefix','b_')`), the folded demonstration, the figures. |
 | `afocal4_b_*.in`, `afocal4_b_*.png`, `afocal4_b_ladder.mat`, `afocal4_s4b.mat` | the S4b artifacts, beside the S4 ones rather than on top of them. |
-| `STATUS_S4B.md` | **the S4b one page** — the buildable trade table, what the constraint cost against the free curve, the folded package, and the feasible window. |
+| `STATUS_S4B.md` (dev branch only) | **the S4b one page** — the buildable trade table, what the constraint cost against the free curve, the folded package, and the feasible window. |
 | `afocal4_trade.png`, `afocal4_ladder_summary.png`, `afocal4_ladder.mat` | the trade curve, the ladder against its targets, and every number in `RESULTS.md`. |
 
 ### S4c — the rim convention and the long solve
@@ -80,7 +80,7 @@ cleared curve converged) are delivered.**
 |---|---|
 | `afocal4_basin2.m` / `_merge.m` | basin 2 re-solved long, from three seeds, with a central-difference polish and an explicit gradient probe — "converged" and "plateau" told apart by a number rather than by an exit code. |
 | `afocal4_fork.m` | the 343 mm fork (flat M4 vs powered M4) re-scored in both pupil conventions. |
-| `STATUS_S4C.md` | **the S4c one page.** |
+| `STATUS_S4C.md` (dev branch only) | **the S4c one page.** |
 
 ### PACKAGING, CLEARING, WALL — the buildability arc (2026-08-30)
 
