@@ -283,14 +283,15 @@ P.coro = struct( ...
         'fold_m', 0.3, 'tilt_deg', 8, 'sign', 1, 'flip_at', 4, 'scale', 1));
 
 % ================= the DM grid interpolation (stages 9-11) =================
-P.grid_order = 1;           % GridSrfOrder= of the DM blocks ctb_dm_rx emits: 1 =
-                            % bilinear (every committed stage record), 3 = the
-                            % engine's C1 bicubic (2026-10-31).  Bilinear cells
-                            % kink a ray whose footprint crosses a cell edge:
-                            % the probe estimate at depth and the cycles' floor
-                            % carry it (macos notes/surfaces.md, "Grid surfaces
-                            % are C0").  A change re-measures every Jacobian
-                            % truth of the stages.
+P.grid_order = 3;           % GridSrfOrder= of the DM blocks ctb_dm_rx emits: 3 =
+                            % the engine's C1 bicubic (2026-10-31), on which every
+                            % committed stage 9-11 record and Jacobian truth is
+                            % measured (2026-11-02); 1 = the engine's bilinear
+                            % default, whose cells kink a ray whose footprint
+                            % crosses a cell edge: the probe estimate at depth
+                            % and the cycles' floor carry it (macos
+                            % notes/surfaces.md, "Grid surfaces are C0").  A
+                            % change re-measures every Jacobian truth.
 
 % ================= stage 10: sensing the coupled dark zone =================
 % Pairwise probing (the CTB's ctb_probe_estimate, Give'on 2011) on the
@@ -331,10 +332,13 @@ P.sens = struct( ...
     'cycles', struct( ...       % stage 11: recompute-and-restart (Dave
     ...                         % 2026-10-30: standard practice, ten or
     ...                         % more cycles to approach the goal is usual)
-        'max',       10, ...    % the cap: cycles 0 .. max
+        'max',       20, ...    % the cap: cycles 0 .. max (Dave 2026-11-01: go on
+        ...                     % past ten while a cycle still gains)
         'niter',     20, ...    % loop iterations per cycle (stalls earlier)
         'stop_gain', 1.05, ...  % a cycle gaining less than 5 % converges
-        'goal',      1e-8, ...  % the goal performance (the bench's single
+        'goal',      1e-10, ... % the goal performance (the records of record,
+        ...                     % 2026-11-02; the first, bilinear run used 1e-8;
+        ...                     % the bench's single
         ...                     % relinearization reaches 3.8e-9 on a 3e-7
         ...                     % halo); reaching it stops the chain
         'extra_cycles_max', 2));% gate: the probed chain reaches the goal
