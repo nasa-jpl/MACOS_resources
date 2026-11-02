@@ -5,7 +5,7 @@ Reproduces J.M. Rodgers' four-variant coaxial **afocal** TMA study
 1000 mm, 30×, 0.5°×0.5° field box offset +0.6° in Y) in the MACOS design
 layer, and supplies the **interface-pupil metric his deck does not have**.
 
-Plan: `../PLAN_AFOCAL4.md`.  This directory covers **S1 + S2** — the
+Plan: `../PLAN_AFOCAL4.md` (dev branch only).  This directory covers **S1 + S2** — the
 measurement infrastructure and the scored 3-mirror baseline.  The 4-mirror
 form study is S3 and is a separate gate.
 

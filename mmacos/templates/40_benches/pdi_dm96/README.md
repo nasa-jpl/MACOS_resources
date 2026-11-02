@@ -48,7 +48,8 @@ common-path form's layout).  Both draw in the deck recipe
 
 ## Reproducing the record
 
-Every number in `REPORT_gauge_pdi.md` and in the findings below comes
+Every number in `REPORT_gauge_pdi.md` (the run record; dev branch only)
+and in the findings below comes
 from one of these runs.  The whole chain is `runs/gmaster.sh`; each
 sequence stands alone and can be re-run on its own.
 
@@ -88,7 +89,7 @@ reading and no common-path P on it.
 ### The gauge-deck record (2026-09-13)
 
 The full tables, with every run tag, are in **`REPORT_gauge_pdi.md`**
-beside this file.  So the two cannot drift apart, the NUMBERS live in
+beside this file on the dev branch (the run records do not ship on `main`).  So the two cannot drift apart, the NUMBERS live in
 the report and this section states the FINDINGS.
 
 - **The P/SRI's reference arm, TRACED** (`pdi.bench 'psri'`;

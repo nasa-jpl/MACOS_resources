@@ -6,6 +6,10 @@ prescription is used or requested (Dave's ruling; public papers give
 the form, the design conditions and the spec, never surfaces).  It is
 therefore scored against the spec, not against a reference design.
 
+The `BRIEF_dyson5_*.md` beat reports and the `NOTE_*.md` digests cited
+below are dev-branch records; `main` carries the runner, the decks, the
+figures and the stage records.
+
 ## The target (Joe's spec; "made up but EMIT to the digit")
 
 | item | value |
