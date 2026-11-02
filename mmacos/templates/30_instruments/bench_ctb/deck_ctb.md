@@ -17,12 +17,12 @@
      walk), sub-bullets ("  - ") rendered by make_brief_slides.py.
      Style: doc/DECK_STYLE.md + STYLE_REPORTS.md section 5.             -->
 
-# The Coronagraph Testbed Model
-End-to-end diffraction on an all-reflective testbed — eight off-axis parabolas, two deformable mirrors — validated against PROPER
-D. C. Redding with Claude Code — 26 August 2026; the telescope slides added 29 October to 2 November 2026. Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record); the telescope model in templates/80_end_to_end/e2e (stages 8 to 11).
-~ Note 2026-09-16: the deformable-mirror model was questioned and confirmed by a traced footprint (the beam at the DMs is 21.2 mm; the 32 x 32 lattice at 0.67 mm spans it; every loop number stands). The trace found the bench carries half the sheet's intended fill (the source cone set as a half-angle where the engine takes a full angle): 47% of the DM's clear aperture rather than 95%, self-consistent throughout; regenerating at the intended beam is an open decision.
+# The Coronagraph Testbed – and Telescope
+End-to-end diffraction on an all-reflective testbed — eight off-axis parabolas, two deformable mirrors — then added to a 4 meter aperture telescope
+D. C. Redding with Claude Code — 2 November 2026.
+Model + drivers: MACOS_resources dev-candidate, mmacos/templates/30_instruments/bench_ctb (committed, with status record); the telescope model in templates/80_end_to_end/e2e (stages 8 to 11).
 
-## The bench and the model | Two prescriptions, one physical train; every mask plane bracketed by its own exit-pupil reference sphere
+## Coronagraph Testbed (CTB) bench and model | Two prescriptions, one physical train; every mask plane bracketed by its own exit-pupil reference sphere
 ::: left
 - The bench: 8 off-axis parabolas, 2 deformable mirrors (DM1 the aperture stop, 21.2 mm beam), apodizer and Lyot at pupil images, focal-plane mask and field stop at focus images, camera at the final focus. Geometrically diffraction-limited (0.0014 λ).
 - Two propagation prescriptions on the same optics:
@@ -34,7 +34,7 @@ D. C. Redding with Claude Code — 26 August 2026; the telescope slides added 29
 ![The full model, fold plane: source through eight off-axis parabolas to the FPA; mask stations ringed on the beam.](ctb_train_render.png){h=3.1}
 ~ Masks are applied in MATLAB by multiplying the propagated complex field at the passive mask planes: the prescription carries the propagation, the script carries the masks.
 
-## Validation | The new propagation step reproduces PROPER exactly; the two models differ only where their fidelity differs
+## Validation: MACOS vs. PROPER | The new propagation step reproduces PROPER exactly; the two models differ only where their fidelity differs
 ::: left
 - The one step the earlier PROPER campaign never tested, the through-focus half-propagation from the exit-pupil sphere to the mask plane, cross-checked against MATLAB PROPER at matched sampling:
   - focal-plane pixel pitch ratio 1.0000, peak-normalized correlation 1.000000, centroid offset 0.000 px.
@@ -249,7 +249,7 @@ D. C. Redding with Claude Code — 26 August 2026; the telescope slides added 29
 
 ## Recompute-and-restart cycles to 10⁻¹⁰ | Measuring the control matrix about the loop's own state and restarting takes the telescope's dark zone to the 10⁻¹⁰ goal: perfect sensing in 7 cycles (115 iterations, 7.3×10⁻¹¹), probe estimates in 9 (149 iterations, 6.2×10⁻¹¹), the estimate under 1% of the field at every matrix measured about the state
 ::: left
-- The procedure, the standard practice for driving contrast down: measure the matrix about the state (3520 chain runs, 57–73 min each), run the loop until no step improves or 20 iterations, measure again from where it ended; stop at the goal 10⁻¹⁰, at a cycle gaining under 5%, or at twenty cycles. Resumable from a state file; thirteen matrices measured.
+- The procedure, standard practice for driving contrast down: measure the matrix about the state (3520 chain runs, 57–73 min each), run the loop until no step improves or 20 iterations, measure again from where it ended; stop at the goal 10⁻¹⁰, at a cycle gaining under 5%, or at twenty cycles. Resumable from a state file; thirteen matrices measured.
 - Both chains reach the goal:
   - perfect sensing: 5.3×10⁻⁷ → 1.4×10⁻⁷ → 6.9×10⁻⁸ → 2.9×10⁻⁸ → 8.7×10⁻¹⁰ → 3.1×10⁻¹⁰ → 1.5×10⁻¹⁰ → 7.3×10⁻¹¹, one cycle alone 33×;
   - probe estimates: → 1.7×10⁻⁷ → 7.4×10⁻⁸ → 4.3×10⁻⁸ → 5.1×10⁻⁹ → 9.6×10⁻¹⁰ → 3.9×10⁻¹⁰ → 2.0×10⁻¹⁰ → 1.1×10⁻¹⁰ → 6.2×10⁻¹¹, two cycles more, the allowance;
@@ -260,7 +260,7 @@ D. C. Redding with Claude Code — 26 August 2026; the telescope slides added 29
 ::: right
 ![Stage 11's own figure: contrast against iteration, probed (squares; dotted, its estimate) and perfect sensing (circles); verticals, a matrix re-measured.](ctb_e2e_cycles.png){h=4.2}
 
-## Next | Toward a real coronagraph model, in dependency order
+## Next | Towards a real coronagraph model...
 ::: full
 - Sensing at depth. The probe estimate is the lab's view of the field, held to 1% at depth; the model's beam needs the anamorphic lattice (a resampling of the field at the first diffraction plane, an engine change). FALCO, the community's standard wavefront-control software, can then drive the same DMs from the same images (the hybrid Lyot mask enters there, since its design comes from that control loop).
 - Aberrations and drifts. As-built mirror surface maps (measured-quality power spectra), then alignment drifts as a time series against the delivered control loop: dark-zone maintenance, and how long the hole survives between corrections.
