@@ -1,6 +1,6 @@
 # small_camera — the small dedicated imager: a Cassegrain with a refractive field corrector
 
-A single-purpose camera whose telescope and instrument are one design: two mirrors, a corrector behind the primary's hole, a filter and one detector.  The relay's power is part of the camera's focal length.  That is what sets this family apart from an observatory front end feeding a `Bench` (the mmacos manual's chapter 2 thread).
+A single-purpose remote sensing camera whose telescope and instrument are one design: two mirrors, a corrector behind the primary's hole, a filter and one detector.  The relay's power is part of the camera's focal length.  That is what sets this family apart from an observatory front end feeding a `Bench` (the mmacos manual's chapter 2 thread).
 
 The worked case is the deck beside the runner, `small_camera.in`: a 350 mm, f/10 Ritchey–Chrétien imager with a 2048-pixel line array of 13 µm pixels (3.7 µrad per pixel, a 0.44° field) and a 500–900 nm band.  These design values are the runner's defaults, and the deck is checked against them.
 
@@ -47,7 +47,7 @@ Choices (name-value):
 | `MODEL` | 128 | model size |
 | `OUTDIR` | `./out` | output directory |
 
-The run writes `out/small_camera_report.txt`, `out/small_camera_field.png`, `out/small_camera.mat` and its decks, including `deck_ab.in`.  It takes about 15 s.
+The run writes `out/small_camera_report.txt`, `out/small_camera_field.png`, `out/small_camera.mat` and its decks, including `deck_ab.in`.  The figure draws the deck from the side (`macos.view_rx`, with the axis and field-edge bundles from the engine's ray history), then a closer view behind the primary, then the field curves.  The run takes about 20 s.
 
 **Metric** (stated before the numbers): per field and wavelength, RMS wavefront error in waves over the annular pupil.  It is measured on the exit-pupil sphere centred on the chief ray's image point (`macos.opd_ref('chief')`), with piston removed, tilt and focus kept, and the image plane fixed.  Distortion is 100 (yR − yP)/yP against the paraxial chief height on that plane.  The diffraction limit quoted is Maréchal's 0.0714 wave.
 

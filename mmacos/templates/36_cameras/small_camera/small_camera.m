@@ -34,7 +34,8 @@
 %  Run:  >> small_camera                          the defaults (small_camera.in's camera)
 %        >> out = small_camera('D_MM', 200, 'EFL_MM', 2400, 'PIXEL_UM', 9)
 %  Returns OUT (also OUTDIR/small_camera.mat); writes OUTDIR/small_camera_report.txt
-%  and OUTDIR/small_camera_field.png.
+%  and OUTDIR/small_camera_field.png (the deck's layout with the axis and
+%  field-edge bundles, then the field curves).
 % =====================================================================
 function out = small_camera(varargin)
 exdir = fileparts(mfilename('fullpath'));
@@ -221,10 +222,43 @@ say('      Q = lambda N / p at %s nm: %s; Nyquist sampling is Q = 2, so the came
     mat2str(lams), mat2str(Q, 3), mat2str(2 ./ Q, 3));
 say('      (lambda/D at %g nm is %.3f urad: the pixel is %.2f lambda/D)', l0, l0 * 1e-6 / D * 1e6, p_mm / C5.par.efl / (l0 * 1e-6 / D));
 
-%% -- the figure --------------------------------------------------------------
-fig = figure('Visible', 'off', 'Units', 'inches', 'Position', [0 0 10 5.6]);
+%% -- the figure: the deck's layout, then the field curves ------------------------
+% The layout is macos.view_rx on the deck itself, seen from the side: the
+% axis bundle, plus the two field-edge bundles from the engine's ray history
+% (macos.ray_hist), each aimed the way lens_eval aims a field.
+fl = [half0 -half0];  hx = cell(1, 2);  ydet = zeros(1, 2);
+for q = 1:2
+    macos.load_rx(o.DECK);
+    d = [0; sind(fl(q)); cosd(fl(q))];
+    macos.set_src_fov('src_dir', d, 'src_pos', info.z_src * d);
+    macos.stop(info.iM1);
+    macos.ray_hist('on');  tq = macos.trace();  hx{q} = macos.ray_hist(tq.nRays);  macos.ray_hist('off');
+    okd = hx{q}.ok(:, info.iFP + 1);
+    ydet(q) = mean(squeeze(hx{q}.P(2, okd, info.iFP + 1)));     % the bundle's centroid on the detector
+end
+macos.load_rx(o.DECK);  macos.stop(info.iM1);
+fig = figure('Visible', 'off', 'Units', 'inches', 'Position', [0 0 10 15]);
 set(fig, 'PaperPositionMode', 'auto');
-subplot(1, 2, 1);  hold on;  cols = lines(numel(lams));
+ttl = {sprintf('The camera, from the side: on axis (green), %+.3f%s (blue), %+.3f%s (orange)', ...
+           fl(1), char(176), fl(2), char(176)), ...
+       'Behind the primary: the corrector, the filter, the detector'};
+pos = {[0.02 0.69 0.96 0.28], [0.02 0.41 0.96 0.25]};
+zoom = {[], [F0.z0(1) - 12, F0.z_img + 2; -1.25 * abs(ydet(1)), 1.25 * abs(ydet(1))]};
+for k = 1:2
+    ax = axes(fig, 'Position', pos{k});
+    macos.view_rx('ax', ax, 'show', 'beam', 'labels', false, 'title', ttl{k}, 'xtra_hist', hx, ...
+        'xtra_color', [0.15 0.45 0.80; 0.85 0.45 0.10]);
+    axis(ax, 'equal');
+    if ~isempty(zoom{k}), zlim(ax, zoom{k}(1, :));  ylim(ax, zoom{k}(2, :)); end
+    xl = xlim(ax);  yl = ylim(ax);  zl = zlim(ax);  tgt = [mean(xl) mean(yl) mean(zl)];
+    dc = 3 * max([diff(xl) diff(yl) diff(zl)]);
+    set(ax, 'CameraTarget', tgt, 'CameraPosition', tgt - [dc 0 0], ...
+        'CameraUpVector', [0 1 0], 'Projection', 'orthographic');      % light travels left to right
+    pa = getpixelposition(ax);                                        % frame the y-z box in the tile
+    hh = 0.52 * max(diff(yl), diff(zl) * pa(4) / pa(3));
+    set(ax, 'CameraViewAngle', 2 * atand(hh / dc));  axis(ax, 'off');
+end
+axes(fig, 'OuterPosition', [0 0 0.5 0.39]);  hold on;  cols = lines(numel(lams));
 for i = 1:numel(lams)
     plot(scf, S3.rms(i, :), '-o', 'Color', cols(i, :), 'DisplayName', sprintf('the deck, in %s, %g nm', strjoin(G, '/'), lams(i)));
     plot(scf5, S5.rms(i, :), '--s', 'Color', cols(i, :), 'DisplayName', sprintf('from the spec, %g nm', lams(i)));
@@ -234,7 +268,7 @@ yline(mar, 'k-', 'Marechal', 'HandleVisibility', 'off');
 set(gca, 'YScale', 'log');  grid on;  box on;
 xlabel('field angle (deg)');  ylabel('RMS wavefront error (waves)');
 title('Wavefront error across the field');  legend('Location', 'southoutside', 'FontSize', 7);
-subplot(1, 2, 2);  hold on;
+axes(fig, 'OuterPosition', [0.5 0 0.5 0.39]);  hold on;
 plot(scf, S1.dist, '-o', 'DisplayName', sprintf('the deck (%g nm)', lf));
 plot(scf5, S5.dist(2, :), '--s', 'DisplayName', sprintf('from the spec (%g nm)', l0));
 grid on;  box on;  xlabel('field angle (deg)');  ylabel('distortion (%)');
@@ -246,7 +280,7 @@ out = struct('deck', F0, 'info', info, 'ab', ab, 'ab_fields', abf, 'half0', half
     'C1', C1, 'scan_deck', S1, 'glasses', {G}, 'glass_match', {gm}, 'C3', C3, 'scan_glass', S3, ...
     'zpar_band', zc3, 'm', m0, 'beta', b0, 'Ct', Ct, 'scan_bare', St, 'C5seed', C5seed, 'scan_seed', S5s, ...
     'C5', C5, 'scan_design', S5, 'rounds', rounds, 'merit_seed', merit_seed, 'merit', best, 'merit_fields', mfld, 'corrector_R', F5.R{1}, 'half', half, 'fields', scf, ...
-    'fields5', scf5, 'Q', Q, 'lams', lams, 'opts', o);
+    'fields5', scf5, 'Q', Q, 'lams', lams, 'layout', struct('fields_deg', fl, 'y_det', ydet), 'opts', o);
 save(fullfile(OUTDIR, 'small_camera.mat'), 'out');
 writelines(string(buf.values(num2cell(1:buf.Count))), fullfile(OUTDIR, 'small_camera_report.txt'));
 end
