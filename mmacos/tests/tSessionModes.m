@@ -83,12 +83,16 @@ classdef tSessionModes < matlab.unittest.TestCase
             macos.modes('centroid', true);
             c = onCleanup(@() macos.modes('centroid', false)); %#ok<NASGU>
             s0 = macos.fex(0);  s = macos.fex();
-            tc.verifyEqual(s.xp, s0.xp, 'AbsTol', 0, 'CENTROID session: fex() == fex(0)');
+            % the bound, not zero: on arm64 two traces of the same deck read a near-zero
+            % pupil coordinate at 1.9e-24 and 9.5e-25 on a 1e3-mm scale (CCMac's Mac gate
+            % 14, 2026-11-02); x86_64 reads both to the bit.  1e-18 is a hundred-thousandth
+            % of a nanometre on that scale.
+            tc.verifyEqual(s.xp, s0.xp, 'AbsTol', 1e-18, 'CENTROID session: fex() == fex(0)');
             tc.verifyGreaterThan(max(abs(s.xp - macos.fex(1).xp)), 1e-8, ...
                 'the two axes must differ on e5hex1 (else vacuous)');
             macos.modes('centroid', false);
             s1 = macos.fex(1);  s = macos.fex();
-            tc.verifyEqual(s.xp, s1.xp, 'AbsTol', 0, 'CHIEFRAY session: fex() == fex(1)');
+            tc.verifyEqual(s.xp, s1.xp, 'AbsTol', 1e-18, 'CHIEFRAY session: fex() == fex(1)');
         end
         function test_obs_is_reported_and_reset_by_load(tc)
             % OBS is NOT a session mode (Dave 2026-10-28, PLAN 1.2 (cccc)(2)):
