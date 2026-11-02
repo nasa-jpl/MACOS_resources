@@ -13,6 +13,10 @@ classdef tCassCamera < matlab.unittest.TestCase
 %                      independent numbers: Telescope's closed-form focal length
 %                      m f1 (1e-9) and the ENGINE's near-axis chief height per
 %                      tan(theta) with a refractive relay in place (1e-5)
+%     despace          moving the secondary moves the camera's paraxial focus by
+%                      (m^2 + 1) M_relay^2 times the despace: the secondary's
+%                      longitudinal magnification through the relay, written from
+%                      the textbook (m = f_telescope / f1); 0.1 %
 %     calib_block      the CALIB keywords land on the asked elements (DOF 8 on a
 %                      conic mirror, DOF 6 on the secondary, DOF 7 on a relay
 %                      radius, ApStop on the primary); a radius and a position on
@@ -75,7 +79,7 @@ classdef tCassCamera < matlab.unittest.TestCase
                 'primary_fnum', 1.334, 'BFD_mm', 47).spec.derived;
             tc.verifyEqual(C.par.telescope.efl, d.f * 1e3, 'RelTol', 1e-9, 'm f1');
             tc.verifyEqual(C.par.telescope.z_focus, d.bfd * 1e3, 'RelTol', 1e-9, 'BFD');
-            % with a relay (ImageDemo.in's corrector, fixed indices): the engine's chief height
+            % with a relay (small_camera.in's corrector, fixed indices): the engine's chief height
             Lc = macos.design.Lens('R', [-42.41546 31.5595 553.32376], 't', [1.50114 3.9497], ...
                 'glass', {1.61783, 1.657863}, 'name', 'COR');
             M = struct('R1', 933.7886403, 'K1', -1.009724001, 'R2', 156.59354, 'K2', -1.932283999, 'sep', 400.25416);
@@ -86,6 +90,18 @@ classdef tCassCamera < matlab.unittest.TestCase
             F = macos.design.lens_eval(E, E.P, th);
             tc.verifyEqual(F.yR / tand(th), C.par.yP_unit, 'RelTol', 1e-5, 'chief height per tan(theta)');
             tc.verifyGreaterThan(C.par.telescope.relay_mag, 1, 'a negative corrector lengthens the focal length');
+        end
+
+        function test_despace(tc)
+            Lc = macos.design.Lens('R', [-42.41546 31.5595 553.32376], 't', [1.50114 3.9497], ...
+                'glass', {1.61783, 1.657863}, 'name', 'COR');
+            M = struct('R1', 933.7886403, 'K1', -1.009724001, 'R2', 156.59354, 'K2', -1.932283999, 'sep', 400.25416);
+            mk = @(sep) macos.design.cass_camera('mirrors', setfield(M, 'sep', sep), 'relay', {Lc, 39.88054}); %#ok<SFLD>
+            C = mk(M.sep);  h = 1e-4;
+            dz = (mk(M.sep - h).par.z_paraxial - mk(M.sep + h).par.z_paraxial) / (2 * h);
+            m = abs(C.par.telescope.efl) / (M.R1 / 2);
+            tc.verifyEqual(dz, (m^2 + 1) * C.par.telescope.relay_mag^2, 'RelTol', 1e-3, ...
+                'focus per despace = (m^2 + 1) M_relay^2');
         end
 
         function test_calib_block(tc)
