@@ -47,7 +47,7 @@ Choices (name-value):
 | `MODEL` | 128 | model size |
 | `OUTDIR` | `./out` | output directory |
 
-The run writes `out/small_camera_report.txt`, `out/small_camera_field.png`, `out/small_camera.mat` and its decks, including `deck_ab.in`.  The figure draws the deck from the side (`macos.view_rx`, with the axis and field-edge bundles from the engine's ray history), then a closer view behind the primary, then the field curves.  The run takes about 20 s.
+The run writes `out/small_camera_report.txt`, `out/small_camera_field.png`, `out/small_camera.mat` and its decks, including `deck_ab.in`.  The figure draws the deck from the side (`macos.view_rx`, with the axis and field-edge bundles from the engine's ray history), then closer views of the secondary and of the corrector, filter and detector behind the primary (lenses drawn as their cross-sections, `'glass', 'section'`), then the field curves.  The run takes about 20 s.
 
 **Metric** (stated before the numbers): per field and wavelength, RMS wavefront error in waves over the annular pupil.  It is measured on the exit-pupil sphere centred on the chief ray's image point (`macos.opd_ref('chief')`), with piston removed, tilt and focus kept, and the image plane fixed.  Distortion is 100 (yR − yP)/yP against the paraxial chief height on that plane.  The diffraction limit quoted is Maréchal's 0.0714 wave.
 

@@ -38,6 +38,14 @@ function fig = view_rx(opts)
 %     'nrays'   ray budget for 'rim'/'fans' subsampling (default 25)
 %     'bodies'  'solid' (default) | 'outline' (rims only) | 'patch'
 %               (legacy cross-section curves)
+%     'glass'   how a lens draws: 'solid' (default; the 3-D glass body)
+%               or 'section' -- its cross-section in the plane through
+%               the lens axis and 'section_up', one translucent layer, so
+%               a SIDE view reads as a filled lens with the rays through
+%               it (a translucent solid seen edge-on stacks its faces
+%               unevenly and looks hollow in places)
+%     'section_up'  in-plane direction of the 'section' cut (default
+%               [0 1 0]: a side view looking along x)
 %     'thick_frac'  shell thickness as a fraction of the element
 %               aperture (default 1/25)
 %     'vignetted_color'  color of rays an aperture stops (default a muted red); they end at the element that stopped them
@@ -84,6 +92,8 @@ arguments
     opts.nrays   (1,1) double  = 25
     opts.bodies  (1,:) char {mustBeMember(opts.bodies, ...
                   {'solid','outline','patch'})} = 'solid'
+    opts.glass   (1,:) char {mustBeMember(opts.glass, {'solid','section'})} = 'solid'
+    opts.section_up (1,3) double = [0 1 0]
     opts.thick_frac (1,1) double {mustBePositive} = 1/25
     opts.ray_color (1,3) double = [0.0 0.62 0.10]
     opts.vignetted_color (1,3) double = [0.85 0.25 0.20]   % rays an aperture stops, drawn to the stopping element
@@ -121,13 +131,18 @@ end
 % and draw the ray only that far (2026-10-06, Dave: the 3k Dyson's beam drawn
 % through a grating it overfills).  RayFailElt stamps nElt+1 for obscuration,
 % so the element is found by stepping the trace.
-nE_ = macos.num_elt();  clipAt = [];
+nE_ = macos.num_elt();  clipAt = [];  opl = [];  pos = [];  okp = [];
 for k = 1:nE_
     tk = macos.trace(k);  rk = macos.get_ray_info(tk.nRays);
-    if isempty(clipAt), clipAt = zeros(tk.nRays, 1); end
+    if isempty(clipAt)
+        clipAt = zeros(tk.nRays, 1);
+        opl = NaN(tk.nRays, nE_);  pos = NaN(3, tk.nRays, nE_);  okp = false(tk.nRays, nE_);
+    end
     f = clipAt == 0 & ~rk.ok_pass(:) & rk.ok_trace(:);
     clipAt(f) = k;
+    opl(:, k) = rk.opl;  pos(:, :, k) = rk.pos;  okp(:, k) = rk.ok_pass(:) & rk.ok_trace(:);
 end
+nGap = gap_index_(opl, pos, okp);     % the medium between element k and k+1
 macos.ray_hist('on');
 t = macos.trace();
 h = macos.ray_hist(t.nRays);
@@ -189,13 +204,43 @@ switch opts.bodies
                   'Color', [0.2 0.3 0.5], 'LineWidth', 1.2);
         end
     case 'solid'
+        % Glass fills the gap between two consecutive refracting faces
+        % when the MEDIUM there is glass: its index, measured from the
+        % traced optical path (OPL step / path length), is above 1.  A
+        % cemented doublet's three faces then make two solids sharing the
+        % middle face, and an air gap between two lenses stays empty
+        % (2026-11-02, Dave: the small camera's corrector drawn hollow --
+        % the old two-at-a-time pairing filled the air gap after a cemented
+        % doublet and left both of its glasses and the filter empty).  An
+        % unmeasured gap (no ray reaches both faces) keeps the old rule.
+        glassGap = false(1, numel(E));     % gap after E(e) holds glass
+        % A measured medium decides alone: the proximity guard (joinable_)
+        % compares the gap with the FOOTPRINT, and an on-axis beam near a
+        % focus is narrower than its own lens is thick.
+        for e = 1:numel(E) - 1
+            if strcmp(E(e).kind, 'glass') && strcmp(E(e+1).kind, 'glass') && ...
+               E(e+1).k == E(e).k + 1
+                n = nGap(min(E(e).k, numel(nGap)));
+                if isnan(n)
+                    glassGap(e) = joinable_(E(e).B, E(e+1).B) && ...
+                        (e == 1 || ~glassGap(e-1));          % old pairing
+                else
+                    glassGap(e) = n > 1 + 1e-3;
+                end
+            end
+        end
         e = 1;  si = 0;
         while e <= numel(E)
-            if strcmp(E(e).kind, 'glass') && e < numel(E) && ...
-               strcmp(E(e+1).kind, 'glass') && E(e+1).k == E(e).k + 1 && ...
-               joinable_(E(e).B, E(e+1).B)
-                lens_(ax, E(e).B, E(e+1).B);          % joined glass solid
-                e = e + 2;
+            inLens = glassGap(e) || (e > 1 && glassGap(e-1));
+            if strcmp(E(e).kind, 'glass') && inLens
+                if glassGap(e)                                        % joined glass
+                    if strcmp(opts.glass, 'section')
+                        lens_section_(ax, E(e).B, E(e+1).B, opts.section_up(:));
+                    else
+                        lens_(ax, E(e).B, E(e+1).B);
+                    end
+                end
+                e = e + 1;
             elseif strcmp(E(e).kind, 'passive')
                 passive_(ax, E(e).B);
                 e = e + 1;
@@ -599,6 +644,21 @@ if do_prof
 end
 end
 
+function n = gap_index_(opl, pos, ok)
+%GAP_INDEX_  The refractive index of the medium between element k and k+1,
+%   from the trace: the OPL step over the geometric path, median over the
+%   rays that reach both (NaN where none does, or the faces coincide).
+nE = size(opl, 2);  n = NaN(1, max(nE - 1, 0));
+for k = 1:nE - 1
+    m = ok(:, k) & ok(:, k+1);
+    if ~any(m), continue; end
+    L = vecnorm(pos(:, m, k+1) - pos(:, m, k));
+    dO = (opl(m, k+1) - opl(m, k)).';
+    u = L > 1e-9 * max(1, max(L));
+    if any(u), n(k) = median(abs(dO(u)) ./ L(u)); end
+end
+end
+
 function tf = joinable_(g1, g2)
 %JOINABLE_  Two consecutive refracting faces are one piece of glass (a lens,
 %   a plate) only when their normals agree within 5 deg and they sit closer
@@ -632,6 +692,31 @@ for g = {g1, g2}
     plot3(ax, R(1,:), R(2,:), R(3,:), '-', ...
           'Color', [0.25 0.45 0.65], 'LineWidth', 0.8);
     profiles_(ax, g{1});
+end
+end
+
+function lens_section_(ax, g1, g2, up)
+%LENS_SECTION_  The glass between faces G1 and G2 as its cross-section in the
+%   plane through the lens axis and UP: one translucent polygon bounded by
+%   the two face profiles, the profiles drawn over it.
+P = cell(1, 2);  gg = {g1, g2};
+for i = 1:2
+    g = gg{i};
+    d = [dot(up, g.xa); dot(up, g.ya)];
+    if norm(d) < 1e-6, d = [0; 1]; else, d = d / norm(d); end
+    c2 = mean(g.B2, 2);
+    pr = d.' * (g.B2 - c2);
+    P{i} = g.lift(c2 + d * linspace(min(pr), max(pr), 65));
+end
+Q = [P{1}, fliplr(P{2})];
+fill3(ax, Q(1,:), Q(2,:), Q(3,:), [0.55 0.75 0.95], 'FaceAlpha', 0.35, ...
+      'EdgeColor', 'none', 'FaceLighting', 'none');
+for i = 1:2
+    plot3(ax, P{i}(1,:), P{i}(2,:), P{i}(3,:), '-', 'Color', [0.25 0.45 0.65], 'LineWidth', 1.0);
+end
+for j = [1 65]                                         % the edges
+    plot3(ax, [P{1}(1,j) P{2}(1,j)], [P{1}(2,j) P{2}(2,j)], [P{1}(3,j) P{2}(3,j)], '-', ...
+          'Color', [0.25 0.45 0.65], 'LineWidth', 1.0);
 end
 end
 

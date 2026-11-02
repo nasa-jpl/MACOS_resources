@@ -241,12 +241,13 @@ fig = figure('Visible', 'off', 'Units', 'inches', 'Position', [0 0 10 15]);
 set(fig, 'PaperPositionMode', 'auto');
 ttl = {sprintf('The camera, from the side: on axis (green), %+.3f%s (blue), %+.3f%s (orange)', ...
            fl(1), char(176), fl(2), char(176)), ...
-       'Behind the primary: the corrector, the filter, the detector'};
-pos = {[0.02 0.69 0.96 0.28], [0.02 0.41 0.96 0.25]};
-zoom = {[], [F0.z0(1) - 12, F0.z_img + 2; -1.25 * abs(ydet(1)), 1.25 * abs(ydet(1))]};
-for k = 1:2
+       'The secondary', 'Behind the primary: the corrector, the filter, the detector'};
+pos = {[0.02 0.69 0.96 0.28], [0.02 0.41 0.47 0.25], [0.51 0.41 0.47 0.25]};
+r2 = 1.3 * (abs(C1.par.y(2)) + abs(C1.par.yc(2)) * tand(half0));   % the secondary's beam at the field edge
+zoom = {[], [-F0.M.sep - 1.2 * r2, -F0.M.sep + 1.2 * r2; -r2, r2], [F0.z0(1) - 12, F0.z_img + 2; -1.25 * abs(ydet(1)), 1.25 * abs(ydet(1))]};
+for k = 1:3
     ax = axes(fig, 'Position', pos{k});
-    macos.view_rx('ax', ax, 'show', 'beam', 'labels', false, 'title', ttl{k}, 'xtra_hist', hx, ...
+    macos.view_rx('ax', ax, 'show', 'beam', 'labels', false, 'title', ttl{k}, 'xtra_hist', hx, 'glass', 'section', ...
         'xtra_color', [0.15 0.45 0.80; 0.85 0.45 0.10]);
     axis(ax, 'equal');
     if ~isempty(zoom{k}), zlim(ax, zoom{k}(1, :));  ylim(ax, zoom{k}(2, :)); end
