@@ -3,7 +3,7 @@ function C = cass_camera(opts)
 %   C = macos.design.cass_camera('family','rc', 'D',350, 'primary_fnum',1.334, ...
 %           'telescope_fnum',8.956, 'bfd',47.08, 'relay',{L1, z1; L2, z2}, ...)
 %   lays out the camera of templates/36_cameras/small_camera (worked case:
-%   the manual's ImageDemo.in): a primary at z = 0, a
+%   its deck, small_camera.in): a primary at z = 0, a
 %   convex secondary in front of it, and refractive elements (macos.design.Lens:
 %   a field corrector, a filter) behind the primary's central hole, ending at
 %   one image plane.  The telescope and the instrument are ONE design -- the
