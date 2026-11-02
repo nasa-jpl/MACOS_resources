@@ -64,6 +64,7 @@ def parse(md_text):
     while i < len(lines):
         ln = lines[i]
         s = ln.strip()
+        lvl = 1 if re.match(r"^\s{2,}- ", ln) else 0   # an indented "- " is a sub-bullet
         if s.startswith("## "):
             head = s[3:]
             t, _, sub = head.partition("|")
@@ -115,9 +116,9 @@ def parse(md_text):
             else:
                 if cur["blocks"] and cur["blocks"][-1][0] == col \
                         and cur["blocks"][-1][1] == "bullets":
-                    cur["blocks"][-1][2].append(item)
+                    cur["blocks"][-1][2].append((lvl, item))
                 else:
-                    cur["blocks"].append((col, "bullets", [item]))
+                    cur["blocks"].append((col, "bullets", [(lvl, item)]))
         elif s.startswith("~ "):
             if cur is None:
                 title_slide["notes"].append(clean(s[2:].strip()))
@@ -290,10 +291,13 @@ def render_slide(spec):
             color = INK if typ != "note" else GRAY
             tf = tb(sl, x, y, w, 0.3)
             for j, it in enumerate(items):
-                txt = ("•  " + it) if typ == "bullets" else it
-                para(tf, txt, size=size, color=color, first=(j == 0),
-                     space_after=6)
-                y += est_text_h(txt, w, size) + 6 / 72.0
+                lvl, text = it if typ == "bullets" else (0, it)
+                txt = (("•  " if lvl == 0 else "–  ") + text) if typ == "bullets" else text
+                sz = size if lvl == 0 else size - 1
+                p = para(tf, txt, size=sz, color=color, first=(j == 0),
+                         space_after=6 if lvl == 0 else 3)
+                p.level = lvl
+                y += est_text_h(txt, w - 0.45 * lvl, sz) + (6 if lvl == 0 else 3) / 72.0
             y += 0.04
         elif typ == "table":
             y = place_table(sl, payload, x, y, w)
