@@ -210,7 +210,17 @@ run_sharded() {
     # MATLAB, the editor and the browser all count); shards beyond the clamp
     # run after the first ones finish, in launch order
     local avail_gb fit
-    avail_gb=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo 2>/dev/null || echo 0)
+    if [ -r /proc/meminfo ]; then
+        avail_gb=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo)
+    elif [ "$(uname -s)" = "Darwin" ]; then
+        # no /proc on macOS: free + inactive + speculative pages (vm_stat) at the
+        # machine's page size (16 KB on Apple Silicon); CCMac's Mac gate 14 read
+        # 0 GB here and ran every shard serially (2026-11-02)
+        local pg; pg=$(sysctl -n hw.pagesize 2>/dev/null || echo 4096)
+        avail_gb=$(vm_stat 2>/dev/null | awk -v pg="$pg" \
+            '/Pages (free|inactive|speculative)/ {gsub("\\.", "", $NF); s += $NF} END {printf "%d", s * pg / 1073741824}')
+    fi
+    [ -n "${avail_gb:-}" ] || avail_gb=0
     fit=$(( (avail_gb - MM_MEM_MARGIN_GB) / MM_SHARD_GB ))
     [ "$fit" -lt 1 ] && fit=1
     local nshard; nshard=$(ls "$OUT"/shard_*.txt | wc -l)
@@ -220,7 +230,7 @@ run_sharded() {
     # (the engine mex is single-threaded); N shards at 16 threads each
     # oversubscribe the box and every shard slows
     local ncpu threads
-    ncpu=$(nproc 2>/dev/null || echo 4)
+    ncpu=$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
     threads=$(( ncpu / par )); [ "$threads" -lt 1 ] && threads=1
     echo "threads: $ncpu cores -> maxNumCompThreads($threads) per shard"
     local pids=() k f t0
