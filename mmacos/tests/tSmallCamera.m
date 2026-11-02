@@ -1,9 +1,8 @@
 classdef tSmallCamera < matlab.unittest.TestCase
 %TSMALLCAMERA  The small dedicated imager template (templates/36_cameras/small_camera).
 %
-%   The found deck is the macos manual's ImageDemo.in (the Mars Observer
-%   Camera's narrow-angle channel) beside this checkout; the class is skipped
-%   when that checkout is absent.
+%   The found deck is the macos manual's ImageDemo.in beside this checkout;
+%   the class is skipped when that checkout is absent.
 %
 %   Legs
 %     found_ab        the strip removes the primary's 36 Zernike terms and puts
@@ -11,12 +10,12 @@ classdef tSmallCamera < matlab.unittest.TestCase
 %                     stripped deck from its own numbers and the two trace alike
 %                     (|diff| < 1e-8 wave at 0, half and full field; measured
 %                     1.7e-10)
-%     first_order     against the published camera (Malin et al. 1992, Table 1:
-%                     3.5 m, f/10, 3.7 urad per 13 um pixel, 0.44 deg): f within
-%                     0.5 %, IFOV within 0.05 urad, the 2048-pixel field within
-%                     0.01 deg; the deck's conics are the Ritchey-Chretien's of its
-%                     own m and beta (K1 within 0.005, K2 within 0.03; the
-%                     classical K2 is 0.11 away) -- the paper's "RC"
+%     first_order     against the camera's design values (the template's
+%                     defaults: 3.5 m, f/10, 13 um pixels, 2048 of them): f within
+%                     0.5 %, IFOV 3.7 urad within 0.05, the field 0.44 deg within
+%                     0.01; the deck's conics are the Ritchey-Chretien's of its own
+%                     m and beta (K1 within 0.005, K2 within 0.03; the classical
+%                     K2 is 0.11 away)
 %     refocus         the secondary's despace moves the paraxial focus by
 %                     (m^2 + 1) M_relay^2 times the despace (the two-mirror
 %                     longitudinal magnification through the relay, written from
@@ -68,7 +67,7 @@ classdef tSmallCamera < matlab.unittest.TestCase
             tc.verifyGreaterThan(min(o.ab(:)), 0.1, 'the A/B is on the unrefocused deck (not a vacuous zero)');
         end
 
-        function test_first_order_against_the_paper(tc)
+        function test_first_order_against_the_design(tc)
             o = tc.out;  C = o.C1;
             tc.verifyEqual(C.par.yP_unit, 3500, 'RelTol', 5e-3, 'focal length 3.5 m');
             tc.verifyEqual(C.par.fno, 10, 'AbsTol', 0.05, 'f/10');

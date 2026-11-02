@@ -75,7 +75,7 @@ classdef tCassCamera < matlab.unittest.TestCase
                 'primary_fnum', 1.334, 'BFD_mm', 47).spec.derived;
             tc.verifyEqual(C.par.telescope.efl, d.f * 1e3, 'RelTol', 1e-9, 'm f1');
             tc.verifyEqual(C.par.telescope.z_focus, d.bfd * 1e3, 'RelTol', 1e-9, 'BFD');
-            % with a relay (the MOC corrector, fixed indices): the engine's chief height
+            % with a relay (ImageDemo.in's corrector, fixed indices): the engine's chief height
             Lc = macos.design.Lens('R', [-42.41546 31.5595 553.32376], 't', [1.50114 3.9497], ...
                 'glass', {1.61783, 1.657863}, 'name', 'COR');
             M = struct('R1', 933.7886403, 'K1', -1.009724001, 'R2', 156.59354, 'K2', -1.932283999, 'sep', 400.25416);
