@@ -31,6 +31,11 @@ classdef tSmallCamera < matlab.unittest.TestCase
 %                     beyond the shadow, clears the hole, and beats both its seed
 %                     and the deck's design in glass; merit pinned 0.0447 (5 %)
 %     sampling        Q = lambda N / p from the result (0.538 at 700 nm)
+%     layout          the figure's rendering: the two field-edge bundles drawn
+%                     from the engine's ray history land on the detector at
+%                     +/- the chief height the field scan measures, the
+%                     paraxial height times (1 + distortion) (0.2 %), and
+%                     the figure is written
 %
 %   Model 128 -> SUITE_FAST.  Runtime ~25 s.
 
@@ -111,6 +116,13 @@ classdef tSmallCamera < matlab.unittest.TestCase
             tc.verifyLessThan(o.merit, o.merit_seed, 'beats its seed');
             tc.verifyLessThan(max(o.scan_design.rms(:)), max(o.scan_glass.rms(:)), 'beats the deck''s design in glass');
             tc.verifyEqual(o.merit, 0.0447, 'RelTol', 0.05);
+        end
+
+        function test_layout(tc)
+            o = tc.out;  L = o.layout;
+            yR = o.C1.par.yP_unit * tand(o.half0) * (1 + o.scan_deck.dist(end) / 100);
+            tc.verifyEqual(L.y_det, [yR -yR], 'RelTol', 2e-3, 'the edge bundles land at the field''s chief height');
+            tc.verifyTrue(isfile(fullfile(tc.tmp, 'small_camera_field.png')));
         end
 
         function test_sampling(tc)
