@@ -263,6 +263,9 @@ def default_glass_list():
     if env:
         return env
     here = os.path.dirname(os.path.abspath(__file__))
+    beside = os.path.join(here, 'macos_glass_list.txt')     # a stand-alone package
+    if os.path.isfile(beside):
+        return beside
     return os.path.normpath(os.path.join(here, '..', '..', '..', 'macos', 'macos_f90',
                                          'macos_glass_list.txt'))
 

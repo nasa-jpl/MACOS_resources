@@ -17,7 +17,7 @@ and mmacos.  Python 3 with numpy only; it needs no Zemax.
 | `--grid` | `nGridpts=` (default 65) |
 | `--aperture` | `Aperture=` in base units: a diameter, or for a point source a full angle in rad |
 | `--glass NAME=INDEX` | a fixed index for a glass the engine catalog lacks; `INDEX 1` makes it air |
-| `--glass-list` | the engine catalog (default `../macos/macos_f90/macos_glass_list.txt` beside this repository, or `$MACOS_GLASS_LIST`) |
+| `--glass-list` | the engine catalog (default `$MACOS_GLASS_LIST`, else `macos_glass_list.txt` beside the script, else `../macos/macos_f90/macos_glass_list.txt` beside this repository) |
 
 The run prints its notes and warnings, and writes them as comments at the head of the deck.
 A refusal prints `REFUSED:` with the reason, exits with status 2, and writes no file.
