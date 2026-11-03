@@ -228,11 +228,30 @@ def test_g2_afta(load, engine, capsys):
               f'{max(off):.3f} mm over 13 OAPs; cross-trace {worst:.1e} mm')
 
 
-def test_g2_unknown_glass_is_said():
+def test_g2_unknown_glass_refused(tmp_path):
+    """Ruling 2026-11-03: a catalog glass the engine lacks is refused by name (its GLAS nd
+    is filler); --glass NAME=1 declares a drawing-only material air."""
     need(AFTA)
-    _, cv = convert(AFTA)
-    said = [w for w in cv.warn if 'STRUCTURE' in w]
-    assert len(said) == 6 and all('--glass STRUCTURE=INDEX' in w for w in said)
+    with pytest.raises(zm.ZmxError) as e:
+        convert(AFTA)
+    msg = str(e.value)
+    assert 'STRUCTURE at surfaces 82, 83, 91, 92, 108, 134' in msg
+    assert '--glass STRUCTURE=INDEX' in msg
+    out = tmp_path / 'never.in'
+    r = subprocess.run([sys.executable, str(ZDIR / 'zmx2macos.py'), str(AFTA), '-o', str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 2 and 'REFUSED' in r.stderr and 'STRUCTURE' in r.stderr
+    assert not out.exists()
+    _, cv = convert(AFTA, '--glass', 'STRUCTURE=1')
+    assert len(cv.elts) == 48
+
+
+def test_unknown_glass_refused_small(tmp_path):
+    t = singlet().replace('GLAS N-BK7', 'GLAS NOSUCHGLASS')
+    with pytest.raises(zm.ZmxError, match='NOSUCHGLASS at surface 1\\b'):
+        convert(write(tmp_path, t))
+    text, _ = convert(write(tmp_path, t, 'g.zmx'), '--glass', 'NOSUCHGLASS=1.6')
+    assert 'IndRef=   1.6000000000000001E+00' in text and 'GlassElt' not in text
 
 
 # ======================================================================================

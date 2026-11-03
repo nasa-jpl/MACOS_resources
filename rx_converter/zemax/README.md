@@ -91,6 +91,11 @@ A refusal prints `REFUSED:` with the reason, exits with status 2, and writes no 
 - `IRREGULA` with tilt or aberration terms (PARM 3–8).
 - `SCBD` with any non-zero value.  This undocumented per-surface key holds five values;
   all-zero lines are noted and ignored.
+- A catalog glass the engine lacks, named with every surface that uses it.  The `GLAS`
+  line's nd is filler for a catalog glass (OpticStudio writes `1.5 40` on `MIRROR` lines
+  too), so it is never written.  Give the index with `--glass NAME=INDEX`; `INDEX 1`
+  declares a drawing-only material air (Dave's ruling, 2026-11-03).  Without a glass
+  catalog every glass is unchecked and refused the same way.
 - `MODE` other than `SEQ`.
 - An object in glass.
 - A file with no aperture definition and no `--aperture`.
@@ -106,9 +111,6 @@ A refusal prints `REFUSED:` with the reason, exits with status 2, and writes no 
 A file cut after its surface list converts, and the missing closing `MNUM` line is warned.
 
 Warned and written:
-- a catalog glass the engine lacks.  It is written with the `GLAS` line's nd, which is
-  OpticStudio's placeholder (usually 1.5), so the warning names it and suggests
-  `--glass NAME=INDEX`.
 - a model glass, written at a fixed nd;
 - a curved image surface, written flat;
 - a multi-configuration file: the stored configuration is converted.
@@ -184,7 +186,9 @@ measured 2026-11-03:
   1.8e-12 mm.
 - **Aperture.**  `Aperture=` is 0.0179369 rad, the mean of four azimuths.  The y-azimuth
   marginal, 0.0089856 rad, matches the CODE V deck's half-angle 0.0089855; the OAPs stretch
-  the beam across the fold, so the x azimuths differ by 0.4 %.
+  the beam across the fold, so the x azimuths differ by 0.4 %.  The mean is kept (Dave's
+  ruling, 2026-11-03): compare a CODE V deck's half-angle with the y-azimuth value, not
+  with half the written `Aperture=`.
 - **Options.**  `--local-frames` and `--base-units m` trace identically.  `--keep-dummies`
   gives 38 elements (the patched C's count), and every ray it keeps lands where the default
   deck puts it.
@@ -201,8 +205,9 @@ tilts, more than 25 Y decenters and two order-1 breaks.  It is converted with
 
 `STRUCTURE` is in none of the catalogs the converter knows.  It is the deck's
 mechanical-drawing material: plates of −100 mm and back.  Written with its placeholder
-index 1.5, the deck traces no ray; written as air, it traces as above.  The test without
-`--glass` checks that all six STRUCTURE surfaces are warned by name.
+index 1.5, the deck traces no ray; written as air, it traces as above.  Without `--glass`
+the deck is refused, naming STRUCTURE and its six surfaces (82, 83, 91, 92, 108, 134):
+the CLI exits 2 and writes no file.
 
 **G3, must-fail.**
 - The program decks are UTF-16 LE as saved.  A hand-written deck converts to the same text
@@ -213,7 +218,9 @@ index 1.5, the deck traces no ray; written as air, it traces as above.  The test
 - These are refused:
   - a DST file cut inside its surface list, and one cut at an odd byte;
   - an empty file, and a header with no surfaces;
-  - `MODE NSC`, an r² EVENASPH term, a non-zero `SCBD`, and a missing aperture.
+  - `MODE NSC`, an r² EVENASPH term, a non-zero `SCBD`, and a missing aperture;
+  - a glass the catalog lacks: the AFTA deck without `--glass STRUCTURE=1`, and a
+    hand-written one (accepted with `--glass NAME=1.6`, written as that fixed index).
 
 **Also tested:**
 - **Frames.**  The coordinate break against the textbook rotation matrices, for both

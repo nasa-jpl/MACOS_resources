@@ -324,10 +324,8 @@ def build(z, opts):
     """Walk the surfaces with the (A, b) frame; return Conv with one record per surface."""
     cv = Conv()
     cat = load_glass_list(opts.glass_list)
-    if not cat:
-        cv.w(f'no glass catalog at {opts.glass_list!r}: glass names are written unchecked '
-             'and the beam solve uses the GLAS line nd')
     cv.catalog = cat
+    cv.unknown_glass = {}            # name -> [surface numbers]: refused after the walk
     cv.user_glass = {}
     for g in opts.glass or []:
         try:
@@ -440,6 +438,16 @@ def build(z, opts):
         cv.recs.append(r)
         medium = n_after
         fr.disz(q.num_('DISZ', 0, 0.0))
+    if cv.unknown_glass:
+        where = '; '.join(f"{g} at surface{'s' if len(n) > 1 else ''} "
+                          f"{', '.join(str(k) for k in n)}"
+                          for g, n in cv.unknown_glass.items())
+        hint = ' '.join(f'--glass {g}=INDEX' for g in cv.unknown_glass)
+        src = (f'not in the engine catalog {opts.glass_list}' if cat else
+               f'unchecked: no glass catalog at {opts.glass_list!r} (give --glass-list)')
+        raise ZmxError(f'glass {src}: {where}.  The GLAS line\'s nd is filler, not data; '
+                       f'give the index with {hint} (INDEX 1 declares a drawing-only '
+                       'material air)')
     if stop_num is None:
         stop_num = 1
         cv.w('no STOP line: surface 1 is taken as the stop (the Zemax default)')
@@ -467,11 +475,10 @@ def _glass(cv, q, glas):
         if cname.upper() != name.upper():
             cv.notes.append(f'surface {q.num}: glass {name} written as the catalog\'s {cname}')
         return (cname, sellmeier(coef, cv.lam_um), coef)
-    if cv.catalog:
-        cv.w(f'surface {q.num}: glass {name} is not in the engine catalog: written as '
-             f'IndRef {nd}, the GLAS line\'s nd, which for a catalog glass is a placeholder '
-             f'(give --glass {name}=INDEX): {q.raw("GLAS")!r}')
-    return (None, nd, None)
+    # the GLAS line's nd for a catalog glass is filler (1.5 40, as on MIRROR lines): never
+    # written; the glass is refused unless --glass gives its index (Dave, 2026-11-03)
+    cv.unknown_glass.setdefault(name, []).append(q.num)
+    return (None, 1.0, None)
 
 
 def nval(m):
