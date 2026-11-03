@@ -1,0 +1,61 @@
+=== ZWFS runner: tag sm_psri_nl  (2026-09-13 09:23) ===
+model 512, NGRID 65, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench noise loop | readings: PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench: the P/SRI, two traced arms ----
+decks sm_psri_nl_test.in / sm_psri_nl_ref.in: TO elt 7, Detector 24 (test); Pinhole 17, Detector 30 (reference)
+balance: chief optical path test 4453.1061 mm, reference 4453.1061 mm (difference 0.00e+00); compensator 21.857 mm of n = 1.50; exit chiefs 0.00e+00 mm apart; camera planes 2.27e-13 mm apart
+reference arm: Lr1 f 300.0 mm (F/2.92 on the 102.9 mm beam), conic -0.5784; pinhole seat trim +1.096 mm; Lr2 = Lr1 mirrored (conic -0.5784)
+PF: pinhole 2.000 lam/D of the reference lens = 3.6913e-03 mm = 11.76 px at its focus (0.314 um per px); coupling eta 0.6886; reference amplitude a 0.009796 (match 0.01116, budget 0.009796); 4 steps (ls); frames per measurement 4
+PF: throughput (detected/incident, flat) 0.8132; visibility on the flat 0.8684; msk 3209 px; the flat reads 3.55e-16 rad rms, amplitude 1.65e-16 rel
+  pinhole 11.76 px across at the reference focus (min 6; the dimple's rule)  -> PASS
+frame: ray magnification 10.6898 DM-mm per detector-mm, detector px 1.1163e-01 mm -> 1.1933 DM-mm per px
+  DM 48x48: 1.68 detector px per actuator (min 2)  -> NOT MET
+G3 30 nm rms working state (DM 48x48, lit 812): detector |E|/|E_flat| on msk std 2.960e-17   (gate < 1e-12)
+G5 PF on 100 nm single-actuator pokes every 8th actuator (12091 pm rms on msk, 3.05% beyond the one-frame fold): rms error 31.056 pm = 0.257% of the figure   -> ABOVE the 0.1% ideal-reference line
+     (on this bench G5 is a MEASUREMENT, not a gate: the reference arm is TRACED, so it moves with the state while the solver uses the flat's R0 -- the synthesized reference reads 0.000 pm here by construction.  The assert is the 1% sanity line)
+G6 the TRACED reference arm under the 30 nm rms working state: total change 0.1528, best complex scale |0.84736| arg +0.0039 rad (the solver absorbs it through the shutter frame + a piston), SHAPE change 0.0057 -- the part nothing absorbs
+registration: center-poke anchor at detector px (256.18, 256.18) <-> DM (-1.05, -1.05) mm
+  parity [1  2  1  1] sign +1 taken from P.reg (mode record)
+  center poke in the DM frame: raw peak gain 0.8553, corr(map, truth) 0.9919
+bench stage 0.3 min
+
+---- noise: DM 48x48, readings PF ----
+scenario: single act (30,20) 10 nm differential on the 30 nm rms working state; axis = photons per MEASUREMENT (one DM shape measured once; a reading's frames share it: L/F/I/I+ 1 frame, S 4, V 2, P/PF K = 4; PDI throughput is printed at the bench stage -- divide by it for incident photons)
+I+ prior frames (the base's 4 stepped frames, taken once): split / noiseless
+calibration: kernels + modal transfer measured here
+frames captured (3.6 min); the Monte-Carlo is trace-free
+    N/meas | PF: sig flr g           |
+   1.0e+10 |     82.3      85   0.921|
+   1.0e+12 |      3.8      51   0.919|
+PF             sigma ~ 5.61e+06/sqrt(N) pm  ->  N(1 pm) ~ 3.15e+13 photons/measurement
+noise stage 3.7 min
+
+---- loop: closed-loop hold, DM 48x48, readings PF ----
+loop: gain 0.50, 6 cycles (steady state = last 3), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the reading's frames with N photons), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 812
+2 loop runs of 7 states each (14 traced states)
+
+step response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles 3 and 6 -- a residual that stops falling is the reading's noiseless bias floor on this surface
+    step | PF: rho tau k1e r(K/2) r(K)           |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g)).  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | PF: ss bias sig_n th          |
+  1.0e+13 |    1.02   0.77   1.80   1.04 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- random walk, 2 pm per actuator per cycle.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | PF: ss bias sig_n th          |
+  1.0e+13 |    2.53   2.01   1.80   2.53 |
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+drift    | PF            |
+none     | < 1e+13       |
+walk     | < 1e+13       |
+
+spectrum of the held residual at 1e+13 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+none     | PF:  0.05  0.25  0.99 |
+walk     | PF:  0.52  1.46  2.00 |
+loop stage 3.7 min (14 traced states)
+run complete in 7.7 min

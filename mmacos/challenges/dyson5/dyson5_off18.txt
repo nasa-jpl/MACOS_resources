@@ -1,0 +1,90 @@
+dyson5 off18 -- the F/1.8 Offner at the 54 mm slit (addendum 46; 2026-10-06 07:55)
+CONVENTIONS: the s2 scorer (engine rays, 7 slit positions x 7 wavelengths, 41-pt grid, model 128); smile/keystone p-v of the
+  centroids in 18 um pixels; SRF = rect(2 px) (x) LSF (x) pixel (x) Airy FWHM; CRF = LSF (x) pixel (x) Airy; EE = geometric
+  fraction in one pixel about the centroid (min over the grid).  The FWHM window is +-8 px: a value >= 15 px is the WINDOW
+  (written ">15"), the rms blur (max over the grid, px) is quoted beside it.  Equal field weights.  Grooves chord-ruled.
+  Ring = slit offset from the axis, the smallest clearing the grating body by +5 mm at the seed (mount 5 mm).
+  Sizes: clear = footprint + 5 mm; blank = clear + 5 mm; mass = blanks at 10 mm x 2530 kg/m^3 (assumption, not lightweighted).
+
+R 0.50 m: ring 0.287 R = 143.8 mm (0.22 R reads -33.1 mm, blocked: the beams cross the grating)
+  seed 
+       engine: smile 0.1574  keystone 0.1842  CRF >15  SRF >15 px  EE 0.000  rms blur 34.31/45.57 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.1391  keystone 0.1850  CRF >15  SRF >15  EE 0.000
+       grating clear 150 mm (stop: R/(2F) = 139 mm); concave blank 641 mm (zone gap -23 mm, zones one sphere, one blank); length 504 mm; mass 8.9 kg
+       clearance +5.47 mm (M3 -> FPA vs Grating) -- PASS
+  corr ring 0.287 R, convex x 1.01688, zone-2 R x 0.97881, dy -2.27 dz +1.87 mm; chain merit 7.869e+04 -> 1942
+       engine: smile 1.1635  keystone 0.0758  CRF 10.30  SRF 14.96 px  EE 0.014  rms blur 3.47/6.89 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 1.1484  keystone 0.0723  CRF 10.26  SRF >15  EE 0.012
+       grating clear 152 mm (stop: R/(2F) = 139 mm); concave blank 328 mm (zone gap -35 mm, zones OVERLAP: two figures on one area); length 503 mm; mass 5.0 kg
+       clearance +2.83 mm (M3 -> FPA vs Grating) -- PASS
+  free ring 0.324 R, convex x 1.02671, zone-2 R x 0.93297, dy +0.91 dz +0.79 mm; chain merit 4.593e+05 -> 523.1
+       engine: smile 0.1653  keystone 0.1765  CRF 2.24  SRF >15 px  EE 0.011  rms blur 1.10/6.92 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.1453  keystone 0.1744  CRF 2.43  SRF >15  EE 0.006
+       grating clear 154 mm (stop: R/(2F) = 139 mm); concave blank 325 mm (zone gap -0 mm, zones touching (the zone wall's hinge)); length 501 mm; mass 4.8 kg
+       clearance +6.93 mm (M3 -> FPA vs Grating) -- PASS
+R 0.75 m: ring 0.280 R = 210.4 mm (0.22 R reads -47.0 mm, blocked: the beams cross the grating)
+  seed 
+       engine: smile 0.0749  keystone 0.0965  CRF >15  SRF >15 px  EE 0.000  rms blur 40.16/57.37 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.0650  keystone 0.0970  CRF >15  SRF >15  EE 0.000
+       grating clear 219 mm (stop: R/(2F) = 208 mm); concave blank 913 mm (zone gap -20 mm, zones one sphere, one blank); length 755 mm; mass 18.0 kg
+       clearance +6.06 mm (M3 -> FPA vs Grating) -- PASS
+  corr ring 0.280 R, convex x 1.00742, zone-2 R x 0.98024, dy -5.14 dz +2.71 mm; chain merit 1.286e+05 -> 2150
+       engine: smile 1.0852  keystone 0.0453  CRF 8.36  SRF 13.79 px  EE 0.006  rms blur 4.12/7.05 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 1.0733  keystone 0.0422  CRF 6.16  SRF 14.11  EE 0.000
+       grating clear 221 mm (stop: R/(2F) = 208 mm); concave blank 462 mm (zone gap -30 mm, zones OVERLAP: two figures on one area); length 755 mm; mass 9.9 kg
+       clearance +2.80 mm (Slit -> M1 vs Grating) -- PASS
+  free ring 0.300 R, convex x 1.01633, zone-2 R x 0.98620, dy -5.78 dz +2.76 mm; chain merit 3.59e+05 -> 2885
+       engine: smile 1.2057  keystone 0.0381  CRF 9.60  SRF >15 px  EE 0.006  rms blur 4.56/8.85 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 1.1913  keystone 0.0349  CRF 9.61  SRF >15  EE 0.006
+       grating clear 223 mm (stop: R/(2F) = 208 mm); concave blank 462 mm (zone gap -0 mm, zones touching (the zone wall's hinge)); length 755 mm; mass 9.9 kg
+       clearance +16.80 mm (Slit -> M1 vs Grating) -- PASS
+R 1.00 m: ring 0.279 R = 279.1 mm (0.22 R reads -61.0 mm, blocked: the beams cross the grating)
+  seed 
+       engine: smile 0.0317  keystone 0.0804  CRF >15  SRF >15 px  EE 0.000  rms blur 40.39/81.50 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.0247  keystone 0.0807  CRF >15  SRF >15  EE 0.000
+       grating clear 289 mm (stop: R/(2F) = 278 mm); concave blank 1190 mm (zone gap -12 mm, zones one sphere, one blank); length 1005 mm; mass 30.4 kg
+       clearance +5.07 mm (M3 -> FPA vs Grating) -- PASS
+  corr ring 0.279 R, convex x 1.01004, zone-2 R x 0.98080, dy -6.15 dz +2.74 mm; chain merit 2.243e+05 -> 1488
+       engine: smile 0.7125  keystone 0.0270  CRF 4.78  SRF 14.46 px  EE 0.014  rms blur 3.53/6.58 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.7048  keystone 0.0251  CRF 3.79  SRF 14.79  EE 0.006
+       grating clear 292 mm (stop: R/(2F) = 278 mm); concave blank 596 mm (zone gap -29 mm, zones OVERLAP: two figures on one area); length 1005 mm; mass 16.3 kg
+       clearance +3.59 mm (M3 -> FPA vs Grating) -- PASS
+  free ring 0.293 R, convex x 1.01037, zone-2 R x 0.96367, dy -4.85 dz +2.75 mm; chain merit 3.288e+05 -> 1545
+       engine: smile 0.6718  keystone 0.0492  CRF 2.50  SRF >15 px  EE 0.009  rms blur 3.16/7.15 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.6623  keystone 0.0472  CRF 2.73  SRF >15  EE 0.000
+       grating clear 292 mm (stop: R/(2F) = 278 mm); concave blank 593 mm (zone gap -0 mm, zones touching (the zone wall's hinge)); length 1005 mm; mass 16.0 kg
+       clearance +9.13 mm (M3 -> FPA vs Grating) -- PASS
+R 1.25 m: ring 0.276 R = 345.3 mm (0.22 R reads -75.4 mm, blocked: the beams cross the grating)
+  seed 
+       engine: smile 0.0148  keystone 0.0645  CRF >15  SRF >15 px  EE 0.000  rms blur 40.47/101.85 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.0119  keystone 0.0647  CRF >15  SRF >15  EE 0.000
+       grating clear 359 mm (stop: R/(2F) = 347 mm); concave blank 1463 mm (zone gap -11 mm, zones one sphere, one blank); length 1255 mm; mass 45.8 kg
+       clearance +5.31 mm (M3 -> FPA vs Grating) -- PASS
+  corr ring 0.276 R, convex x 1.00505, zone-2 R x 0.97847, dy -8.96 dz +2.74 mm; chain merit 3.334e+05 -> 2148
+       engine: smile 0.6548  keystone 0.0179  CRF 6.98  SRF >15 px  EE 0.004  rms blur 3.85/7.91 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.6480  keystone 0.0162  CRF 6.40  SRF >15  EE 0.000
+       grating clear 360 mm (stop: R/(2F) = 347 mm); concave blank 730 mm (zone gap -25 mm, zones OVERLAP: two figures on one area); length 1255 mm; mass 24.4 kg
+       clearance +2.94 mm (M3 -> FPA vs Grating) -- PASS
+  free ring 0.286 R, convex x 1.00520, zone-2 R x 0.96526, dy -7.67 dz +2.74 mm; chain merit 2.525e+05 -> 2217
+       engine: smile 0.6271  keystone 0.0310  CRF 3.76  SRF >15 px  EE 0.006  rms blur 3.52/8.29 px (u/v)  rays/pt 1258-1258, 0 vignetted
+       chain (identity): smile 0.6194  keystone 0.0292  CRF 2.75  SRF >15  EE 0.000
+       grating clear 361 mm (stop: R/(2F) = 347 mm); concave blank 728 mm (zone gap -0 mm, zones touching (the zone wall's hinge)); length 1255 mm; mass 24.1 kg
+       clearance +9.03 mm (M3 -> FPA vs Grating) -- PASS
+
+TABLE (deck slide "Alternatives to the Dyson for the 3k slit"): 3000 px, 54 mm slit, 380-2500 nm, F/1.8
+form                                       R/r mm   F#  slit   smile   keyst   CRF   SRF    EE len mm  max mm     kg  clearance worst pair
+Dyson, CaF2 block, no meniscus                240  1.8    54  0.0050  0.0058  1.21  2.02  0.82    787     318   16.4  +0.54 mm BODY SlitMask vs BlockFaceIn
+Dyson, silica block + 4 mm meniscus (R4)      220  1.8    54  0.0051  0.0026  1.33  2.03  0.76    694     278    9.9  +0.79 mm BODY SlitMask vs BlockFaceIn
+Offner seed, ring 0.29 R                      500  1.8    54  0.1574  0.1842   >15   >15  0.00    504     641    8.9  +5.47 mm M3 -> FPA vs Grating
+Offner corr, ring 0.29 R                      500  1.8    54  1.1635  0.0758 10.30 14.96  0.01    503     328    5.0  +2.83 mm M3 -> FPA vs Grating
+Offner free, ring 0.32 R                      500  1.8    54  0.1653  0.1765  2.24   >15  0.01    501     325    4.8  +6.93 mm M3 -> FPA vs Grating
+Offner seed, ring 0.28 R                      750  1.8    54  0.0749  0.0965   >15   >15  0.00    755     913   18.0  +6.06 mm M3 -> FPA vs Grating
+Offner corr, ring 0.28 R                      750  1.8    54  1.0852  0.0453  8.36 13.79  0.01    755     462    9.9  +2.80 mm Slit -> M1 vs Grating
+Offner free, ring 0.30 R                      750  1.8    54  1.2057  0.0381  9.60   >15  0.01    755     462    9.9  +16.80 mm Slit -> M1 vs Grating
+Offner seed, ring 0.28 R                     1000  1.8    54  0.0317  0.0804   >15   >15  0.00   1005    1190   30.4  +5.07 mm M3 -> FPA vs Grating
+Offner corr, ring 0.28 R                     1000  1.8    54  0.7125  0.0270  4.78 14.46  0.01   1005     596   16.3  +3.59 mm M3 -> FPA vs Grating
+Offner free, ring 0.29 R                     1000  1.8    54  0.6718  0.0492  2.50   >15  0.01   1005     593   16.0  +9.13 mm M3 -> FPA vs Grating
+Offner seed, ring 0.28 R                     1250  1.8    54  0.0148  0.0645   >15   >15  0.00   1255    1463   45.8  +5.31 mm M3 -> FPA vs Grating
+Offner corr, ring 0.28 R                     1250  1.8    54  0.6548  0.0179  6.98   >15  0.00   1255     730   24.4  +2.94 mm M3 -> FPA vs Grating
+Offner free, ring 0.29 R                     1250  1.8    54  0.6271  0.0310  3.76   >15  0.01   1255     728   24.1  +9.03 mm M3 -> FPA vs Grating
+  Dyson mass = the edged block (record) + its grating at the Offner's blank rule; Offner mass = grating + concave blank(s).

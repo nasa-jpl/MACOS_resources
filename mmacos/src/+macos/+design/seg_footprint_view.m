@@ -101,7 +101,10 @@ if ~isempty(opts.apertures)
         end
     end
 end
-if ~isempty(opts.title), title(opts.title); end
+% 'Interpreter','none': these titles carry artifact stems, and TeX turns
+% an underscore into a subscript -- "s2_segmented" renders as "s2" with a
+% subscripted "s".  Committed figures end up on slides.
+if ~isempty(opts.title), title(opts.title, 'Interpreter', 'none'); end
 xlabel(sprintf('pupil x, %s', opts.units));
 ylabel(sprintf('pupil y, %s', opts.units));
 if ~isempty(opts.save), print(fig, opts.save, '-dpng', '-r120'); end

@@ -32,13 +32,13 @@ function out = segment_grid_basis(session, rx_path, opts)
 %                     false = plain circular Zernikes confined to the segment.
 %                     Default true.
 %     'zern_type'   Zernike convention of the raw modes:
-%                     'ansi' (engine ZerntoMon1/NormANSI) | 'noll' (zernike_mode).
+%                     'ansi' (engine ZerntoMon1/NormANSI) | 'noll' (built-in noll_mode).
 %                     Default 'ansi' (engine-exact).  Other macos conventions
 %                     (Fringe, BornWolf, ExtFringe, Norm* variants -- see
 %                     surfsub.F generators) are a TODO: add a branch in zern_local_.
 %     'remove_rigid_body' project out piston+tip+tilt over each segment so the
 %                   kept modes are pure figure (GS path only).  Default true.
-%     'matlab_dir'  folder holding zernike_mode (Noll).  Default ~/matlab.
+%     'matlab_dir'  DEPRECATED, ignored (Noll is now self-contained).
 %
 %   Returns OUT with fields N, gdx, modes, zern_type, orthogonalize,
 %   remove_rigid_body, seg_elts, center_elts, and a struct array OUT.seg with
@@ -63,7 +63,6 @@ arguments
     opts.remove_rigid_body (1,1) logical = true
     opts.matlab_dir  (1,:) char = fullfile(getenv('HOME'), 'matlab')
 end
-if strcmpi(opts.zern_type, 'noll'), addpath(opts.matlab_dir); end   % zernike_mode
 session.load_rx(rx_path);
 txt = fileread(rx_path);
 
@@ -170,7 +169,7 @@ end
 % ======================================================================
 function [B, Rseg] = seg_modes_(mask, GU, GV, modes, zern_type, ortho, rrb)
 % Build the K-mode basis over MASK.  Centroid-centred, max-radius-normalised
-% (matching zernike_mode), so 'ansi' and 'noll' share the same support disk.
+% (matching noll_mode), so 'ansi' and 'noll' share the same support disk.
 N = size(mask, 1);  mv = mask(:);
 gu = GU(mask);  gv = GV(mask);
 cu = mean(gu);  cv = mean(gv);                       % segment centroid
@@ -215,7 +214,7 @@ switch lower(zern_type)
     case 'ansi'
         Z = ansi_zernike_(j, rho, th);               % engine ZerntoMon1 / NormANSI
     case 'noll'
-        Z = zernike_mode(double(mask), j);           % ~/matlab Noll, mask support
+        Z = macos.noll_mode(double(mask), j);              % self-contained Noll, mask support
     otherwise
         error('macos:segment_grid_basis:ztype', 'unsupported zern_type ''%s''', zern_type);
 end

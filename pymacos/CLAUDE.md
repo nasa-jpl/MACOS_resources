@@ -3,9 +3,13 @@
 > **Post-compaction / post-upgrade — re-read the docs first.** After a
 > context compaction or a tooling upgrade, before resuming build/engine
 > work, re-read the doc set across ALL working dirs (the conversation
-> summary drops mechanical how-to): `macos/CLAUDE.md` + `macos/PLAN.md`;
-> this file + `MACOS_resources/{mmacos,GMI}/CLAUDE.md` + `README.md`s;
-> and the agent `MEMORY.md` (esp. the build/test workflow entries).
+> summary drops mechanical how-to): `macos/CLAUDE.md`; this file +
+> `MACOS_resources/{mmacos,GMI}/CLAUDE.md` + `README.md`s; and, IF PRESENT,
+> `macos/PLAN.md` and the agent `MEMORY.md` (esp. the build/test workflow
+> entries) -- the plans and the memory live on the `dev` branch only; a
+> release checkout has the `CLAUDE.md` set and the READMEs and no plans,
+> and a citation of a PLAN or BRIEF in this file is provenance, not a file
+> to look for.
 
 Python interface to MACOS / SMACOS via an f2py wrapper. Four layers
 since §5.2 of the dev plan:
@@ -55,6 +59,44 @@ you've built macos under gfortran or in a non-standard location.
 
 Smoke test: `pymacos/tests/sensitivities/run_dw_dz_zernike.sh --help`
 exercises the venv + oneAPI runtime setup without touching macos.
+
+### The f2py layer and `api_gen.py` are GENERATED (2026-10-16, BRIEF_to_bindings A.2)
+`src/cmake/source/pymacos_f2py.f90` and `src/pymacos/api_gen.py` are written by
+`MACOS_resources/mmacos/src/gen_mex_wrappers.py` from `macos_api_mod.F90` (the same
+parse that writes the mex's `mmacos_gen.F`).  **Never hand-edit them**: add the routine
+to `macos_api_mod.F90`, rebuild macos, run `python3 gen_mex_wrappers.py` in
+`mmacos/src` (all three targets), `make` here.  Per-routine `!f2py` hints and the few
+interface rewrites live in `mmacos/src/binding_overrides.py` (generator INPUT; the 139
+routines bound before the generator are listed in `F2PY_LEGACY` and keep their
+in-place `intent(inout)`).  A NEW routine needs no override: inputs = its
+intent(in)+(inout) args (sizes f2py derives from an input array are optional), outputs
+= intent(out)+(inout) with `ok` → `ApiError` — the mex's rule.  Behaviour (units,
+defaults, shapes) goes in `macos.py`, calling `api_gen.<routine>`.  Gate:
+`tests/test_api_coverage.py` (every api routine bound, read from the SOURCE; every stub
+matches f2py's own signature).
+
+### Side-tree build (a pre-fix / doctored `.so` for a red leg)
+The suite imports from `$PYMACOS_SRC` when set (`tests/context.py`), else this tree's
+`src/`.  A side tree is a copy of `src/` with its own build dir; the shared `.so` is
+never touched:
+```bash
+S=<scratch>/side; P=~/dev/MACOS_resources/pymacos
+mkdir -p $S/src/cmake/source $S/src/cmake/build $S/src/pymacos
+cp $P/src/cmake/CMakeLists.txt $S/src/cmake/
+cp $P/src/cmake/source/pymacos_f2py.f90 $S/src/cmake/source/   # or the doctored / generated one
+ln -s $P/src/macos $S/src/macos                                 # CMakeLists checks ../macos exists
+cp $P/src/pymacos/*.py $P/src/pymacos/macos_param.txt $S/src/pymacos/
+cd $S/src/cmake/build && bash -c "source /opt/intel/oneapi/setvars.sh intel64 >/dev/null 2>&1;
+  $P/.venv/bin/cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DCMAKE_Fortran_COMPILER=ifx \
+    -DPython_EXECUTABLE=$P/.venv/bin/python -DMACOS_BUILD_DIR=<macos build tree> -S .. && make"
+cd $P/tests && PYMACOS_SRC=$S/src $P/.venv/bin/python -m pytest -q <tests>
+```
+Use the venv's cmake (`.venv/bin/cmake`, 4.x): the system cmake is 3.28 and
+CMakeLists needs 3.31.  For a PRE-FIX ENGINE leg point `MACOS_BUILD_DIR` at a side
+macos build (e.g. one built in the clean worktree `~/dev/macos_cli_base`).  Used first
+2026-10-16: the generated layer built side-tree (all 139 legacy signatures identical to
+the hand-written `.so`), and a copy with `ray_status_get` removed turned
+`test_api_coverage.py` red naming it.
 
 ### macOS: a fresh venv has ONLY the build dep (numpy) — tests need more
 The Mac-port venv (`~/.venv/pymacos`) was created with just `numpy` for
@@ -525,11 +567,23 @@ Options if a future task needs to push below this:
 
 None of these are needed for HWO at the current delta scale.
 
+### New wrappers 2026-10-03 (engine detail in macos_f90/CLAUDE.md)
+- `calib_set_beam(kind, srf, target, on)`, `calib_set_beam_pos_fov(pos)`,
+  `calib_set_beam_wt(wt, centroid)`: CALIB beam rows on ANY target, per-field
+  position targets, the ray centroid.  CALIB's field 1 is the source as
+  CURRENTLY set; the optimizer grid defaults to `nGridpts/2-1` (`OptRayGrid=`).
+- `ffcut(on)` / `ffcut()` -> `(on, npix)`: the far-field evanescent cut
+  (|x| > dz zeroed on far-field legs).  Gate `tests/test_ffcut.py`.
+- f2py shims live in `src/cmake/source/pymacos_f2py.f90` (the `_impl =>`
+  rename list + a pass-through subroutine each) -- GENERATED since 2026-10-16:
+  re-run `mmacos/src/gen_mex_wrappers.py`, then `make` in `src/cmake/build`.
+
 ## Key files
 
 | File | Role |
 |------|------|
-| `src/cmake/source/pymacos_f2py.f90` | `MODULE api` — thin forwarding wrappers (~1300 LOC).  Each routine reapplies the `!f2py` annotations needed to derive a clean Python signature and calls the corresponding `macos_api_mod` routine.  f2py parses ONLY this file. |
+| `src/cmake/source/pymacos_f2py.f90` | `MODULE api` — thin forwarding wrappers, GENERATED by `mmacos/src/gen_mex_wrappers.py` (hints from `mmacos/src/binding_overrides.py`).  Each routine carries the `!f2py` annotations needed to derive a clean Python signature and calls the corresponding `macos_api_mod` routine.  f2py parses ONLY this file. |
+| `src/pymacos/api_gen.py` | GENERATED: one stub per api routine (f2py args; ok → `ApiError`; outputs returned), `API_ROUTINES`, `F2PY_SIGNATURES`. |
 | `~/dev/macos/macos_f90/macos_api_mod.F90` | `MODULE macos_api_mod` — language-neutral SMACOS-call backbone (~4300 LOC), one wrapper per public entry; held in `libsmacos.a` since §5.2.  Shared with mmacos. |
 | `src/pymacos/macos.py` | typed Python API — input validation, state globals, raises Exception on Fortran-side failure. |
 | `src/pymacos/__init__.py` | Win DLL search-path shim; re-exports `macos`. |

@@ -1,0 +1,29 @@
+=== ZWFS runner: tag bs22_dev  (2026-09-15 05:30) ===
+model 512, NGRID 65, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench | readings: V
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck bs22_dev_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 11.88 px at the mask plane; msk 3209 px
+focal spot: 0.444 um per px at the mask plane, 5.94 px per lam F/D; the dimple encloses 70.9% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.280e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 2.000e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9553 0.9520 0.9467 0.9385 0.9279 0.9138 0.8972 0.8793 0.8568 0.8338 0.8088 0.7818 0.7534 0.7216 0.6906 0.6584 0.6238 0.5882 0.5526 0.5179 
+frame: ray magnification 10.1584 DM-mm per detector-mm, detector px 1.1739e-01 mm -> 1.1925 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 11.88 px across at the mask plane (min 6)  -> PASS
+  DM 48x48: 1.68 detector px per actuator (min 2)  -> NOT MET
+G3 30 nm rms working state (DM 48x48, lit 812): detector |E|/|E_flat| on msk std 3.135e-16   (gate < 1e-12: A = |E0| is exact)
+V3 arm (engine Jones pupil at elt 15, the mask sandwich's entrance sphere; laser 45.0 deg from the source x): exit axis [0.7071 0.7071 0.0000], beam half-cone 5.1 deg, longitudinal residual 2.4e-16, common-phase slope vs the pupil phase -2.0000 (resid 4.1e-09; -2 = the vector trace is the scalar's conjugate), transmittance 0.6628
+  diattenuation mean 5.46e-02, rms 1.13e-03, max 5.75e-02; retardance mean 9.22e-04 rad, rms 7.43e-04, max 2.86e-03
+  per channel: |qL| 1.00000 (rms 5.9e-04), |qR| 1.00000 (rms 5.9e-04); phase about mean L 8.32e-04 rad rms, R 8.32e-04; channel DIFFERENCE: phase 1.66e-03 rad rms (PV 8.23e-03), amplitude ratio 3.4e-16 rms (PV 2.4e-15)
+G8 chained pupil-map + dimple apodization: unit map vs the plain frame 0.0e+00 (gate < 1e-12); channel map vs the surrogate |qE0 + c b(qE0)|^2 on msk 4.7e-15 (gate < 1e-10)   -> PASS
+  solver arm model: ideal (knows nothing of the arm: the raw size of the term)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (11882 pm rms on msk, peak 1.89 rad; 2.93% of msk beyond the one-frame fold): V rms error 8.797 pm (gate < 0.1% of the figure), one-frame exact I 9240 pm (non-vacuity: must exceed 10x)   -> PASS
+  (G4 not asserted: an uncalibrated metasurface / arm / analyzer error is being priced -- the V error above IS the number)
+registration: center-poke anchor at detector px (256.18, 256.18) <-> DM (-1.05, -1.05) mm
+  parity [1  2  1  1] sign +1 taken from P.reg (mode record)
+  center poke in the DM frame: raw peak gain 0.7160, corr(map, truth) 0.9881
+bench stage 0.1 min
+run complete in 0.1 min

@@ -1,0 +1,494 @@
+classdef tPupilFindMethod < matlab.unittest.TestCase
+%TPUPILFINDMETHOD  reset_xp_method='pupil_find' in the dwd* supervisors.
+%
+%   Gates the pupil_find exit-pupil method (Luis's request, shipped
+%   e3d08ea): the cone-convergence best-fit sphere placed via
+%   reset_xp_guard's 'pupil_find' action.  Since the 2026-08-27 w_nom
+%   audit the DEFAULT pf_scope is 'field' (per-(config, field)
+%   chief-tied placement, nominals == fex); 'config' (one frozen
+%   field-set-wide sphere per configuration, per-field FEX reset off)
+%   is the explicit diagnostic mode, and the tests that gate its
+%   machinery pass it explicitly.  Runs at MODEL 512 (the zoom
+%   fixture) -- registered in its own 512 suite batch, never in
+%   SUITE_FAST.
+%
+%   The load-bearing assertion is the CONFIG-CORRECTNESS one: on a
+%   two-configuration run the two placed spheres must DIFFER when the
+%   configuration tilts the pupil mirror -- a shared sphere would prove
+%   the finder fit the UNCONFIGURED deck (the save_rx round-trip in the
+%   guard is exactly what prevents that).
+
+    properties (Constant)
+        FOV  = 2.90888e-4          % 1 arcmin half-field (5-field set)
+        TILT = 1.45444e-4          % config tilt: 0.5 arcmin on the FSM
+    end
+
+    properties
+        rx
+        od
+    end
+
+    methods (TestClassSetup)
+        function setup(tc)
+            here = fileparts(mfilename('fullpath'));
+            root = fileparts(here);
+            run(fullfile(root, 'mmacos_setup.m'));
+            addpath(fullfile(root, 'design', 'runners'));
+            addpath(fullfile(root, 'design', 'src'));
+            tc.rx = fullfile(root, 'templates', '50_sensitivities', ...
+                             'zoom_5x5', 'jwst_ote_designc.in');
+            tc.assumeTrue(exist(tc.rx, 'file') == 2, 'zoom deck not present');
+            tc.od = fullfile(tempdir, 'tPupilFindMethod_out');
+            if ~exist(tc.od, 'dir'), mkdir(tc.od); end
+        end
+    end
+
+    methods (Test)
+        function test_missing_stop_elt_errors_actionably(tc)
+        % The method requires an ELEMENT stop (pupil_find sets the engine
+        % stop at that element); without one the runner must refuse UP
+        % FRONT with a message that names the remedy.  Two guards can
+        % legitimately fire first depending on the deck: the runner's
+        % pre-existing no-ApStop check (this zoom deck -- no id, message
+        % names 'stop_elt') or the method's own pfNeedsStopElt (decks
+        % WITH an obj-space ApStop, unsupported for pupil_find).  The
+        % contract asserted is ACTIONABILITY, not one specific id.
+            raised = false;
+            try
+                run_sensitivities(tc.rx, 'fov_rad', tc.FOV, ...
+                    'channels', "dwdx", 'reset_xp_method', 'pupil_find', ...
+                    'model_size', 512, 'out_dir', string(tc.od), ...
+                    'name', "neg");
+            catch e
+                raised = true;
+                tc.verifySubstring(e.message, 'stop_elt', ...
+                    'the refusal must name the remedy');
+            end
+            tc.verifyTrue(raised, 'expected an up-front refusal');
+        end
+
+        function test_two_configs_place_two_different_spheres(tc)
+        % One harvest, two configurations (FSM +-0.5 arcmin), method
+        % pupil_find: metrics per config, vertices DIFFER, method
+        % recorded, report carries the fit lines.
+            T = table(["zoomA"; "zoomB"], [tc.TILT; -tc.TILT], ...
+                'VariableNames', {'name', '25.Ry'});
+            cfgs = macos.design.configs_from_table(T);
+            a = run_sensitivities(tc.rx, 'fov_rad', tc.FOV, ...
+                'channels', "dwdx", 'elts', 24, 'dofs', (3:5).', ...
+                'stop_elt', 25, 'reset_xp_method', 'pupil_find', ...
+                'pf_scope', 'config', ...
+                'configs', cfgs, 'ngridpts', 41, 'model_size', 512, ...
+                'out_dir', string(tc.od), 'name', "pfm", ...
+                'per_element', [], 'verbose', false);
+            tc.verifyEqual(a.ox.reset_xp_method, 'pupil_find');
+            tc.assertTrue(isfield(a.ox, 'pupil_find'), 'metrics missing');
+            tc.assertEqual(numel(a.ox.pupil_find), 2, ...
+                'one placement per configuration expected');
+            dv = norm(a.ox.pupil_find(1).vtx - a.ox.pupil_find(2).vtx);
+            tc.verifyGreaterThan(dv, 1e-9, ...
+                ['placed spheres identical across configs -- the ' ...
+                 'save_rx round-trip did not carry the configuration']);
+            rep = fileread(fullfile(tc.od, 'pfm_sens_report.txt'));
+            tc.verifySubstring(rep, 'pupil_find cfg');
+        end
+
+        function test_placed_sphere_keeps_the_reference_tilt_sensitive(tc)
+        % THE psi-sign gate.  pupil_find used to force psi(3)<0 on the
+        % written sphere normal ("toward the image"); on this deck the
+        % Return stores psi(3)>0, so the flipped normal reflected the
+        % sphere CENTER to the pupil side.  A reference sphere centered
+        % at the pupil is rotation-invariant in path length, so the OPD
+        % reference went TILT-BLIND (a 0.5' FSM tilt moved the map by
+        % 2.4e-7 mm instead of ~3e-2) and every field carried the full
+        % sag as a ~0.45 mm RMS bias.  Both symptoms are asserted.
+            m = macos.Session(512);                          %#ok<NASGU>
+            nE0 = macos.load_rx(tc.rx);
+            % pupil_find on a save_rx product at light sampling, with the
+            % stop set -- the same flow the supervisor guard uses (the raw
+            % deck declares nGridpts=1024, which would make every probe
+            % trace huge, and carries no ApStop=)
+            macos.set_src_sampling(41);
+            macos.stop(25);
+            macos.modify();
+            tmp = fullfile(tc.od, 'pf_tilt_gate.in');
+            macos.save_rx(tmp);
+            pf = pupil_find(tmp, tc.fieldset(), 'ep_elt', 25, ...
+                'stop_elt', 25, 'xp_elt', nE0 - 1, ...
+                'place', true, 'init', false);
+            tc.assertTrue(pf.placed);
+            macos.set_src_sampling(41);
+            macos.modify();
+            macos.trace(nE0 - 1);
+            W0 = macos.opd();
+            rms0 = sqrt(mean(W0(W0 ~= 0).^2));
+            % Healthy placements measure 4.4e-3 (supervisor flow, ng 63)
+            % to ~3e-2 mm (this flow, ng 41); the flipped-psi defect
+            % measured 0.45 and the wrong-hemisphere variant 3.6 -- the
+            % bound sits an order above healthy scatter, an order below
+            % the defect.
+            tc.verifyLessThan(rms0, 1e-1, sprintf( ...
+                ['center-field nominal against the placed sphere is ' ...
+                 '%.3g mm RMS -- the pupil-side (flipped-psi) sphere ' ...
+                 'bias'], rms0));
+            macos.perturb(25, 'rotation', [tc.TILT; tc.TILT; 0], ...
+                'frame', 'local');
+            macos.modify();
+            macos.trace(nE0 - 1);
+            W1 = macos.opd();
+            v = (W0 ~= 0) & (W1 ~= 0);
+            dmax = max(abs(W1(v) - W0(v)));
+            tc.verifyGreaterThan(dmax, 1e-3, sprintf( ...
+                ['a 0.5'' FSM tilt moved the OPD by only %.3g mm -- ' ...
+                 'the placed reference sphere is tilt-blind (its ' ...
+                 'center is on the pupil side: psi sign)'], dmax));
+        end
+
+        function test_config_sphere_is_independent_of_predecessors(tc)
+        % THE leakage gate.  The per-config save_rx used to capture the
+        % PREVIOUS configuration's pf-written sphere at nElt-1 (the
+        % config snapshot/restore covers only the configuration's own
+        % elements), so every configuration after the first was fit on a
+        % compounded EP state.  The same configuration's sphere must not
+        % depend on what ran before it: zoomB harvested SECOND (after
+        % zoomA) must equal zoomB harvested ALONE.
+            T2 = table(["zoomA"; "zoomB"], [tc.TILT; -tc.TILT], ...
+                'VariableNames', {'name', '25.Ry'});
+            a2 = run_sensitivities(tc.rx, 'fov_rad', tc.FOV, ...
+                'channels', "dwdx", 'elts', 24, 'dofs', (3:5).', ...
+                'stop_elt', 25, 'reset_xp_method', 'pupil_find', ...
+                'pf_scope', 'config', ...
+                'configs', macos.design.configs_from_table(T2), ...
+                'ngridpts', 41, 'model_size', 512, ...
+                'out_dir', string(tc.od), 'name', "pfleakA", ...
+                'per_element', [], 'verbose', false);
+            T1 = table("zoomB", -tc.TILT, ...
+                'VariableNames', {'name', '25.Ry'});
+            a1 = run_sensitivities(tc.rx, 'fov_rad', tc.FOV, ...
+                'channels', "dwdx", 'elts', 24, 'dofs', (3:5).', ...
+                'stop_elt', 25, 'reset_xp_method', 'pupil_find', ...
+                'pf_scope', 'config', ...
+                'configs', macos.design.configs_from_table(T1), ...
+                'ngridpts', 41, 'model_size', 512, ...
+                'out_dir', string(tc.od), 'name', "pfleakB", ...
+                'per_element', [], 'verbose', false);
+            vB_after_A = a2.ox.pupil_find(2).vtx;
+            vB_alone   = a1.ox.pupil_find(1).vtx;
+            tc.verifyLessThan(norm(vB_after_A - vB_alone), 1e-6, ...
+                ['zoomB''s placed sphere depends on zoomA having run ' ...
+                 'first -- the previous configuration''s pf write ' ...
+                 'leaked into the save_rx round-trip']);
+        end
+
+        function test_resume_checkpoints_are_method_aware(tc)
+        % THE resume gate.  A checkpoint written under fex and resumed
+        % under pupil_find used to be served VERBATIM (the key was
+        % channel+config only), silently making the two methods' outputs
+        % identical.  Plant a poisoned bare-name checkpoint; the
+        % pupil_find run must ignore it (its key carries '_pf') and
+        % complete with real metrics.
+            rd = fullfile(tc.od, 'pf_resume');
+            if exist(rd, 'dir'), rmdir(rd, 's'); end
+            mkdir(rd);
+            o = struct('poison', 1);
+            save(fullfile(rd, 'dwdx_zoomA.mat'), 'o');
+            save(fullfile(rd, 'dwdx_zoomB.mat'), 'o');
+            T = table(["zoomA"; "zoomB"], [tc.TILT; -tc.TILT], ...
+                'VariableNames', {'name', '25.Ry'});
+            a = run_sensitivities(tc.rx, 'fov_rad', tc.FOV, ...
+                'channels', "dwdx", 'elts', 24, 'dofs', (3:5).', ...
+                'stop_elt', 25, 'reset_xp_method', 'pupil_find', ...
+                'pf_scope', 'config', ...
+                'configs', macos.design.configs_from_table(T), ...
+                'resume_dir', string(rd), 'ngridpts', 41, ...
+                'model_size', 512, 'out_dir', string(tc.od), ...
+                'name', "pfres", 'per_element', [], 'verbose', false);
+            tc.assertTrue(isfield(a.ox, 'pupil_find'), ...
+                'run served the poisoned fex-keyed checkpoints');
+            tc.verifyEqual(numel(a.ox.pupil_find), 2, ...
+                'both configurations must be REcomputed, not resumed');
+            rep = fileread(fullfile(tc.od, 'pfres_sens_report.txt'));
+            tc.verifySubstring(rep, 'dwdx_pf_zoomA.mat', ...
+                'pupil_find checkpoints must carry the method key');
+        end
+    end
+
+    methods (Test)
+        function test_field_scope_places_per_combo_tilt_absorbing_spheres(tc)
+        % pf_scope='field' (Dave, 2026-08-25): a 3x3 mini-cone fit per
+        % (config, field) block, FEX baseline run at the cone CENTER, so
+        % each combo's sphere axis and radius follow its OWN chief and
+        % the field tilt is absorbed per block.  Measured healthy values
+        % (this grid, ng 41): outer-field nominal 3.8e-3 mm (vs 0.46 mm
+        % when the baseline ran at the deck's nominal chief, and ~0.64 mm
+        % under config scope); across-field vtx spacing 4.0e-4 mm;
+        % across-config spacing 1.1e-5 mm.
+            T = table(["zoomA"; "zoomB"], [tc.TILT; -tc.TILT], ...
+                'VariableNames', {'name', '25.Ry'});
+            cfgs = macos.design.configs_from_table(T);
+            m = macos.Session(512);
+            out = macos.dw_dx_multi(m, tc.rx, 'field_x_rad', tc.FOV, ...
+                'field_y_rad', tc.FOV, 'grid', '3x1', 'elts', 24, ...
+                'dofs', (3:5).', 'configs', cfgs, 'stop_elt', 25, ...
+                'ngridpts', 41, 'reset_xp_method', 'pupil_find', ...
+                'pf_scope', 'field');
+            tc.verifyEqual(out.pf_scope, 'field');
+            tc.assertEqual(numel(out.pupil_find), 6, ...
+                'one placement per (config, field) block expected');
+            P = out.pupil_find;
+            tc.verifyEqual([P.config], [1 1 1 2 2 2]);
+            tc.verifyEqual([P.field],  [1 2 3 1 2 3]);
+            vtx = reshape([P.vtx], 3, []).';
+            tc.verifyGreaterThan(norm(vtx(1,:) - vtx(2,:)), 1e-5, ...
+                'spheres must be DISTINCT across fields');
+            % Across CONFIGURATIONS the written vertex is now INVARIANT
+            % (measured 2.3e-9): the zoom tilts the FSM -- the STOP
+            % itself -- and the stop-enforced chief (Dave 2026-08-28)
+            % re-aims through its center, so the tilt pivots the beam AT
+            % the pupil and the EP-conjugate chief crossing holds still.
+            % The pre-ruling >1e-6 "distinct across configs" was the
+            % STALE-AIM artifact (the un-re-aimed chief walking on the
+            % tilted FSM), not physics; the configuration distinction
+            % lives in the written AXIS, not the vertex.
+            % RE-PINNED 2026-09-08 (Dave): with the frame-independent FEX
+            % (macos 82d8148) the written vertex is the MEDIAL of the
+            % tangential and sagittal crossings.  The FSM zoom tilts
+            % about y and deflects the beam in x; the tangential
+            % (y-plane) crossing is symmetric under that -- hence the
+            % old 2.3e-9 invariance -- but the sagittal one sees it, so
+            % the medial vertex differs across the two configs by
+            % 5.536e-4 mm.  Pinned at that value: still 3 orders below
+            % the stale-aim artifact, and a pin catches a change in
+            % either direction.
+            tc.verifyEqual(norm(vtx(1,:) - vtx(4,:)), 5.535915533367345e-4, ...
+                'RelTol', 1e-6, ...
+                ['FSM-at-pupil configurations: medial-vertex separation ' ...
+                 'pinned (stale-aim artifact or a FEX definition change?)']);
+            % the WRITTEN vertex is the combo's chief crossing (Dave
+            % 2026-08-25): the bundle vertex stays a diagnostic, because
+            % writing it injects its lateral offset as a pure-tilt frame
+            % term (0.38 mm -> 4.4e-3 mm RMS of tilt, zero aberration).
+            tc.verifyLessThan(max(abs(P(2).vtx - P(2).fex_vpt)), 1e-9, ...
+                'field scope must write the chief-crossing vertex');
+            tc.verifyGreaterThan(P(2).vtx_minus_fex, 1e-4, ...
+                'the bundle diagnostic must be preserved (nonzero offset)');
+            r = cellfun(@(W) sqrt(mean(W(W ~= 0).^2)), ...
+                        out.per_field_w_nom_2d);
+            tc.verifyLessThan(max(r(:)), 1e-3, sprintf( ...
+                ['worst per-combo nominal is %.3g mm RMS -- fex scale ' ...
+                 'expected (chief-vertex placement).  Config scope ' ...
+                 'leaves ~0.64 mm at these fields; the bundle vertex ' ...
+                 'leaves 4-8e-3 of pure tilt'], max(r(:))));
+        end
+
+        function test_object_space_apstop_deck_needs_no_stop_elt(tc)
+        % Luis's case (2026-08-26): the stop declared OBJECT-SPACE in the
+        % deck header (ApStop= 3-vector) -- the segmented-primary idiom,
+        % where no single stop ELEMENT exists (e5hex1: 7 hex segments
+        % share the primary).  Two gates, both non-vacuous against the
+        % pre-fix tree:
+        %   A. pupil_find without 'stop_elt' must leave the deck's stop
+        %      in force -- it used to run macos.stop(ep_elt=1), i.e.
+        %      override the pupil with ONE segment's aperture.  The
+        %      discriminator: get_stop_info reports only ELEMENT stops
+        %      and raises on an object-space stop, so post-fix it must
+        %      raise, pre-fix it returned elt 1.
+        %   B. the supervisor flow (Luis's run_sensitivities path) must
+        %      accept reset_xp_method='pupil_find' with NO 'stop_elt' --
+        %      it used to refuse up front (pfNeedsStopElt).
+            here = fileparts(mfilename('fullpath'));
+            root = fileparts(here);
+            rxh = fullfile(root, 'templates', '50_sensitivities', ...
+                           'run_dwdz_multi', 'e5hex1.in');
+            tc.assumeTrue(exist(rxh, 'file') == 2, 'e5hex1 deck not present');
+            fov = 1e-4;
+            m = macos.Session(256);
+            % -- A: direct pupil_find, deck stop preserved
+            nE = macos.load_rx(rxh);
+            macos.set_src_sampling(33);
+            macos.modify();
+            tmp = fullfile(tc.od, 'pf_objstop_gate.in');
+            macos.save_rx(tmp);
+            F = [0 0; -fov fov; fov fov; -fov -fov; fov -fov];
+            pf = pupil_find(tmp, F, 'xp_elt', nE - 1, ...
+                            'place', true, 'init', false);
+            tc.assertTrue(pf.placed);
+            stop_is_elt = true;
+            try, macos.get_stop_info(); catch, stop_is_elt = false; end
+            tc.verifyFalse(stop_is_elt, ...
+                ['pupil_find overrode the deck''s object-space ApStop ' ...
+                 'with an element stop (the segmented-primary pupil ' ...
+                 'collapsed to one segment''s aperture)']);
+            % The WRITTEN vertex is the fit-surface/chief-ray crossing
+            % ('fit_chief', Dave 2026-08-26): ON the chief line (so no
+            % bundle-lateral tilt injection) at the MEASURED pupil
+            % station.  On this deck the cone fit (stop-plane anchor
+            % from the deck ApStop, entrance positions from the ray
+            % history) measures a real ~23 mm pupil smear (two-singlet
+            % relay; differential chief 1133.3 / finite chief-pair
+            % 1142.3 / annular cone zones 1156.2), so the written
+            % vertex must sit ~23 mm ALONG the chief from the FEX
+            % point -- pure 'chief' mode (0 mm) and the raw bundle
+            % vertex (1.7 mm off-line) both fail these bounds.
+            tc.verifyEqual(pf.vertex, 'fit_chief', ...
+                'default written-vertex mode must be fit_chief');
+            dv_ = pf.vtx_written(:) - pf.fex.vpt(:);
+            ps_ = pf.psi(:);
+            tc.verifyLessThan(norm(dv_ - (ps_.'*dv_)*ps_), 1e-6, ...
+                ['the written vertex is off the chief line -- the ' ...
+                 'bundle lateral offset reached the Rx']);
+            % RE-PINNED 2026-09-08 (Dave): the ~23 mm 'smear' above was
+            % measured against the legacy tangential FEX probe.  The
+            % frame-independent FEX (macos 82d8148) writes the MEDIAL
+            % pupil, 24 mm further along the chief on this deck, and the
+            % cone-fit station now sits 1.302 mm from it -- the two
+            % independent finders AGREE, and most of the old gap was the
+            % tangential-vs-medial offset.  Pinned at the measured value:
+            % pure 'chief' mode (0 mm) still fails, the raw bundle vertex
+            % still fails the on-line check above.
+            tc.verifyEqual(abs(ps_.'*dv_), 1.302150897497270, 'RelTol', 1e-6, ...
+                ['the written vertex must sit at the measured pupil ' ...
+                 'station (fit-vs-FEX gap pinned)']);
+            % the RADIUS follows the vertex (rad = fex.rad - t): the
+            % sphere CENTER sits on the propagation-target plane and
+            % must not move when the vertex slides along the chief --
+            % writing FEX's radius verbatim displaces it by ~23 mm
+            tc.verifyLessThan(norm((pf.vtx_written(:) + pf.rad*ps_) - ...
+                (pf.fex.vpt(:) + pf.fex.rad*ps_)), 1e-6, ...
+                ['the written radius does not follow the vertex -- ' ...
+                 'the reference-sphere center moved off the ' ...
+                 'propagation target plane']);
+            % the stop-plane/history binning must produce a CLEAN
+            % convergence surface: dep_rms 0.9 um measured; the earlier
+            % index-grouped binning left 4.5 um, the M2-anchored one a
+            % biased cloud -- the bound separates the constructions
+            tc.verifyLessThan(pf.dep_rms, 2e-3, sprintf( ...
+                ['cone-convergence departure %.3g mm RMS -- the ' ...
+                 'stop-plane binning has degraded'], pf.dep_rms));
+            % -- B: supervisor flow, no stop_elt
+            out = macos.dw_dx_multi(m, rxh, 'field_x_rad', fov, ...
+                'field_y_rad', fov, 'grid', '3x1', 'elts', 8, ...
+                'dofs', 3, 'ngridpts', 33, ...
+                'reset_xp_method', 'pupil_find');
+            tc.assertTrue(isfield(out, 'pupil_find') && ...
+                          ~isempty(out.pupil_find), ...
+                ['supervisor pupil_find metrics missing -- the ' ...
+                 'no-stop_elt path did not run the finder']);
+        end
+
+        function test_default_scope_is_field_and_matches_fex(tc)
+        % THE default-flip gate (Dave 2026-08-27, the w_nom audit).
+        % pf_scope defaulted to 'config' -- one frozen field-set-wide
+        % sphere, which left the full per-field tilt in w_nom (0.64 mm
+        % RMS at the +-1' zoom corners; Luis's nominal-OPD exhibit) AND
+        % leaked 3-5% into the rigid-body dwdx columns (poke-remapped
+        % rays sample the frame-tilt gradient, error proportional to
+        % the retained tilt).  The default is now 'field': pupil_find
+        % with NO pf_scope must be chief-tied per combo -- nominals ==
+        % fex (measured 4e-11 mm) and columns == fex (measured 1e-6).
+            m = macos.Session(512);
+            base = {'field_x_rad', tc.FOV, 'field_y_rad', tc.FOV, ...
+                    'grid', '3x1', 'elts', 24, 'dofs', 3, ...
+                    'stop_elt', 25, 'ngridpts', 41};
+            opf = macos.dw_dx_multi(m, tc.rx, base{:}, ...
+                'reset_xp_method', 'pupil_find');      % NO pf_scope
+            tc.verifyEqual(opf.pf_scope, 'field', ...
+                'the default pf_scope must be ''field'' (2026-08-27 flip)');
+            ofx = macos.dw_dx_multi(m, tc.rx, base{:}, ...
+                'reset_xp_method', 'fex');
+            dmax = 0;
+            for k = 1:numel(opf.per_field_w_nom_2d)
+                dmax = max(dmax, max(abs(opf.per_field_w_nom_2d{k} - ...
+                    ofx.per_field_w_nom_2d{k}), [], 'all'));
+            end
+            tc.verifyLessThan(dmax, 1e-8, sprintf( ...
+                ['default pupil_find nominal differs from fex by ' ...
+                 '%.3g mm -- the per-combo chief-tied reset is not in ' ...
+                 'effect (config scope leaves ~0.45 mm here)'], dmax));
+            ok = all(isfinite([opf.dwdxall, ofx.dwdxall]), 2);
+            rd = norm(opf.dwdxall(ok,1) - ofx.dwdxall(ok,1)) / ...
+                 norm(ofx.dwdxall(ok,1));
+            tc.verifyLessThan(rd, 1e-4, sprintf( ...
+                ['default pupil_find dwdx column differs from fex by ' ...
+                 '%.3g relative -- the frozen-reference frame term is ' ...
+                 'leaking into the Jacobian (config scope measures ' ...
+                 '3-5%%)'], rd));
+        end
+
+        function test_sequential_configs_match_a_fresh_single_config_run(tc)
+        % THE round-trip drift gate (2026-08-27 w_nom audit).  Every
+        % pupil_find guard placement runs a save_rx -> load_rx round
+        % trip; the config snapshot/undo then writes PRE-round-trip pose
+        % onto the POST-round-trip state, so a sequential multi-config
+        % call compounded one quantization step per configuration:
+        % config c's w_nom differed from a fresh single-config run by
+        % (c-1) x 1.12e-7 mm at the +-1' corners (measured pre-fix,
+        % ng 63 / model 128 / 5 configs), while stitch_configs_ promises
+        % the two paths are "identical by construction".  Fixed by
+        % reloading the Rx fresh at the top of every configuration after
+        % the first.  Config scope is used here because its retained
+        % tilt is what makes the drift visible; the bound sits two
+        % orders under the pre-fix defect and two above trace noise
+        % (3e-11).  fex measures drift-free with no reload (control).
+            T2 = table(["zoomA"; "zoomB"], [tc.TILT; -tc.TILT], ...
+                'VariableNames', {'name', '25.Ry'});
+            T1 = table("zoomB", -tc.TILT, ...
+                'VariableNames', {'name', '25.Ry'});
+            m = macos.Session(512);
+            base = {'field_x_rad', tc.FOV, 'field_y_rad', tc.FOV, ...
+                    'grid', '3x1', 'elts', 24, 'dofs', 3, ...
+                    'stop_elt', 25, 'ngridpts', 41, ...
+                    'reset_xp_method', 'pupil_find', ...
+                    'pf_scope', 'config'};
+            oseq = macos.dw_dx_multi(m, tc.rx, base{:}, ...
+                'configs', macos.design.configs_from_table(T2));
+            oone = macos.dw_dx_multi(m, tc.rx, base{:}, ...
+                'configs', macos.design.configs_from_table(T1));
+            dmax = 0;
+            for k = 1:size(oseq.per_field_w_nom_2d, 2)
+                dmax = max(dmax, max(abs(oseq.per_field_w_nom_2d{2,k} - ...
+                    oone.per_field_w_nom_2d{1,k}), [], 'all'));
+            end
+            tc.verifyLessThan(dmax, 1e-9, sprintf( ...
+                ['config 2 harvested in sequence differs from the same ' ...
+                 'config harvested alone by %.3g mm -- the pupil_find ' ...
+                 'save/load round trip is compounding across the ' ...
+                 'configuration loop again'], dmax));
+        end
+
+        function test_field_scope_probe_delta_is_not_load_bearing(tc)
+        % The mini-cone half-width is a conditioning knob, not a result
+        % knob: the fitted vertex must be stable under a 2x change.
+        % Measured: 5.9e-5 mm between delta and 2*delta at the healthy
+        % default (0.15x the field half-width).
+            m = macos.Session(512);                          %#ok<NASGU>
+            nE0 = macos.load_rx(tc.rx);
+            macos.set_src_sampling(41);
+            macos.stop(25);
+            macos.modify();
+            tmp = fullfile(tc.od, 'pf_delta_gate.in');
+            macos.save_rx(tmp);
+            d0 = 0.15 * tc.FOV;
+            V = zeros(2, 3);
+            for j = 1:2
+                [gx, gy] = ndgrid([-1 0 1] * d0 * j);
+                pf = pupil_find(tmp, [gx(:), gy(:)], 'ep_elt', 25, ...
+                    'stop_elt', 25, 'xp_elt', nE0 - 1, ...
+                    'place', false, 'init', false);
+                V(j, :) = pf.vtx;
+            end
+            tc.verifyLessThan(norm(V(1,:) - V(2,:)), 1e-2, sprintf( ...
+                ['fitted vertex moved %.3g mm under a 2x probe ' ...
+                 'half-width change -- the cone fit is ' ...
+                 'ill-conditioned at this delta'], norm(V(1,:) - V(2,:))));
+        end
+    end
+
+    methods
+        function F = fieldset(tc)
+        % The stock 5-field set (center + 4 corners), as (K x 2) rad.
+            F = [0 0; -tc.FOV tc.FOV; tc.FOV tc.FOV; ...
+                 -tc.FOV -tc.FOV; tc.FOV -tc.FOV];
+        end
+    end
+end

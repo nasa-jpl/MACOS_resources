@@ -1,0 +1,32 @@
+==================== DESIGN REPORT ====================
+ family TMA | D = 6.000 m | lambda = 0.5 um | 6 elements
+   M1         R =   38.4000 m  K =  +0.00000  Vpt=[  0.000   0.000   0.000]
+   M2         R =    3.8000 m  K =  +0.00000  Vpt=[  0.000  -3.399 -17.167]
+   M3         R =    2.0000 m  K =  +0.00000  Vpt=[  0.000  -3.546  -3.167]
+   FP_return  Return     (flat)        Vpt=[ -0.000  -3.513  -3.870]
+   ExitPupil  R =    2.1071 m  K =  +0.00000  Vpt=[  0.048  -2.922  -5.892]
+   FP         FocalPlane (flat)        Vpt=[ -0.000  -3.513  -3.870]
+ -- first order --
+   EFL 152.33 m | f/# at M1 3.20 | f/# at FP 25.39
+   plate scale 738.5 um/arcsec | lambda/D 17.19 mas
+ -- field performance (RMS WFE about the field center) --
+   bias +0.0' |    field       raw     -tilt    Strehl
+          center     0.006     0.005     0.999
+      0.25' ring     0.020     0.020     0.985
+      0.35' ring     0.041     0.040     0.938
+      0.50' ring     0.082     0.082     0.770
+   (Strehl = far-field peak / unaberrated-aperture peak, exact coherent sum over the
+    EP-referenced OPD, tilt removed; worst ring point.  PSF products: INT at the FP.)
+ -- focal plane --
+   FP tilt 0.044 deg wrt the arriving chief ray
+   aligned from 25 field foci: defocus removed -0.004 mm; field-curvature
+   sag -51.4 to +53.4 um (rms 34.6 um); best-focus blur 3.22e-07 m (center)
+ -- exit pupil (add_pupil / FEX) --
+   2.107 m from the image, at [  0.048  -2.922  -5.892] (elt 5)
+ -- packaging / clearance --
+   shroud 1.38 x D | train length 17.37 m
+   clearance: body-in-beam at M3 (FP vs its own pupil-retrace legs excluded)
+   M1         AOI   5.7 deg (spread 8.9 deg across the beam)
+   M2         AOI   6.3 deg (spread 9.9 deg across the beam)
+   M3         AOI   7.7 deg (spread 2.1 deg across the beam)
+=======================================================

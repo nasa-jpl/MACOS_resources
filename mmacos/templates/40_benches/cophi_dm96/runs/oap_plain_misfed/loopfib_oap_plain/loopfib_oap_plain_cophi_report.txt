@@ -1,0 +1,9 @@
+
+=== COPHI loop (oap rig, the plain splitter): 34.7 min ===
+  ss / bias / sig_n: the record's metric (rms over lit, piston included) | the same PISTON-FREE
+  camera      row      estimator       ss     bias    sig_n |    ss_pf  bias_pf   sig_pf  cycle s
+  baseline    fiber1   onestep       5.58     1.03     9.51 |     4.12     0.94     6.97    16.00
+  baseline    fiber1   converged     5.61     1.03     9.60 |     4.17     0.94     7.09    16.00
+  baseline    fiber3   onestep      14.94     2.02    25.43 |     9.79     1.56    16.44    16.00
+  baseline    fiber3   converged    15.00     2.02    25.57 |     9.87     1.56    16.65    16.00
+wall 34.7 min

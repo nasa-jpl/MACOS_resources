@@ -132,6 +132,13 @@ arguments
     opts.name (1,1) string = ""
     opts.visible (1,1) logical = true
     opts.verbose (1,1) logical = true
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                    % wavefront piston, BOTH sides of every
+                                    % poke (the harvested columns via
+                                    % macos.piston and the engine truth,
+                                    % each over the common pupil): 'remove'
+                                    % (default) | 'keep'.  PLAN 1.2 (www),
+                                    % Dave 2026-10-27
 end
 assert(isfile(seg_in), 'run_compare: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_compare: Hx sidecar %s not found', opts.hx);
@@ -169,6 +176,12 @@ end
 assert(isfile(met_rx), 'run_compare: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+opd_ref = harvest_opd_ref_(J, 'run_compare');
+for f_ = {'ox', 'oz', 'og'}                  % opts.piston on every leg (1.2 (www))
+    if ~isempty(J.(f_{1})), J.(f_{1}) = macos.piston(J.(f_{1}), opts.piston); end
+end
+rm_piston = strcmp(opts.piston, 'remove');
+J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 chansel = opts.channels;
 if isscalar(chansel) && chansel == "auto"
@@ -240,11 +253,21 @@ DOFN = {'Rx', 'Ry', 'Rz', 'Tx', 'Ty', 'Tz'};
 old = cd(out_dir);  restore = onCleanup(@() cd(old));
 m = macos.Session(opts.model_size);
 m.load_rx(char(met_rx));
+set_opd_ref_(m, opd_ref);                     % the harvest's reference (1.2 (kkk))
 if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
 cbm = m.cbm();
 for s = 1:nseg
     dedx(:, (s-1)*6+(1:3)) = dedx(:, (s-1)*6+(1:3)) * cbm;
 end
+% dwdx units adapter (f5d648f, 2026-08-26): the supervisors emit the
+% Jacobian in BaseUnits-OPD per (rad | SI m); this runner compares in SI
+% METRES (dW_t = (Wp-Wb)*cbm below), so scale the rigid-body prediction
+% columns ONCE here -- the same adapter the z/grid legs already apply at
+% their poke sites (*cbm).  Metre decks: cbm==1, no-op.  Its absence on a
+% mm deck read as w_rel = 1/cbm - 1 = 999 (tRunCompare, triaged
+% 2026-08-28 -- the f5d648f "no regen needed" sweep judged only the
+% metre-deck consumers).
+Bc = Bc * cbm;
 if isfield(M, 'dedx') && isequal(size(M.dedx), size(dedx)) ...
         && max(abs(dedx(:) - M.dedx(:))) > 1e-9 * max(abs(dedx(:)))
     warning('run_compare:stale_dedx', ...
@@ -259,7 +282,7 @@ Wb = m.opd();                                 % phase baseline (met Rx)
 assert(isequal(size(Wb), size(W0j)), ['run_compare: engine OPD canvas ' ...
     '%dx%d vs jac %dx%d -- ngridpts must match the jac harvest'], ...
     size(Wb, 1), size(Wb, 2), size(W0j, 1), size(W0j, 2));
-maskb = Wb ~= 0;
+maskb = m.opd_mask();                         % not Wb ~= 0: a chief-referenced ray can read 0
 nover = nnz(maskb & (W0j == 0)) + nnz(~maskb & (W0j ~= 0));
 l0 = macos.met();
 assert(l0.n == nl, ...
@@ -267,6 +290,8 @@ assert(l0.n == nl, ...
 l0b = l0.l;
 say('    baseline: %d OPD pixels (jac mask mismatch %d px), %d met beams, %d edge rows\n', ...
     nnz(maskb), nover, l0.n, es.nmeas);
+say('    OPD reference: %s (the harvest''s), piston %s on both sides\n', ...
+    opd_ref, J.ox.opd_piston);
 
 %% -- [2] the poke loop: x, then z, then grid --------------------------
 fdir = pth("_frames");
@@ -386,6 +411,7 @@ if any(chansel == "grid")
     % dw_dgrid_multi harvest does, or the leftover state biases every
     % grid FD at the ~20% level (caught 2026-07-19)
     m.load_rx(char(grx));
+    set_opd_ref_(m, opd_ref);
     if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
     gch = macos.channels.grid_channels(m, sgb);
     names_g = cellfun(@(c) c.name(), gch, 'UniformOutput', false);
@@ -395,7 +421,7 @@ if any(chansel == "grid")
     W0g = og.per_field_w_nom_2d{icg};
     wf_elt = m.num_elt() - 1;                 % new engine context
     m.trace(wf_elt);
-    Wb = m.opd();  maskb = Wb ~= 0;
+    Wb = m.opd();  maskb = m.opd_mask();
     l0b = [];                                 % no met blocks on the grid Rx
     assert(isequal(size(W0g), size(Wb)), ...
         'run_compare: dwdgrid canvas %dx%d vs engine %dx%d', ...
@@ -468,7 +494,9 @@ end
 assert(~any(ismember(bodies(control), nochan)), ...
     'run_compare: a control body has no dwdx channels -- not actuatable');
 ucols = reshape((control(:)-1)*6 + (1:6), 1, []);
-dwdu = ox.dwdxall(:, colmap(sort(ucols)));
+% exported in SI-metre OPD per (rad | m) -- this runner's internal
+% convention (the *cbm adapter above); supervisor-native is BaseUnits
+dwdu = ox.dwdxall(:, colmap(sort(ucols))) * cbm;
 say('    control u = bodies [%s] -> dwdu %d x %d (multi-field stack) for the simulator\n', ...
     num2str(bodies(control)), size(dwdu, 1), size(dwdu, 2));
 
@@ -497,7 +525,7 @@ say('next stage: run_simulator (single-step static estimator + controller over a
         ip = ip + 1;
         ch.apply(poke);
         m.trace(wf_elt);
-        Wp = m.opd();
+        Wp = m.opd();  maskp = m.opd_mask();
         if ~isempty(l0b)
             dl_t = macos.met().l - l0b;
         else
@@ -505,9 +533,13 @@ say('next stage: run_simulator (single-step static estimator + controller over a
         end
         ch.restore();
         dW_t = nan(size(Wb));
-        mk = maskb & (Wp ~= 0);
+        mk = maskb & maskp;
         dW_t(mk) = (Wp(mk) - Wb(mk)) * cbm;
         cm = isfinite(dW_t) & isfinite(dW_l);
+        if rm_piston && any(cm(:))                % both sides, same pixels
+            dW_t(cm) = dW_t(cm) - mean(dW_t(cm));
+            dW_l(cm) = dW_l(cm) - mean(dW_l(cm));
+        end
         wt = dW_t(cm);  wl = dW_l(cm);
         r = struct('chan', chan, 'label', lbl, 'body', body, 'dof', dof, ...
             'poke', poke, ...
@@ -713,6 +745,37 @@ end
 for f = {'dedx', 'dldx', 'bodies', 'seg', 'met_in'}
     assert(isfield(M, f{1}), 'run_compare: met struct lacks %s', f{1});
 end
+end
+
+function ref = harvest_opd_ref_(J, who)
+%HARVEST_OPD_REF_  The OPD reference the Jacobian was harvested at (the
+%   dw_*_multi stamp, 1.2 (kkk)): the engine truth must be read at the same
+%   one (notes/opd_reference.md, the one-reference rule).  A harvest that
+%   predates the stamp warns and is read at the engine's default, 'chief'.
+%   Legs that disagree warn; the rigid-body leg's reference is used.
+ref = '';
+if isfield(J.ox, 'opd_ref'), ref = char(J.ox.opd_ref); end
+if isempty(ref)
+    warning([who ':opd_ref_unrecorded'], ['%s: the jac records no OPD ' ...
+        'reference (harvested before 2026-10-26) -- reading the engine at ' ...
+        'its default, ''chief''; re-harvest if it ran at ''mean'''], who);
+    ref = 'chief';
+end
+for leg = {J.oz, J.og}
+    L = leg{1};
+    if ~isempty(L) && isfield(L, 'opd_ref') && ~strcmp(L.opd_ref, ref)
+        warning([who ':opd_ref_mismatch'], ['%s: dwdx harvested at ' ...
+            '''%s'' but a dwdz/dwdgrid leg at ''%s'' -- reading the engine ' ...
+            'at ''%s''; regenerate the Jacobian with one reference'], ...
+            who, ref, L.opd_ref, ref);
+    end
+end
+end
+
+function set_opd_ref_(m, ref)
+%SET_OPD_REF_  Put the loaded deck on REF (a load restores the deck's own);
+%   only when it differs, since opd_ref_set dirties the cached trace.
+if ~strcmp(m.opd_ref(), ref), m.opd_ref(ref); end
 end
 
 function J = jac_all_(jac)

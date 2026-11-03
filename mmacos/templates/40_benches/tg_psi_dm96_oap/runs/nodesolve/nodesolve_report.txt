@@ -1,0 +1,31 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 512, grid 256x0.42 ===
+uniform scale s = 1.7143; tag "nodesolve"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 22.39 deg (end bodies 6.88, node 22.39) -> BS_AOI = 23 deg (solved)
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   231 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   190 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   176 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  323.7 mm, margin +182.3 mm (spec >= 25)
+  ref arm vs DM beam          separation  323.7 mm, margin +212.3 mm (spec >= 25)
+  camera leg vs source beam   separation  323.7 mm, margin +222.3 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  51.4 -> separation  266.3 mm, margin +155.4 mm (spec >= 25)
+  input polarizer             d  247.1, part r  56.4 -> separation  255.9 mm, margin +140.1 mm (spec >= 25)
+  compensator                 d  200.0, part r  56.4 -> separation  143.9 mm, margin  +28.0 mm (spec >= 25)
+  output QWP                  d  160.0, part r  56.4 -> separation  165.7 mm, margin  +49.8 mm (spec >= 25)
+  analyzer                    d  170.0, part r  56.4 -> separation  176.0 mm, margin  +60.2 mm (spec >= 25)
+  focuser L2                  d  205.0, part r  51.4 -> separation  212.3 mm, margin +101.4 mm (spec >= 25)
+  0 of 6 node parts under the 25 mm margin; beam radius 51.4, mount +8
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist  32.5 cyc/pup  margin  0.7x (need >= 2)
+  DM surface grid 2.38 px/actuator             (need >= 3)
+  diffraction grid 512^2 padding  7.9x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
+Stage B -- lens rig built (BS_AOI 23); emitted nodesolve_{test,ref}.in
+
+
+wrote nodesolve_report.txt + nodesolve.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/nodesolve

@@ -1,0 +1,34 @@
+==== run_sensitivities: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/jwst_ote_designc.in ====
+field set: center + 4 corners at +-0.0002909 rad
+OPD conventions: orient=raw sign=opl opd_ref=mean
+segments: 19
+
+configurations: 5
+  z0         (no setters -- nominal state)
+  zUL        perturb elt 25 rotation [-0.0001454 0.0001454 0] translation [0 0 0] frame local
+  zUR        perturb elt 25 rotation [0.0001454 0.0001454 0] translation [0 0 0] frame local
+  zLL        perturb elt 25 rotation [-0.0001454 -0.0001454 0] translation [0 0 0] frame local
+  zLR        perturb elt 25 rotation [0.0001454 -0.0001454 0] translation [0 0 0] frame local
+[dwdsurf] per-element Kr/Kc...
+    [checkpoint] dwdsurf / z0 -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdsurf/dwdsurf_z0.mat
+    [checkpoint] dwdsurf / zUL -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdsurf/dwdsurf_zUL.mat
+    [checkpoint] dwdsurf / zUR -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdsurf/dwdsurf_zUR.mat
+    [checkpoint] dwdsurf / zLL -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdsurf/dwdsurf_zLL.mat
+    [checkpoint] dwdsurf / zLR -> /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdsurf/dwdsurf_zLR.mat
+    dwdsall 54595 x 42
+
+[conditioning] finite rows only:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdsurf  54595x42         40  2.057e+02  3.165e-04  6.499e+05
+    dwdsurf  cfg z0       10919x42         40  9.200e+01  1.411e-04  6.519e+05
+    dwdsurf  cfg zUL      10919x42         40  9.200e+01  1.405e-04  6.548e+05
+    dwdsurf  cfg zUR      10919x42         40  9.200e+01  1.418e-04  6.489e+05
+    dwdsurf  cfg zLL      10919x42         40  9.200e+01  1.421e-04  6.474e+05
+    dwdsurf  cfg zLR      10919x42         40  9.200e+01  1.419e-04  6.483e+05
+    dwdsurf  segment-only: 54595x32  cond+ Inf
+per-configuration spectra: dwdsurf_5zoom_5fov_jwst_ote_designc_svspec_configs.png
+
+figures: dwdsurf_5zoom_5fov_jwst_ote_designc_opdall/svspec + 64 dW pages in dwdsurf_5zoom_5fov_jwst_ote_designc_pages/ (>= 3.5 in per OPD map, 1.2 in per field tile) -- index: dwdsurf_5zoom_5fov_jwst_ote_designc_pages_index.txt
+
+Done: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/dwdsurf_5zoom_5fov_jwst_ote_designc_sens.mat + dwdsurf_5zoom_5fov_jwst_ote_designc_sens_report.txt
+checkpoints pruned: /home/dcr/dev/MACOS_resources/mmacos/templates/50_sensitivities/zoom_5x5/_resume_dwdsurf

@@ -259,6 +259,13 @@ arguments
     opts.name (1,1) string = ""
     opts.visible (1,1) logical = true
     opts.verbose (1,1) logical = true
+    opts.piston (1,:) char {mustBeMember(opts.piston, {'remove','keep'})} = 'remove'
+                                    % wavefront piston, BOTH sides (the
+                                    % harvested columns via macos.piston and
+                                    % the engine truth): 'remove' (default;
+                                    % an imager's corrector cannot see it) |
+                                    % 'keep' (an interferometer reads it).
+                                    % PLAN 1.2 (www), Dave 2026-10-27
 end
 assert(isfile(seg_in), 'run_simulator: %s not found', seg_in);
 assert(isfile(opts.hx), 'run_simulator: Hx sidecar %s not found', opts.hx);
@@ -294,6 +301,10 @@ end
 assert(isfile(met_rx), 'run_simulator: met Rx %s not found', met_rx);
 nl = size(dldx, 1);
 J = jac_all_(opts.jac);
+J = piston_(J, opts.piston);               % per-field piston per opts.piston, every leg (1.2 (www))
+opd_ref = harvest_opd_ref_(J, 'run_simulator');
+rm_piston = strcmp(opts.piston, 'remove');
+J.ox = macos.dwdx_trans_per_metre(J.ox);   % per SI metre of translation (runner convention); identity on a pre-2026-10-06 .mat
 ox = J.ox;
 icf = find(strcmp(ox.field_names, 'C'), 1);
 assert(~isempty(icf), 'run_simulator: jac has no center field ''C''');
@@ -358,6 +369,8 @@ say(['[0] %d bodies (%d segments), T = %d frames, dt = %g s\n' ...
      '    states: x %dx%d%s%s;  sim Rx %s\n'], nb, nseg, T, dt, ...
     size(X), iif_(use_z, sprintf(', z %dx%d', size(Z)), ''), ...
     iif_(use_g, sprintf(', g %dx%d', size(G)), ''), sim_rx);
+say('    OPD reference %s (the harvest''s), piston %s on both sides\n', ...
+    opd_ref, J.ox.opd_piston);
 if ~isempty(nochan)
     say('    NOTE: no dwdx channels for element(s) %s -- zero linear w columns\n', ...
         num2str(nochan));
@@ -367,11 +380,19 @@ end
 old = cd(out_dir);  restore = onCleanup(@() cd(old));
 m = macos.Session(opts.model_size);
 m.load_rx(char(met_rx));
+set_opd_ref_(m, opd_ref);                     % the harvest's reference (1.2 (kkk))
 if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
 cbm = m.cbm();
 for s = 1:nseg
     dedx(:, (s-1)*6+(1:3)) = dedx(:, (s-1)*6+(1:3)) * cbm;
 end
+% dwdx units adapter (f5d648f): supervisors emit BaseUnits-OPD; this
+% simulator works in SI metres (dW maps *cbm), so scale the rigid-body
+% columns once -- matches the dwdz/dwdg *cbm at their use sites and
+% run_compare's identical adapter.  Metre decks: no-op.  Absence on a
+% mm deck under-commanded u by 1/cbm (tRunCompare time-history fail,
+% triaged 2026-08-28).
+Bc = Bc * cbm;
 gmet = macos.met_geom();
 dmz = [];  dmg = [];
 if use_z || use_g
@@ -403,7 +424,7 @@ n_elt = m.num_elt();
 wf_elt = n_elt - 1;
 psf_elt = opts.psf_elt;  if psf_elt < 1, psf_elt = n_elt; end
 m.trace(wf_elt);
-Wb = m.opd();  maskb = Wb ~= 0;
+Wb = m.opd();  maskb = m.opd_mask();   % not Wb ~= 0 (chief reference)
 engine_l = false;
 l0b = [];
 if ~use_g
@@ -489,7 +510,7 @@ if opts.wfc
     load_sim_rx_();
     m.trace(wf_elt);
     Wb2 = m.opd();
-    assert(isequal(Wb2 ~= 0, maskb), ...
+    assert(isequal(m.opd_mask(), maskb), ...
         'run_simulator: baseline mask changed across the pass-2 reload');
     Wb = Wb2;
     % Gauss-Newton refinements: at um-to-mm misalignments the engine's
@@ -666,8 +687,10 @@ for t = 0:T
             dI = dWc - dWc1;
             DLi = dWl_cor{t} - dWl_cor{1};
             mki = mkc & isfinite(dWc1);
-            dI(mki) = dI(mki) - mean(dI(mki));
-            DLi(mki) = DLi(mki) - mean(DLi(mki));
+            if rm_piston
+                dI(mki) = dI(mki) - mean(dI(mki));
+                DLi(mki) = DLi(mki) - mean(DLi(mki));
+            end
             w_rel = rms_(dI(mki) - DLi(mki)) / max(rms_(dI(mki)), eps);
         end
         lm = Mbar(1:nl, t);  em = Mbar(nl+1:end, t);
@@ -760,6 +783,7 @@ say('\nartifacts: %s_sim.mat, frames in %s_sim_frames/%s, this report\n', ...
 % ---- nested: (re)load the sim Rx and rebuild the state channels -------
     function load_sim_rx_()
         m.load_rx(char(sim_rx));
+        set_opd_ref_(m, opd_ref);
         if ~isempty(opts.ngridpts), m.set_src_sampling(opts.ngridpts); end
         chx = {};  chz = {};  chg = {};
         xrows = find(any(X ~= 0, 2)).';
@@ -801,9 +825,9 @@ say('\nartifacts: %s_sim.mat, frames in %s_sim_frames/%s, this report\n', ...
         m.trace(wf_elt);
         W_ = m.opd();
         dW = nan(size(Wb));
-        mk_ = maskb & (W_ ~= 0);
+        mk_ = maskb & m.opd_mask();
         dW(mk_) = (W_(mk_) - Wb(mk_)) * cbm;
-        dW(mk_) = dW(mk_) - mean(dW(mk_));        % piston-removed WFE
+        if rm_piston, dW(mk_) = dW(mk_) - mean(dW(mk_)); end   % opts.piston
     end
 
 % ---- nested: a dW map as an m2v-ordered vector on the jac pixels ------
@@ -1030,6 +1054,50 @@ end
 for f = {'dedx', 'dldx', 'bodies', 'seg', 'met_in'}
     assert(isfield(M, f{1}), 'run_simulator: met struct lacks %s', f{1});
 end
+end
+
+function J = piston_(J, mode)
+%PISTON_  Apply opts.piston to every harvested leg (macos.piston: per
+%   field, over each field's pupil; PLAN 1.2 (www), Dave 2026-10-27).
+%   Under 'remove' the engine truth (engine_delta_) is piston-removed too,
+%   under 'keep' neither side is -- the two sides always agree on piston,
+%   so a chief and a mean harvest give the same simulation under 'remove'.
+for f = {'ox', 'oz', 'og'}
+    if isfield(J, f{1}) && ~isempty(J.(f{1}))
+        J.(f{1}) = macos.piston(J.(f{1}), mode);
+    end
+end
+end
+
+function ref = harvest_opd_ref_(J, who)
+%HARVEST_OPD_REF_  The OPD reference the Jacobian was harvested at (the
+%   dw_*_multi stamp, 1.2 (kkk)): the engine truth must be read at the same
+%   one (notes/opd_reference.md, the one-reference rule).  A harvest that
+%   predates the stamp warns and is read at the engine's default, 'chief'.
+%   Legs that disagree warn; the rigid-body leg's reference is used.
+ref = '';
+if isfield(J.ox, 'opd_ref'), ref = char(J.ox.opd_ref); end
+if isempty(ref)
+    warning([who ':opd_ref_unrecorded'], ['%s: the jac records no OPD ' ...
+        'reference (harvested before 2026-10-26) -- reading the engine at ' ...
+        'its default, ''chief''; re-harvest if it ran at ''mean'''], who);
+    ref = 'chief';
+end
+for leg = {J.oz, J.og}
+    L = leg{1};
+    if ~isempty(L) && isfield(L, 'opd_ref') && ~strcmp(L.opd_ref, ref)
+        warning([who ':opd_ref_mismatch'], ['%s: dwdx harvested at ' ...
+            '''%s'' but a dwdz/dwdgrid leg at ''%s'' -- reading the engine ' ...
+            'at ''%s''; regenerate the Jacobian with one reference'], ...
+            who, ref, L.opd_ref, ref);
+    end
+end
+end
+
+function set_opd_ref_(m, ref)
+%SET_OPD_REF_  Put the loaded deck on REF (a load restores the deck's own);
+%   only when it differs, since opd_ref_set dirties the cached trace.
+if ~strcmp(m.opd_ref(), ref), m.opd_ref(ref); end
 end
 
 function J = jac_all_(jac)

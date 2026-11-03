@@ -1,0 +1,58 @@
+dyson5 tA -- TMA stage A: the eccentric section of the TELECENTRIC Korsch parent, first order before figure (2026-10-04 17:43)
+CONVENTIONS: f spec 330.0 mm (pixel 18 um / IFOV 54.55 urad), D 183.3 mm (F/1.8), strip +-2.344 deg (1500 px), lambda 633 nm, model 256.
+  parent: tma_layout(D, 1.0, F, 'secondary_mag', 3.5, 'int_focus_m', -0.125 D, 'telecentric', true) -- M1 the stop, M3 between
+  M2 and M1 (the virtual-intermediate-image Korsch).  Section: Telescope.set_field_bias(bias) + set_offaxis('none','dist',d).
+  THE THREE NUMBERS (engine, the chief ray per strip field): SPREAD = max angle of a field's chief to the centre chief (deg;
+  0 = telecentric); PUPIL = where the edge chief crosses the centre chief's line, m from the FP hit (+ beyond the FP; Inf =
+  telecentric); PLATE = traced scale, local (+-0.02 deg about the bias) / to the strip edge (offset / tan).  TILT = the common
+  angle of the section's chiefs to the parent FP normal (= atan(d/f) on the parent; about the slit axis, harmless).
+  CLEAR = Telescope.check_clipping (body-in-beam + footprint margin), min margin and the element.  SPOT = best-focus rms
+  radius per field (step 1's helper), um.
+
+PARENT: R = [0.3667 0.0998 0.1667] m, t = [0.1477 0.0460] m, M3 z -0.1016 m, EFL 0.3300 m, paraxial chief exit slope -1.3e-15
+
+SCAN (as is, no figure):
+    bias dec mm | clear    margin at    |  spread  pupil m |    plate     edge |   tilt
+    -8.0     80 | PASS       +0.8 M2    |   2.870   -0.329 |    407.6    409.7 |  21.34
+    -8.0    100 | PASS      +17.6 M2    |   2.904   -0.334 |    419.7    422.7 |  24.06
+    -8.0    120 | PASS      +29.3 FP    |   2.921   -0.340 |    432.0    436.3 |  26.54
+    -8.0    140 | PASS      +33.7 FP    |   2.921   -0.348 |    443.9    450.1 |  28.77
+    -8.0    160 | PASS      +37.9 FP    |   2.900   -0.356 |    455.0    463.9 |  30.71
+    -6.0     80 | FAIL      -12.2 M2    |   1.876   -0.457 |    380.4    384.7 |  16.14
+    -6.0    100 | PASS       +3.9 M2    |   1.755   -0.486 |    385.4    390.9 |  18.55
+    -6.0    120 | PASS      +19.6 M3    |   1.597   -0.523 |    389.5    396.4 |  20.79
+    -6.0    140 | PASS      +26.8 M3    |   1.401   -0.568 |    392.3    400.9 |  22.90
+    -6.0    160 | PASS      +31.1 FP    |   1.173   -0.605 |    393.5    404.2 |  24.93
+    -5.0     80 | FAIL      -18.1 M2    |   1.359   -0.585 |    366.3    371.8 |  14.54
+    -5.0    100 | FAIL       -2.6 M2    |   1.184   -0.647 |    368.5    375.2 |  17.11
+    -5.0    120 | PASS      +11.3 M3    |   0.975   -0.722 |    369.7    377.8 |  19.61
+    -5.0    140 | PASS      +17.6 M3    |   0.748   -0.752 |    369.8    379.4 |  22.11
+    -5.0    160 | PASS      +24.3 M3    |   0.551   -0.383 |    368.8    379.9 |  24.65
+    -4.0     80 | FAIL      -18.4 M2    |   0.887   -0.814 |    353.2    359.8 |  13.68
+    -4.0    100 | FAIL       -9.6 M2    |   0.686   -0.953 |    353.7    361.3 |  16.53
+    -4.0    120 | PASS       +3.9 M3    |   0.472   -1.010 |    353.3    362.0 |  19.42
+    -4.0    140 | PASS       +9.9 M3    |   0.317   +0.196 |    352.4    362.1 |  22.37
+    -4.0    160 | PASS      +16.3 M3    |   0.421   +1.853 |    351.0    361.6 |  25.44
+    -3.0     80 | FAIL      -19.2 M2    |   0.496   -1.339 |    342.6    349.7 |  13.44
+    -3.0    100 | FAIL      -16.3 M2    |   0.297   -1.804 |    342.3    350.1 |  16.61
+    -3.0    120 | FAIL       -2.4 M3    |   0.202   +1.174 |    341.7    350.2 |  19.85
+    -3.0    140 | PASS       +3.3 M3    |   0.342   +3.216 |    341.0    350.0 |  23.19
+    -3.0    160 | PASS       +4.7 M2    |   0.483   +1.683 |    340.4    349.8 |  26.65
+    -2.0     80 | FAIL      -19.9 M2    |   0.227   -3.279 |    335.2    342.4 |  13.60
+    -2.0    100 | FAIL      -21.0 M2    |   0.121  -14.332 |    335.0    342.5 |  17.02
+    -2.0    120 | FAIL       -9.1 M2    |   0.226   +4.007 |    334.8    342.6 |  20.51
+    -2.0    140 | FAIL       -5.8 M2    |   0.326   +1.922 |    334.9    342.8 |  24.08
+    -2.0    160 | FAIL       -6.4 M2    |   0.482   +1.261 |    335.5    343.2 |  27.73
+
+WORKING POINT: bias -3.0 deg, decenter 160 mm -- PASS +4.7 mm (M2); spread 0.483 deg, pupil +1.683 m, plate 340.4 / 349.8 mm (spec 330.0)
+  first-order residual before calibration: plate +3.1 % of spec (the section's local magnification at the bias)
+
+CALIBRATION (parent F/# so the SECTION's local plate scale = spec; the telecentric M3 re-solved each pass):
+  pass 1: parent F/1.7451 (EFL 0.3199 m), R = [0.3667 0.0998 0.1616], t = [0.1477 0.0435] -> plate 329.5 / 338.2 mm, spread 0.513 deg, pupil +1.477 m, PASS +3.7 mm (M2)
+
+LADDER (calibrated parent, bias -3.0 deg, decenter 160 mm; conics only, CALIB WFE over the strip):
+  rung   | clear    margin at    |  spread  pupil m |    plate     edge | best-focus rms spot per field (um)
+  as-is  | PASS       +3.7 M2    |   0.513   +1.477 |    329.5    338.2 | 251.5 306.7 341.4 355.8 341.4 306.7 251.5   (max 355.8 um = 19.8 px)
+         K = [-1.206 -6.439 -15.75]; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_1k5_as-is.in
+  strip  | PASS       +6.3 M3    |   0.879   +0.906 |    340.3    339.9 | 334.5 207.0 135.4 111.6 135.4 207.0 334.5   (max 334.5 um = 18.6 px)
+         K = [-1.135 -3.992 0.2352]; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_1k5_strip.in

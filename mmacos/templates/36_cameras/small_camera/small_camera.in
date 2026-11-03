@@ -1,0 +1,264 @@
+% small_camera.in -- the small dedicated imager of templates/36_cameras/small_camera:
+% a 350 mm, f/10 Ritchey-Chretien camera with a three-surface field corrector and a filter.
+% Derived from ImageDemo.in: the primary's figure removed, the secondary refocused.
+ ChfRayDir= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ ChfRayPos= 0.000000000000000E+00  0.000000000000000E+00  -6.000000000000000E+02
+ zSource=  1d22
+  IndRef=  1d0
+  Extinc=  0d0
+ Wavelen=  7.d-04
+    Flux=  1.093342085D+00
+GridType=  Circular
+Aperture=  3.8d+02
+Obscratn=  0d0
+nGridpts=  33
+   xGrid= -1d0 2.033814221D-09         0d0
+   yGrid= -2.033814221D-09 -1d0        0d0
+    nElt=  13
+
+    iElt=    1
+ EltName= SEC_OBS
+ Element= Obscuring
+ Surface= Conic
+   KrElt= -1d22
+   KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002557400000000E+02
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002557400000000E+02
+  IndRef=   1d0
+  Extinc=   1d22
+    nObs=    2
+ ObsType=   Circle
+  ObsVec=   4.67036d+01 0d0 0d0
+ ObsType=   Rectangle
+  ObsVec=   0d0 1.75d+02 2.39d+01 2.69d+01
+    xObs=   9.896513868D-01 1.434926220D-01 0d0
+  ApType=   Circular
+   ApVec=   1.75d+02 0d0 0d0
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+   iElt=    2
+EltName= SPIDER_2
+Element= Obscuring
+Surface= Conic
+
+         KrElt=   -1d22
+         KcElt=    0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002557399000000E+02
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002557400000000E+02
+        IndRef=    1d0
+        Extinc=    1d22
+          nObs=     1
+       ObsType=    Rectangle
+        ObsVec=    0d0 1.75d+02 2.39d+01 2.69d+01
+          xObs=   -6.190939493D-01 7.853169309D-01 0d0
+        ApType=    Circular
+         ApVec=    1.75d+02 0d0 0d0
+          zElt=    1d22
+      PropType=    Geometric
+       nECoord=    -6
+
+          iElt=    3
+       EltName= SPIDER_3
+       Element= Obscuring
+       Surface= Conic
+         KrElt= -1d22
+         KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002557398000000E+02
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002557400000000E+02
+        IndRef=   1d0
+        Extinc=   1d22
+          nObs=    1
+       ObsType=   Rectangle
+        ObsVec=   0d0 1.75d+02 2.39d+01 2.69d+01
+          xObs= -3.705574375D-01 -9.288095529D-01 0d0
+        ApType=   Circular
+         ApVec=   1.75d+02 0d0 0d0
+          zElt=   1d22
+      PropType=   Geometric
+       nECoord=   -6
+
+          iElt=    4
+       EltName= PRI_MIR
+       Element= Reflector
+ Surface= Conic
+         KrElt= -9.337886403D+02
+         KcElt= -1.009724001D+00
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  -1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  -0.000000000000000E+00
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  -0.000000000000000E+00
+        IndRef=   1d0
+        Extinc=   1d22
+         nObs=     0
+       ApType=    None
+         zElt=    1d22
+
+PropType=   Geometric
+ nECoord=   -6
+
+    iElt=    5
+ EltName= SEC_MIR
+ Element= Reflector
+ Surface= Conic
+   KrElt= -1.565935400D+02
+   KcElt= -1.932283999D+00
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  -1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002541605019488E+02
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  -4.002541605019488E+02
+  IndRef=   1d0
+  Extinc=   1d22
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+    iElt=    6
+ EltName= COR_S1
+ Element= Refractor
+ Surface= Conic
+   KrElt= -4.241546000D+01
+   KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  -1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  3.988054000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  4.260596000000000E+01
+  IndRef=   1.61783d+00
+  Extinc=   0d0
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+    iElt=    7
+ EltName= COR_S2
+ Element= Refractor
+ Surface= Conic
+   KrElt= -3.15595d+01
+   KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  4.138168000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  4.260596000000000E+01
+  IndRef=   1.657863000D+00
+  Extinc=   0d0
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+   iElt=    8
+EltName= COR_S3
+Element= Refractor
+Surface= Conic
+  KrElt= -5.533237600D+02
+
+         KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  4.533138000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  4.260596000000000E+01
+        IndRef=   1d0
+        Extinc=   0d0
+          nObs=    0
+        ApType=   None
+          zElt=   1d22
+      PropType=   Geometric
+       nECoord=   -6
+
+          iElt=    9
+       EltName= FLT_S1
+       Element= Refractor
+       Surface= Conic
+         KrElt= -1d22
+         KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  4.763008000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  4.900000000000000E+01
+        IndRef=   1.535018000D+00
+        Extinc=   0d0
+          nObs=    0
+        ApType=   None
+          zElt=   1d22
+      PropType=   Geometric
+       nECoord=   -6
+
+          iElt=   10
+       EltName= FLT_S2
+       Element= Refractor
+       Surface= Conic
+         KrElt= -1d22
+         KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  5.163058000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  4.900000000000000E+01
+        IndRef=   1d0
+        Extinc=   0d0
+          nObs=    0
+        ApType=   None
+          zElt=   1d22
+      PropType=   Geometric
+       nECoord=   -6
+
+          iElt=   11
+       EltName= IMG_RET
+       Element= Return
+       Surface= Conic
+         KrElt= -1d22
+         KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  5.175758000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  5.175758000000000E+01
+        IndRef=   1d0
+        Extinc=   1d22
+          nObs=    0
+        ApType=   None
+          zElt=   1d22
+      PropType=   Geometric
+       nECoord=   -6
+
+         iElt=    12
+
+ EltName= EXIT_RET
+ Element= Return
+ Surface= Conic
+   KrElt= -6.874662920D+01
+   KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  -1.698904900000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  -1.698904900000000E+01
+  IndRef=   1d0
+  Extinc=   1d22
+    nObs=    0
+  ApType=   None
+    zElt=   6.874662920D+01
+PropType=   FarField
+ nECoord=   -6
+
+    iElt=   13
+ EltName= IMG_PL
+ Element= FocalPlane
+ Surface= Flat
+   KrElt= -1d22
+   KcElt=   0d0
+ psiElt= 0.000000000000000E+00  0.000000000000000E+00  1.000000000000000E+00
+ VptElt= 0.000000000000000E+00  0.000000000000000E+00  5.175758000000000E+01
+ RptElt= 0.000000000000000E+00  0.000000000000000E+00  5.175758000000000E+01
+  IndRef=   1d0
+  Extinc=   1d22
+    nObs=    0
+  ApType=   None
+    zElt=   1d22
+PropType=   Geometric
+ nECoord=   -6
+
+nOutCord=      5
+    Tout=     1d0   0d0   0d0   0d0   0d0   0d0    0d0
+              0d0   1d0   0d0   0d0   0d0   0d0    0d0
+              0d0   0d0   0d0   1d0   0d0   0d0    0d0
+              0d0   0d0   0d0   0d0   1d0   0d0    0d0
+              0d0   0d0   0d0   0d0   0d0   0d0    1d0
+

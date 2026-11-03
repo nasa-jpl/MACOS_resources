@@ -31,8 +31,8 @@ arguments
     type    (1,:) char {mustBeMember(type, ...
                 {'uniform','gaussian','cos','dipole',''})} = ''
     opts.waist  double = []
-    opts.radius (1,1) double {mustBePositive} = 1
-    opts.power  (1,1) double = 1
+    opts.radius double = []
+    opts.power  double = []
 end
 
 % ---- query mode: no type given --------------------------------------
@@ -70,6 +70,13 @@ switch type
         mustBePositive(w);
         p1 = w(1); p2 = w(2);
     case 'cos'
+        % required, as the help says and pymacos beam() enforces (they defaulted
+        % to 1 here; the CLI's radius default is Aperture/2 -- audit 2026-10-23)
+        if isempty(opts.radius) || isempty(opts.power)
+            error('macos:beam:missingCos', ...
+                  'cos beam requires ''radius'' and ''power''.');
+        end
+        mustBePositive(opts.radius);
         p1 = opts.radius; p2 = opts.power;
     % 'uniform' / 'dipole' take no parameters
 end

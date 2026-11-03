@@ -1,0 +1,29 @@
+==================== e2e6m R1 -- the DM-bearing back end
+base deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/../e2e6m/s2_segmented.in
+
+[1] telescope exit: 24 elements, 983/985 rays
+    focus at [0.0000 -3.5128 -3.8697] m, chief along [0.0000 0.2849 -0.9586]
+    feeding f/25.39 -> collimated pupil 0.0473 m at OAP1 f = 1.200 m
+
+[2] bench (metres): 16 elements -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_d040_back.in
+    OAP parents (m): 1.2000 + 7 x 0.9000 (1:1 relays)
+    DM legs: OAP1 -0.25-> DM1 -0.40-> DM2 -0.20-> OAP2 (pupil 47.3 mm on 60 mm DMs)
+
+[3] spliced: 21 telescope + 16 bench = 37 elements -> /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_d040_full.in
+
+[4] gates
+    loads at 37 elements (expected 37)  [PASS]
+    983/985 rays pass (telescope alone 983)  [PASS]
+    DM1       elt 23: beam radius 0.023771 m (pupil)
+    DM2       elt 24: beam radius 0.023771 m (pupil)
+    Apodizer  elt 27: beam radius 0.023748 m (pupil)
+    FPM       elt 29: beam radius 8.7113e-07 m (focus)
+    Lyot      elt 31: beam radius 0.023748 m (pupil)
+    FieldStop elt 33: beam radius 8.7307e-07 m (focus)
+    Backend   elt 35: beam radius 0.023749 m (pupil)
+    Science   elt 37: beam radius 8.7113e-07 m (focus)
+
+[5] shroud on the full train: 7.451 m against the 8.0 m gate  [PASS]
+    train length 17.31 m (launch axis)
+
+R1 backend (seg_d040) DONE in 0.1 min

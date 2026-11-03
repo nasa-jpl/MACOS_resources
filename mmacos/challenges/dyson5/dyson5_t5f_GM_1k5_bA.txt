@@ -1,0 +1,25 @@
+dyson5 t5f -- end to end, the join placed from ENGINE traces (FreeForm decks) (2026-10-05 17:00)
+CONVENTIONS: telescope /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_GM_1k5_bA.in, Dyson size:D:130 (Slit + Dyson blocks from dyson5_t5e_tA_EP_pz_m30_B1_e2e.in); roll 180 deg; no chain: the bridge gate is replaced
+  by the identity gate (this join on a conic deck == t5e's row).
+
+TELESCOPE (engine): plate local 326.8 mm, edge 329.8 mm (spec 330.0); strip +-13.50 mm at the image vs slit 27.0 mm; admitted +-2.344 of +-2.344 deg
+JOINED DECK /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5f_GM_1k5_bA_e2e.in: 3 telescope + 8 Slit/Dyson elements; grating = element 7, slit = element 4
+END TO END (engine join, 7 fields x 7 wavelengths over +-2.344 deg, the grating the stop):
+  smile 2.5698 px  keystone 0.0837 px  CRF 4.178 px  SRF 9.077 px  EE 0.046  grating admits 1.000
+  smile per lambda (px): 2.4314 2.4869 2.5044 2.5184 2.5333 2.5502 2.5698 
+  keystone per field (px): 0.0825 0.0545 0.0260 0.0002 0.0256 0.0543 0.0837 
+  pass fraction per field: 1.000 1.000 1.000 1.000 1.000 1.000 1.000 
+  SRF per field (max over lambda): 9.08 6.05 4.11 3.18 3.95 5.64 8.45 
+  CRF per field: 4.18 3.34 1.95 1.68 1.88 3.01 4.16 
+LIVE CLEARANCE (spectrometer_clearance verbatim; bundle + footprints from ENGINE rays on the joined deck, telescope bodies at
+  the engine's vertices/axes, lifted onto the base sphere -- the FreeForm sag is not in the body): min +0.37 mm (BODY FPApackage vs BlockFaceIn) PASS;
+  telescope-internal worst +30.24 mm with the mount, +34.59 mm without (TelM3 -> Slit vs TelM2)
+  the mirrors' lit surface vs their BEST-FIT body spheres (residual NOT in the bodies; read against the margins): TelM1 2.27, TelM2 0.87, TelM3 0.13 mm
+    BODY FPApackage                    vs BlockFaceIn       +0.37 mm
+    BlockSphereIn -> BlockFaceOut      vs FPApackage        +0.64 mm
+    BlockFaceIn -> BlockSphereOut      vs SlitMask          +1.79 mm
+    TelM3 -> Slit                      vs FPApackage        +5.74 mm
+    BlockFaceIn -> BlockSphereOut      vs FPApackage        +8.20 mm
+    Slit -> BlockFaceIn                vs FPApackage        +8.21 mm
+    BlockFaceOut -> FPA                vs SlitMask         +11.26 mm
+    BlockSphereIn -> BlockFaceOut      vs SlitMask         +11.29 mm

@@ -2,11 +2,15 @@
 
 # https://docs.python-guide.org/writing/structure/
 # https://dev.to/codemouse92/dead-simple-python-project-structure-and-imports-38c6
+import os
 import sys
 from pathlib import Path
 
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.insert(0, str(Path(".").absolute().parent / 'src'))
+# PYMACOS_SRC points the suite at another build's src/ (a side-tree .so for a
+# red leg -- pymacos/CLAUDE.md, "Side-tree build"); default: this tree's src/.
+sys.path.insert(0, os.environ.get('PYMACOS_SRC',
+                                  str(Path(".").absolute().parent / 'src')))
 
 import pymacos.macos as pymacos
 import pymacos.pymacosf90 as pymacosf90

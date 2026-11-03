@@ -7,7 +7,7 @@ function out = opd_psf(rx_path, opts)
 %   INTENSITY to produce a PSF.
 %
 %   Name-value options:
-%     'model_size'  source-grid sampling / model dimension (default 512).
+%     'model_size'  source-grid sampling / model dimension (default 256, the model size of init / Session / the CLI).
 %     'wf_elt'      element to evaluate the OPD at.  Default -1 = num_elt-1
 %                   (the usual exit-pupil slot).
 %     'fex'         true = re-centre the exit pupil on the chief ray (FEX)
@@ -35,7 +35,7 @@ function out = opd_psf(rx_path, opts)
 %   See also: macos.opd, macos.intensity, macos.fex, macos.trace.
 arguments
     rx_path          (1,:) char {mustBeNonempty}
-    opts.model_size  (1,1) double {mustBeInteger, mustBePositive} = 512
+    opts.model_size  (1,1) double {mustBeInteger, mustBePositive} = 256
     opts.wf_elt      (1,1) double {mustBeInteger} = -1
     opts.fex         (1,1) logical = false
     opts.psf         (1,1) logical = false

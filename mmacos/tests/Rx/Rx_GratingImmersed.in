@@ -1,0 +1,145 @@
+% ---------------------------------------------------------------------------------------
+% Rx_GratingImmersed -- gate fixture for a REFLECTION GRATING IMMERSED IN GLASS
+% (mmacos/tests/tGratingImmersed.m; challenge dyson5, macos/BRIEF_to_dyson5.md).
+%
+% A collimated 20 mm beam in air enters a fused-silica block through its flat
+% face (elt 1, Refractor, GlassElt= Silica -> Sellmeier index at the trace
+% wavelength) and meets a CONCAVE spherical grating (elt 2, R = 100 mm,
+% 100 lines/mm ruled along x, order +1) that is the block's back face -- the
+% grating sees glass on its incident side.  The diffracted beam travels back
+% through the glass to a Return plane (elt 3) and a focal plane (elt 4), both
+% still inside the block.
+%
+% THE ENGINE FACT THIS FIXTURE PINS (tracesub.F, the GratingElt branch): the
+% grating routine is handed na = CurIndRef (the medium the ray is in) and
+% nb = IndRef(iElt) AS WRITTEN ON THE GRATING ELEMENT, and -- unlike a
+% Reflector, which overwrites IndRef(iElt) with CurIndRef after the bounce --
+% it never reconciles the two.  So an immersed grating MUST carry the glass on
+% its own element (GlassElt= Silica below); the mirror habit IndRef= 1 gives
+% nb = 1 and a wrong direction.  tGratingImmersed builds that trap from this
+% deck by text substitution and asserts it fails, and builds the all-air
+% control the same way.
+%
+% Closed form the test checks per ray (elemsub.F Snells_Law_Grating, vacuum
+% wavelength):  nb (r.s) = na (i.s) + m lambda0/d  along the grating direction
+% s = unit(RuleDir projected into the tangent plane), nb (r.u) = na (i.u) along
+% the groove u = N x s, |r| = 1, r.N of the opposite sign to i.N.
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -2.0E-02
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=2.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  11
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  4
+
+             iElt=  1
+          EltName=  BlockFace
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+         GlassElt=  Silica
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=5.0E-02
+          nECoord= -6
+
+             iElt=  2
+          EltName=  ImmersedGrating
+          Element=  Grating
+          Surface=  Conic
+            KrElt=-1.0E-01
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  5.0E-02
+           RptElt=  0.0E+00  0.0E+00  5.0E-02
+           IndRef=1.0E+00
+         GlassElt=  Silica
+           Extinc=1.0E+22
+            h1HOE=  1.0E+00  0.0E+00  0.0E+00
+         OrderHOE=  1
+        RuleWidth=  1.0E-05
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=3.0E-02
+          nECoord= -6
+
+             iElt=  3
+          EltName=  ReturnInGlass
+          Element=  Return
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.0E-02
+           RptElt=  0.0E+00  0.0E+00  2.0E-02
+           IndRef=1.0E+00
+         GlassElt=  Silica
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-02
+          nECoord= -6
+
+             iElt=  4
+          EltName=  FPInGlass
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E-02
+           RptElt=  0.0E+00  0.0E+00  1.0E-02
+           IndRef=1.0E+00
+         GlassElt=  Silica
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-02
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

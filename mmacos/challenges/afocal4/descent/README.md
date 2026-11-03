@@ -1,0 +1,523 @@
+# afocal4 descent — start at seven mirrors, walk back toward buildability
+
+Origin: `macos/BRIEF_afocal4_descent.md` (Dave, 2026-08-31). The S4 arc asked
+*what does the fourth mirror buy* and found a requirement pair with only half
+met. The wall slice then found the committed design missed even its own pupil
+optimum because **the extraction tilt was never in the DOF set** — the
+signature pathology of building up from too little freedom. This stage inverts
+the question: **start where everything is met with margin, remove one powered
+mirror at a time, and measure what each removal costs.**
+
+Time box: 48 h from 2026-08-31. Every rung is a finished, checked design; if
+the box runs out mid-ladder the completed rungs stand.
+
+**Status: DELIVERED 2026-09-01.** Canonical record: `../RESULTS.md`
+§ DESCENT (D.1–D.7). Delivery log: the foot of
+`macos/BRIEF_afocal4_descent.md`. Gate `tAfocal4Descent` 6/6.
+
+**The top rung was never reached, and that is the result.** No mirror count in
+this family meets the requirement set: with the pupil requirement abandoned
+entirely and every DOF free, seven mirrors floor at **3424 nm against a 71 nm
+target (48×)**, and three extra mirrors buy **11 %** over four. The descent
+proper — walking *down* from a rung that meets the set — was not run because
+no such rung exists; the removal machinery is built, gated, and its first step
+measured (§ 3b).
+
+---
+
+## 1. The closure generalizes in three lines — and they are the 4-mirror ones
+
+`descent_close.m`. For an N-mirror coaxial afocal with an interface pupil the
+three first-order conditions stay **exact closures**, never merit terms:
+
+| condition | closed by | how |
+|---|---|---|
+| recollimate, `u_out = 0` | `phi_N` | analytic |
+| magnify by 30×, `\|y_out\| = (D/2)/M` | `t_{N-1}` | analytic |
+| exit pupil at `iface` | `phi_{N-1}` | the only root-find |
+
+That is `afocal4_close`'s own `FIELD_D_`, verbatim — *the marginal ray fixes
+everything but the pupil, so imposing the two first-order conditions is not a
+solve at all, it is substitution; the chief ray is the residue.* Nothing in it
+is about four mirrors: propagate the paraxial marginal and chief through
+mirrors 1..N−2 with their free radii and spacings and the same three lines
+close. **The descent's closure is the 4-mirror closure with a longer front
+end.**
+
+**Verified at N = 4, two ways.** Against `afocal4_close` directly:
+`max|ΔR| = 4.4e-16`, `max|Δt| = 0`, `Δφ = 2.2e-16`, convex flags identical,
+closure residuals `(u_out, M/30−1, pupil−iface) = (0, 2.2e-16, 0)`. And
+through the full builder against the committed deck on disk: **byte for
+byte**, given the same element names and the same scan recipe.
+
+> That last qualifier is real and is not a fudge. `fzero` converges to
+> whichever root its BRACKET contains, so a different scan grid lands 2e-16
+> away and the emitted `KrElt` differs in its last digit. The identity is
+> asserted under `afocal4_phi4`'s own window (`[-0.9 5.0]`, 119 points)
+> rather than by widening a tolerance until the check passes. Element names
+> are the other difference: the committed decks call their mirrors
+> `M1/M2/FM/M3` because that is the *form*'s vocabulary, where the generic
+> builder emits `M1..MN` for a *layout*.
+
+## 2. Two things that had to be derived rather than inherited
+
+**The sign of the exit marginal height is a property of the layout, not a
+constant.** `afocal4_close` hard-codes `y_out = -(D/2)/M` because a 4-mirror
+'field' train forms exactly one intermediate image, hence one axis crossing,
+hence a negative exit height. At other N the number of crossings is not fixed.
+Both signs are closed and the one that puts the last mirror at a **positive**
+spacing wins — the rule `afocal4_close`'s own 'relay' branch already states
+for its second image ("that sign is taken from the requirement that M4 sit at
+a positive distance, not assumed"). If both close, it warns rather than
+picking silently.
+
+**A sign change is not a root** (RESULTS rule 11), and it matters more here:
+`d(phi_{N-1})` is rational, so it changes sign across its *poles* as well as
+its zeros. Every candidate is closed and CHECKED — finite positive spacings,
+the pupil where it was asked for, both first-order identities intact — and the
+lowest-|power| survivor wins, because the weakest penultimate mirror is the one
+closest to the train the rung was grown from.
+
+## 3. First finding: the packaging station obeys a PARITY LAW
+
+`descent_seed.m` closes front ends by the thousand (the closure is algebra, so
+a candidate costs ~0.7 ms and only survivors are ever built) and counts how
+many put the last powered mirror at least `P.pack.m3_behind_min` + 30 mm
+BEHIND the primary. Over a common grid:
+
+| N | parity | closures | compliant | rate |
+|---|---|---|---|---|
+| 5 | odd | 232 | 205 | **88.4 %** |
+| 6 | **even** | 7406 | **2** | **0.03 %** |
+| 7 | odd | 95849 | 86024 | **89.7 %** |
+
+**That is a factor of ~3000 between adjacent N, and it is not about N. It is
+about parity.** The beam folds along z, one flip per reflection, so the vertex
+stations are an alternating sum
+
+```
+    z_N = -t_1 + t_2 - t_3 + ... = sum_k (-1)^k t_k
+```
+
+and the closure's OWN last spacing `b = t_{N-1}` — the one the magnification
+condition fixes, and typically the largest in the train — therefore enters
+with sign `(-1)^(N-1)`. **At odd N it pushes the last powered mirror behind
+the primary; at even N it pushes it in front.** Everything else is a
+second-order fight against that one term.
+
+This is S4b's finding — *one extra mirror flips the parity of the back end;
+his parent has M3 at +640 mm, the four-mirror child built from the same front
+end has it at −442* — stated as a law rather than as an observation about one
+design, and now with a rate attached.
+
+**Two consequences for the ladder, both worth knowing before it starts.**
+
+1. **The top rung is easy to seed.** N = 7 offers 86 024 compliant front ends
+   on a coarse grid; Task 1's difficulty will be meeting the *requirement set*
+   with slack, not finding a buildable layout.
+2. **N = 6 is the hard rung, and it fails on PACKAGING, not wavefront.** The
+   brief expects the bottom of the ladder near N = 4–5 because the 4-mirror
+   family demonstrably cannot meet the wavefront half. Parity says a
+   *different* failure mode arrives first, at a different rung, and for a
+   reason that has nothing to do with image quality. The descent should not be
+   surprised by it, and should not misread a packaging failure at N = 6 as the
+   wavefront bottom.
+
+> **A grid is a grid.** The N = 4 row of that scan first read "no compliant
+> closure" — for the very design sitting in the repository complying at
+> +1323 mm. The coarse grid simply did not contain its spacings. The parent's
+> own spacings are now always injected into the search, because a statement
+> about the grid must never be reported as a statement about the topology.
+
+> **And a wall with only one side is not a constraint.** The first N = 7 seed
+> this produced put the last powered mirror **10.96 m** behind the primary —
+> and it was, by every check in the study, compliant: the S4b packaging wall
+> bounds that station from BELOW only, the closure does not care how long a
+> train is, and the power-economy tie-breaker rewards weak mirrors, which are
+> exactly the ones that need distance. Nothing said no. The seeder now carries
+> an upper bound too, stated in the study's own unit — the packaging record
+> measures depth as a MULTIPLE OF THE M1–M2 SPACING (committed 1.81×, cleared
+> 1.24×), so the bound is 3× that spacing rather than a round number of
+> metres. Caught before a five-hour solve was spent on it, not after.
+
+### The seed already nominates its own removal candidates
+
+The compliant N = 7 seed comes back with powers
+
+```
+    phi = [+0.800  -4.266  -0.625  -0.625  -0.625  +1.342  +2.188] /m
+```
+
+— M1 and M2 are Rodgers' front end, the last two are what the closure
+consumes, and **the three added mirrors all sit at the weakest power the grid
+offers**. That is the power-economy preference doing what Task 2 wants it to
+do before the ladder has even started: the near-flat mirrors identify
+themselves, and mirrors 3–5 are the removal candidates the descent will
+probe. It is a *ranking*, not a decision — the brief's rule is that
+predictions rank and measurements decide, and the field-walk law's 5–6×
+optimism as a standoff predictor is the standing warning against trusting
+closure arithmetic on its own.
+
+## 3b. A prediction the ladder has to be designed around: DELETE flips parity, RETAIN does not
+
+The descent removes a mirror by driving its power to zero and then either
+**deleting** the flat or **retaining** it as a fold — and Dave's ruling 4 says
+a retained flat is not a mirror, so either way the rung's N goes down by one.
+Under the parity law those two are not cosmetic variants of each other:
+
+* a flat mirror still **reflects**, so retaining it keeps the fold count and
+  therefore the SIGN of every downstream station;
+* deleting it removes a reflection, which **flips the parity of the whole back
+  end** — the same flip S4b measured when a mirror was ADDED.
+
+So the two options land on opposite sides of the 88 % / 0.03 % divide measured
+in § 3. Concretely, stepping from the N = 7 top (odd, 89.7 % compliant) down
+to N = 6:
+
+| how the mirror is removed | reflections | parity | expected compliance |
+|---|---|---|---|
+| **deleted** | 6 | even | **~0.03 %** — the hard side |
+| **retained as a fold** | 7 | odd | **~90 %** — the easy side |
+
+**The descent therefore has a lever the brief did not anticipate**, and it is
+legitimate rather than a dodge: ruling 4 already says a retained flat does not
+count as a mirror, and the packaging round — not this slice — owns whether the
+fold is worth its own cost. If this holds, "N = 6 cannot be built" and "N = 6
+cannot be built *without keeping a flat*" are different statements, and only
+the second is true.
+
+**It is a prediction, not a result.** It follows from arithmetic that has been
+measured (§ 3) applied to a step that has not been taken yet, and this arc's
+standing warning is exactly against that move — the field-walk law was exact
+for the tilt and 5–6× optimistic for the standoff. The ladder will measure
+both options at the first even rung and report which happened.
+
+### MEASURED (2026-08-31): confirmed in direction, REFUTED as a rule
+
+On the ascent's N = 7 rung — a real, solved, compliant base with its last
+mirror +1.764 m behind the primary — removing each free mirror both ways:
+
+| mirror removed | **retain** (parity held) | **delete** (parity flipped) |
+|---|---|---|
+| M3 | +1.894 m — clears | +0.122 m — **fails** |
+| M4 | +1.990 m — clears | −0.149 m — **fails** |
+| M5 | +1.772 m — clears | **+1.493 m — clears** |
+
+**Retain clears 3 of 3; delete clears 1 of 3.** The effect is real and large —
+deleting typically costs 1.5–2.1 m of station — but **M5's delete is a
+counterexample to the universal reading, and the prediction as I wrote it was
+too strong.**
+
+The reason is in the arithmetic I had already written down and then
+over-generalized. `z_N = Σ (−1)^k t_k`, and deleting element k does not merely
+drop a term: it MERGES `t_{k−1} + t_k` into one, which re-signs every spacing
+after it. So which mirror is removed decides how the sum re-assembles, and the
+last free mirror — whose merge touches the fewest downstream terms — can come
+out on the good side. The parity law is a statement about the RATE over a
+POPULATION of front ends (§ 3's 88 % / 0.03 % / 89.7 % / 0.00014 %), not a
+guarantee for an individual removal.
+
+> That is the same failure mode this arc keeps paying for: the field-walk law
+> is exact for a tilt and 5–6× optimistic for a standoff; here the parity law
+> is exact for a population and merely usual for one removal. **A law measured
+> over a population does not transfer to a single case without being
+> re-measured there** — which is why the ladder runs both modes at every rung
+> rather than reasoning about which to use.
+
+**And it kills the pessimistic reading outright.** From this N = 7 base there
+are at least four routes to a compliant six-mirror layout — any of the three
+retains, plus M5's delete. So "N = 6 cannot be built" is simply false; the
+question was always *which removal*, and the answer is available by
+measurement in seconds because the closure is algebra.
+
+**The mechanism is in the model, checked.** `stations_` alternates the fold
+direction once per ELEMENT regardless of that element's power, so a retained
+flat does set the parity and a deleted one does flip it — the closure is not
+being asked to represent something it cannot. And the machinery carries a
+zero-power element end to end: a free radius of 1e12 m closes at
+φ = 2e-12 /m, the closure reports *elements 5, powered 4, flats 1 at index 3*
+with residual 2.2e-16, and the deck emits and traces. `descent_remove`
+implements both modes and refuses to touch M1, M2 or the two elements whose
+powers the closure consumes.
+
+> **A first check that came out wrong is recorded rather than dropped.** The
+> first attempt to demonstrate the parity flip used an arbitrary N = 7 base
+> and got NO CLOSURE from *both* modes — because the base itself was
+> non-compliant (its last mirror sat 40 mm in FRONT of the primary). The test
+> needs a compliant, solved base, which is what the top rung is for. A
+> demonstration run on a broken fixture proves nothing in either direction.
+
+> **And a paraxially exact closure can still be a bad telescope.** That same
+> retained-flat probe closed its three conditions at 2.2e-16 and traced
+> **M = 40.45 against a paraxial 30.0000**, with 0.22 rad of collimation
+> error. Nothing is wrong: the closure is a FIRST-ORDER statement, the conics
+> were unsolved, and `paraxial_ok` flagged it. It is worth stating plainly
+> because the closure's residuals are so small that they invite being read as
+> a quality claim, and they are not one — only the solve makes a closure a
+> design.
+
+## 4. Machinery
+
+| file | what |
+|---|---|
+| `descent_close.m` | the N-mirror first-order closure (three conditions, one root) |
+| `descent_build.m` | close → emit → pose the interface on the traced chief → apply the extraction tilts upstream-first → the three walls |
+| `descent_seed.m` | a BUILDABLE N-mirror front end: cheap algebra filters, the packaging station (both sides) decides, and the weakest total power breaks ties |
+| `descent_require.m` | the requirement set on one footing — TARGETS (with margin), WALLS (with room left), GATES (facts); the interface surface scored RIM-anchored per the S4c spec rule |
+| `descent_solve.m` | the outer loop, N-generic: scaled deviations, log-domain merit, central differences, walls on iterates never on reports, a wall residual that scales with the merit's weights |
+| `run_descent_top.m` | one top-of-ladder attempt, one process, checkpointed |
+
+**Extraction tilts are in the DOF set from the start**, per mirror — the wall
+slice's lesson, and this stage does not get to rediscover it. They are applied
+to the emitted deck by `clear_tilt` (chief-hit pivot, downstream re-posed),
+**upstream first**, so each swing composes with the ones before it.
+
+Walls, in the order they are cheap: degenerate spacing (algebra) → the S4b
+packaging station (algebra) → the union body-in-beam floor (a nine-field
+trace, and DEFERRED past the tilts, or it judges the train the tilts exist to
+get away from).
+
+## 5. The first top-rung attempt (N7a) — and why it is NOT a verdict on seven mirrors
+
+`descent_N7a.mat`, DOFs `{conic, spacing, tilt}` (radii frozen at the seeder's
+grid values), 951 evaluations over 3 rounds:
+
+| row | value | target | verdict |
+|---|---|---|---|
+| WFE rung-2 max | 12422.1 nm | 71.0 | MISSED, 175× |
+| pupil blur | 506.2 µm | 47.0 | MISSED |
+| wander | 530.6 µm | 56.0 | MISSED |
+| breathing | 2.3744 % | 0.4 | MISSED |
+| iface surface (rim) | 0.3433 mm | 0.2 | MISSED |
+| M error | **3.8646 %** | 0.1 | MISSED |
+| union floor | −111.58 mm | ≥ 0 | MISSED |
+| last powered behind M1 | **499.88 mm** | ≥ 500 | MISSED by 0.12 mm |
+
+**It missed every row, and it is still not evidence that seven mirrors cannot
+meet the set.** Four things say the attempt failed, not the topology:
+
+1. **M error 3.86 %.** The closure makes magnification an IDENTITY — its
+   paraxial residual is 1e-16 on this very design. A 3.86 % *traced* error
+   means the layout is so aberrated that real rays have left the paraxial
+   regime; the committed 4-mirror deck sits at 0.0221 %. That is a statement
+   about how bad the design is, not about how many mirrors it has.
+2. **It converged to a STALL.** Round 2 bought 3.4e-4 and round 3 bought
+   4.3e-11, at merit 70.78 — *worse than the four-mirror designs* (30.2
+   committed, 32.7 for the wall slice's best). Meeting the set needs a merit
+   near zero (≈2.4 sitting exactly on every target).
+3. **It walked onto the packaging wall**, ending at 499.88 mm against a
+   500 mm minimum. S4c settled what that means: *90 mm is CONSTRAINED, not
+   unconverged* — a design pinned against that wall has a compromised
+   gradient, and a NaN or a stall there is a constraint, not a failure.
+4. **The radii were frozen.** All three added mirrors sat at the grid's
+   weakest power (R = 3.2 m) with every added spacing at the grid minimum
+   (0.4 m) — a cramped, arbitrary layout the solve was never allowed to
+   loosen.
+
+> **Reporting this as "seven mirrors cannot do it" would repeat both errors
+> this arc has already paid for**: S4b's *a wall needs a compliant seed or it
+> is a cage*, and the wall slice's finding that the committed design missed
+> its own pupil optimum because **the DOF set, not the merit, was the
+> reason**. A stage set up to inherit those lessons does not get to
+> rediscover them.
+
+So the N = 7 question is being answered the way the brief asks — with
+independent seeds and the full DOF set — and N7a is retained as the first
+datum of that spread rather than as its answer.
+
+| run | seed Σφ² | DOFs | merit | WFE (nm) | verdict |
+|---|---|---|---|---|---|
+| N7a | 26.6 | conic, spacing, tilt | 70.78 | 12422 | every row missed, stalled |
+| N7b | 26.6 | **+ radius** | 70.40 | 11718 | every row missed, stalled |
+| N7c | 38.6 | + radius, independent seed | 707.0 | **3.7e9** | **scrambled — gates MISSED** |
+| N7d | 41.6 | + radius, independent seed | 54.08 | — | running |
+| N8a | — | + radius, N = **8** | — | — | running |
+
+### 5a. My own hypothesis, refuted: the DOF set was not the reason
+
+N7a froze the radii, so the obvious reading was that the solve was
+DOF-limited — the very diagnosis the wall slice had just made about the
+committed design. **Measured, it is wrong.** N7b re-ran the identical seed
+with the radii freed and reached WFE 11718 nm against 12422, merit 70.40
+against 70.78 — **5.7 %**, on a row that needs a factor of 165. Freeing five
+more DOFs bought essentially nothing.
+
+That matters beyond this rung. "The DOF set was the reason" is now a
+*hypothesis this study has seen confirmed once and refuted once*, so it does
+not get to be the reflex explanation for a stalled solve. Here the seed was
+the reason.
+
+### 5b. And S4c's solver-integrity gate earned its keep, immediately
+
+N7c converged — merit 707, plateaued — to a design with **3.7 metres** of
+wavefront error, 1.66 m of pupil blur, M off by 95 %, and an anchoring
+residual of **296 metres**. On the merit alone it would have been reported as
+"a worse rung". The anchoring residual is a VALIDITY check, not a metric
+(S4c: *0.1 µm on every sound design here, 84 mm on a failed solve*), and it
+is the reason the requirement table carries `gates` as a separate kind from
+`targets`: this rung was not measured, it was scrambled, and the table says
+`gates MISSED` rather than quietly ranking it.
+
+### 5c. The fourth parity point, and it is the sharpest
+
+`N8a`'s seeder closed **717 679** eight-mirror front ends and found
+**one** compliant — 0.00014 %. The law now has four points and gets stronger
+with N, because a longer alternating sum gives the closure's own last spacing
+more to fight:
+
+| N | parity | closed | compliant | rate |
+|---|---|---|---|---|
+| 5 | odd | 232 | 205 | **88.4 %** |
+| 6 | even | 7 406 | 2 | 0.03 % |
+| 7 | odd | 95 849 | 86 024 | **89.7 %** |
+| 8 | **even** | 717 679 | **1** | **0.00014 %** |
+
+## 5d. The ASCENT: build the top rung UP from a design that works
+
+Four cold seven-mirror attempts landed at merit 54…707 with ~12 µm of
+wavefront — **worse than the four-mirror family's own 10.4 µm, with more than
+twice the freedom.** The conclusion is not about seven mirrors; it is that a
+cold N-mirror closure with spherical conics is a bad design and local
+optimisation cannot rescue it.
+
+So the top of the ladder is built UP from the committed four-mirror design —
+which already reaches 10.4 µm and passes its own walls — one mirror at a
+time, each step warm-started. That is the rodgers3 continuation walk the
+brief names as this stage's method precedent, applied in the direction that
+makes the top rung reachable. **It is not circular:** the ascent supplies a
+starting design, and every rung of the descent is re-solved and re-judged on
+its own.
+
+**The insertion needs a compliant seed too, and for the same reason as
+everything else here.** The first ascent inserted a near-flat mirror at the
+midpoint of a spacing and the child landed **479 mm in front of** the primary
+with no root for the interface condition at all. Nothing was wrong with the
+arithmetic — splitting t = 2.9285 into 1.464 + 1.464 re-folds the alternating
+sum to `0, −1.042, +0.422, −1.042, b−1.042` — it is the parity law charging
+for the extra reflection. So *where in the spacing the mirror goes* is not a
+detail, it is the compliance knob. `descent_add(..., 'search',true)` scans
+insertion points and split fractions, keeps the closures that clear the
+station, and takes the one closest in power to the parent.
+
+Measured on the first step: **5 of 34 closures compliant**, best at split
+0.70 with the last mirror **+0.693 m** behind the primary and **warmth
+0.000** — the child's powers identical to the parent's, because a flat
+insertion is optically a no-op. That is as warm as a warm start gets.
+
+> **One bug, one rung.** The first fixed ascent still died with
+> `Unrecognized field name "wfe_max_nm"`: `afocal4_score` has its own failure
+> path that returns a MINIMAL struct (resid / merit / worst and nothing
+> else), and `descent_solve`'s history line reached straight past it. A
+> scored-as-bad iterate became a dead run. The history is diagnostic, so a
+> missing column is now a NaN and never an exception. `clear_solve` carries
+> the same unguarded access and has simply never been handed that struct —
+> noted, not chased.
+
+## 6. THE ANSWER, and it is not a rung count: 71 nm is not reachable in this family
+
+The descent's question is *how many mirrors does the full requirement set
+actually need*. The measurements say: **no number of them, in this family.**
+
+### 6a. Nothing meets the set at any N
+
+Every rung built, by every route, misses every target:
+
+| route | N | merit | WFE (nm) | blur (µm) | M err (%) | verdict |
+|---|---|---|---|---|---|---|
+| committed | 4 | 30.2 | 10407 | **157** | 0.0221 | the S4b/S4c delivery |
+| cold seed | 7 | 70.78 | 12422 | 506 | 3.86 | missed, stalled |
+| cold seed + radius | 7 | 70.40 | 11718 | 534 | 3.68 | missed, stalled |
+| cold seed, seed 2 | 7 | 707 | 3.7e9 | 1.7e6 | 95 | **scrambled, gates caught it** |
+| cold seed, seed 3 | 7 | 53.57 | — | — | — | missed, worst 177× |
+| cold seed | 8 | 146.7 | — | — | — | missed, worst 1768× |
+| **ascent** | 5 | 37.39 | 10775 | 332 | 0.1379 | missed |
+| **ascent** | 6 | 44.20 | 9137 | 721 | 0.0651 | missed |
+| **ascent** | 7 | 42.66 | **7894** | 705 | 0.0632 | missed |
+
+The ascent's rungs are the sound ones (M error 0.06–0.14 % against the cold
+seeds' 3.9–95 %), and their wavefront does improve with N — 10775 → 9137 →
+7894 — so mirrors buy *something*. They buy 24 % over four mirrors while the
+target needs 99 %, and they charge 4.5× the pupil blur for it (157 → 705 µm).
+Every ascent rung also has a body in its own beam (union floor ≈ −105 mm).
+
+### 6b. The decisive measurement: the wavefront floor, with the pupil requirement abandoned
+
+A full solve is a COMPETITION, so a wavefront that will not move might merely
+be losing an argument. These solves score the wavefront ALONE — the pupil
+ladder is not in the merit at all — with every DOF free. It is the most
+optimistic wavefront the family can produce, because it gives up the entire
+reason the fourth mirror exists.
+
+| N | start (nm) | **floor (nm)** | × target | DOFs |
+|---|---|---|---|---|
+| 4 | 10407 | **3841.8** | **54×** | conic, radius, spacing |
+| 4 | 10407 | 4497.7 | 63× | + tilt |
+| 5 | 10775 | 8077.4 | 114× | + tilt |
+| 6 | 9137 | 5689.0 | 80× | + tilt |
+| 7 | 7894 | **3424.2** | **48×** | + tilt |
+
+**Three extra mirrors buy 11 %** (3842 → 3424 nm). The target needs a factor
+of 48. The trend is not even monotonic — N = 5 is the worst of the set — which
+is basin scatter, not a curve going anywhere.
+
+> **These floors are UPPER bounds and are labelled so.** Several rounds were
+> still gaining 18–25 % when their budget ran out, so deeper solves would
+> lower them. That does not touch the conclusion: closing a factor of 48
+> would require every remaining rung to fall by two orders of magnitude, and
+> the arc's own history says otherwise — S4 found the wavefront "floors near
+> 8.5 µm", and S4c's 17×-budget long solves moved the same designs by
+> 0.02–10.8 %.
+
+### 6c. What the pupil requirement actually costs — a cleaner number than S4 had
+
+At the 343 mm operating point, dropping the pupil requirement takes the
+wavefront **10407 → 3842 nm, a factor of 2.7**.
+
+S4 ran this same A/B at the **140 mm** operating point and got 8467 against a
+frozen 8835 — 4 % — and generalized it as *the DOFs do not touch it*. At
+343 mm they touch it a great deal. The generalization was operating-point
+specific and should not be carried: **the pupil requirement, not the optics,
+is what costs the wavefront its factor of 2.7 at the standoff the packaging
+constraint forced this study to adopt.**
+
+### 6d. Two more of my own hypotheses, refuted
+
+The stage has now killed two of its own explanations, and both were the
+*reflex* explanation from the slice before it:
+
+* **"the DOF set is the reason"** (the wall slice's finding). N7b re-ran N7a's
+  seed with the radii freed: 11718 vs 12422 nm, **5.7 %** on a row needing a
+  factor of 165.
+* **"the tilts are the missing freedom"** (the wall slice again). The
+  wavefront-only control at N = 4 *without* tilts floors at **3841.8 nm**,
+  BETTER than the 4497.7 nm with them — four extra DOFs landed the solve
+  slightly worse. The tilts are a pupil knob, exactly as the clearing stage
+  measured; they are not a wavefront knob.
+
+A lesson that has been confirmed once does not become the explanation for the
+next stall. Both times here, the SEED was the reason.
+
+## 7. Files
+
+| file | what |
+|---|---|
+| `descent_close.m` | the N-mirror first-order closure (three conditions, one root) |
+| `descent_build.m` | close → emit → pose the interface on the traced chief → tilts upstream-first → the three walls |
+| `descent_seed.m` | a buildable N-mirror front end; cheap algebra filters, the two-sided station decides, weakest total power breaks ties, `rank` spreads independent seeds |
+| `descent_require.m` | the requirement set on one footing: TARGETS / WALLS / GATES |
+| `descent_solve.m` | the outer loop, N-generic; `pupil` false asks the wavefront question alone |
+| `descent_remove.m` / `descent_add.m` | the rung moves, both with the parity consequence stated |
+| `run_descent_{top,rung,ascent,wfe}.m` | one artifact per process, checkpointed |
+| `mk_ladder_fig.m` | the ladder figure |
+| `afocal4_descent_ladder.png` | **the one page** |
+| `descent_*.mat` | every rung and every floor |
+| `../../../tests/tAfocal4Descent.m` | the gates (6, `SUITE_FREEFORM`) |
+
+## 8. Still open — and it is not a solve
+
+The requirement set is not reachable by mirror count here, so the next move is
+a judgement about what the work is for: **the spec** (71 nm was set at ≥ 10×
+Rodgers' best three-mirror; nothing in this arc has come within 48× of it) or
+**the family** (a coaxial all-reflective afocal whose interface-pupil
+condition consumes the last two powers — now priced at a factor of 2.7 of
+wavefront, § D.4). Dave's call.

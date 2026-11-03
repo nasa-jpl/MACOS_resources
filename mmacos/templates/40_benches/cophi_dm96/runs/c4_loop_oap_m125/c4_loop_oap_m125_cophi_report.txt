@@ -1,0 +1,21 @@
+
+=== COPHI loop (oap rig, the plain splitter): 165.1 min ===
+  ss / bias / sig_n: the record's metric (rms over lit, piston included) | the same PISTON-FREE
+  camera      row      estimator       ss     bias    sig_n |    ss_pf  bias_pf   sig_pf  cycle s
+  lockin_c4   none     onestep       3.20     1.00     5.47 |     3.20     1.00     5.47     0.03
+  lockin_c4   none     converged     3.25     1.00     5.60 |     3.25     1.00     5.60     0.03
+  lockin_c4   walk     onestep       3.95     1.23     5.47 |     3.95     1.23     5.47     0.03
+  lockin_c4   walk     converged     3.99     1.23     5.60 |     3.99     1.23     5.60     0.03
+  lockin_c4   thermal  onestep      10.51    10.06     5.48 |    10.45    10.00     5.47     0.03
+  lockin_c4   thermal  converged    10.52    10.06     5.61 |    10.46    10.00     5.60     0.03
+  lockin_c4   cam      onestep       3.20     1.00     5.47 |     3.20     1.00     5.47     0.03
+  lockin_c4   cam      converged     3.25     1.00     5.60 |     3.25     1.00     5.60     0.03
+  lockin_c4   lo       onestep      29.44    28.71     5.47 |    29.14    28.43     5.47     0.03
+  lockin_c4   lo       converged    29.45    28.71     5.60 |    29.15    28.44     5.60     0.03
+  lockin_c4   fiber1   onestep       3.20     1.00     5.47 |     3.20     1.00     5.47     0.03
+  lockin_c4   fiber1   converged     3.25     1.00     5.60 |     3.25     1.00     5.60     0.03
+  lockin_c4   fiber3   onestep       3.20     1.00     5.47 |     3.20     1.00     5.47     0.03
+  lockin_c4   fiber3   converged     3.25     1.00     5.60 |     3.25     1.00     5.60     0.03
+  lockin_c4   delay    onestep       4.26     1.04     5.47 |     4.26     1.04     5.47     0.03
+  lockin_c4   delay    converged     4.36     1.04     5.60 |     4.36     1.04     5.60     0.03
+wall 165.1 min

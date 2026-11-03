@@ -1,0 +1,22 @@
+dyson5 s4 -- the native optimize on R4 (2026-10-01 15:54)
+CONVENTIONS: CALIB (design_optim.F, LM) on the rung's deck with the double-pass copies LINKED (Link=; PERTURB/ROC/
+  CONIC/ASPH apply to both passes); target SPOT = the max ray distance to the chief at the FPA, one number per (slit
+  position, wavelength), 5 x 6 fields, equal weights, driven to 0; variables: block convex face
+  ROC+CONIC (asphere HELD), meniscus faces PIST+ROC, FPA PIST; variable set 'blur' ('all' adds the grating's DY+PIST, which
+  the blur merit cannot police: measured keystone 0.003 -> 15 px in five iterations, wall-rejected); groove period HELD.  Chunks of 5
+  iterations; after each the engine state is read back, mapped into the chain (identity to 1e-9 m), ENGINE-scored
+  on the 7 x 7 grid and gated: smile and keystone <= 0.050 px (half the spec, Dave's wall on iterates), clearance
+  PASS; a breach restores the last accepted state.  The rung of record is re-emitted CLEAN from the mapped chain.
+
+chunk iters    smile    keyst     CRF     SRF     EE    clear  identity  status
+0         0   0.0051   0.0026   1.327   2.032  0.759    13.55   0.0e+00  accepted seed (R4 of record)
+1         5   0.0051   0.0026   1.327   2.032  0.759     0.79   2.2e-16  accepted 
+2        10   0.0051   0.0026   1.327   2.032  0.759     0.79   2.2e-16  accepted 
+
+engine score                          smile    keyst     CRF     SRF     EE
+R4 of record                         0.0051   0.0026   1.327   2.032  0.759
+R4n native                           0.0051   0.0026   1.327   2.032  0.759
+R4n parameters (chain frame, grating centre at the origin): block r 220.000 mm Kc -0.00650; block centre dy -0.049 dz 1.905 mm;
+  slit plane z -0.000 mm, y_slit 6.000 mm, face offset 0.741 mm; meniscus vertex 240.00 mm, t 4.000 mm, c 0.5073 / 0.5000 /m;
+  FPA z -0.0018 mm (R4: -0.0018); grating shift in the engine frame [0.000 0.000 0.000] mm; band span 500.0 px of 500.
+CLEARANCE R4n: min +0.79 mm PASS : BODY SlitMask vs BlockFaceIn

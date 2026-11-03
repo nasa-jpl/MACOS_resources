@@ -1,0 +1,13 @@
+=== tg96_pupil_amp: pupilamp_lens (2026-09-17 21:20) ===
+pupil at the entrance sphere: 50% radius 47.021 mm, edge 90->10% over 0.983 mm (3.79 of the pitch 0.2595 mm)
+   inside 0.9 of that radius: amplitude ripple 0.0003 rms of the mean; energy outside the 50% radius 0.0023 of the total
+
+the focal spot, 83.8% encircled-energy radius:
+   the measured pupil amplitude, flat phase   2.969 um
+   a TOP HAT of the same 50% radius          3.568 um   (Airy 1.22 lam R1 / D = 3.411 um)
+   the ENGINE's own focal field               3.958 um   (pitch 0.990 um)
+
+verdict: the pupil amplitude accounts for -154% of the engine's excess over the top hat
+
+wrote pupilamp_lens_amp.png
+run complete

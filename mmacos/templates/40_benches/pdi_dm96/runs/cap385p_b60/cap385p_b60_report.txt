@@ -1,0 +1,70 @@
+=== ZWFS runner: tag cap385p_b60  (2026-09-13 12:47) ===
+model 1024, NGRID 385, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench battery | readings: P PF
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames) | P point-diffraction, stepped pinhole at the FocalMask, exact four-step (K frames) | PF point-diffraction, fiber reference + photonic phase shifter, exact (K)
+
+---- bench ----
+deck cap385p_b60_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 3.96 px at the mask plane; msk 115813 px
+focal spot: 1.332 um per px at the mask plane, 1.98 px per lam F/D; the dimple encloses 68.8% of the flat DM's focal-plane light
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.700e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.513e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9298 0.9270 0.9214 0.9131 0.9022 0.8886 0.8724 0.8540 0.8333 0.8104 0.7856 0.7589 0.7306 0.7010 0.6700 0.6380 0.6052 0.5718 0.5379 0.5036 
+frame: ray magnification 10.1582 DM-mm per detector-mm, detector px 1.9568e-02 mm -> 0.1988 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 3.96 px across at the mask plane (min 6)  -> NOT MET
+  pinhole 3.96 px across at the mask plane (min 6; the dimple's rule)  -> NOT MET
+  DM 96x96: 5.03 detector px per actuator (min 2)  -> PASS
+G3 60 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 6.393e-16   (gate < 1e-12: A = |E0| is exact)
+P: pinhole 2.00 lam/D, surround t 0.7004, 4 steps, |b|^2 flat, NITER 3; frames per measurement 4; eta_pin 0.6459; throughput (detected/incident, flat) 0.7786; visibility on the flat 0.5739; surrogate vs engine reference 1.51e-15; the flat reads 1.29e-15 rad rms, amplitude 4.40e-16 rel
+G5 P on 100 nm single-actuator pokes every 8th actuator (12034 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.343 pm (gate < 0.1% of the figure)   -> PASS
+PF: P/SRI, reference = LP01 mode V 2.30 b 0.50 core radius 0.50 lam/D, coupling eta_c 0.5878 on the flat; pickoff 0.60, a 0.001358 (match 0.001858, budget 0.001358), 4 steps (ls), |kappa| flat; frames per measurement 4; eta_pin 0.6459; throughput (detected/incident, flat) 0.7527; visibility on the flat 0.8634; surrogate vs engine reference 1.51e-15; the flat reads 3.17e-16 rad rms, amplitude 1.39e-16 rel
+G5 PF on 100 nm single-actuator pokes every 8th actuator (12034 pm rms on msk, 3.06% of msk beyond the one-frame fold): rms error 0.000 pm (gate < 0.1% of the figure)   -> PASS
+G6 P/SRI fiber reference under the 60 nm rms working state: shape FIXED by construction (the mode's); coupling relative to the flat |kappa| 0.57604, arg +0.0778 rad (an amplitude scale + a piston; the solver takes kappa = 1 in |kappa| 'flat' mode)
+G6 reference motion under the 60 nm rms working state (pinhole-diffracted reference, flat -> state, on msk), by pinhole diameter:
+   lam/D    total  |scale|    SHAPE   (total = |b1-b0|/|b0|; scale = best complex factor, a Strehl-class amplitude drop the |b|^2 frame / iteration absorbs; shape = the rest, what the solve must iterate out)
+    0.50   0.3961   0.6074   0.0000
+    1.00   0.4113   0.5925   0.0045
+    1.50   0.4194   0.5846   0.0069
+    2.00   0.4345   0.5699   0.0138
+    3.00   0.4692   0.5377   0.0423
+    2.00   0.4345   0.5699   0.0138   <- the ZWFS dimple
+G7 the pinhole reading at t = 1, 2.00 lam/D, frozen reference vs the stepped Zernike reading S on 20 nm sparse pokes: rel rms diff 5.41e-15   (gate < 1e-2: same instrument, same frames)
+registration: center-poke anchor at detector px (510.50, 510.50) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.987, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.99 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7904, corr(map, truth) 0.9893
+bench stage 0.8 min
+
+---- battery: DM 96x96, pitch 1.0 mm ----
+calibration: surface base (60 nm rms, seed 7), kernel measured at actuator (NaN,NaN); test actuator (60,40)
+MATRIX calibration: 64 multiplexed states (grid step 8), 3252 actuators poked once each, windows +/-20 px; J built in 5.3 min; 0 clipped windows
+lit actuators 3252; per class [mean column peak per unit command, clipped fraction, column-norm spread]:  P [0.923 0.000 0.106]  PF [0.982 0.000 0.087]
+modal transfer (actuator-space estimator, RAW):
+     mode  cyc/ap |       P      PF
+  ( 1, 0)     0.5 |  0.9038  1.0876
+  ( 2, 0)     1.0 |  0.9625  0.9896
+  ( 4, 0)     2.0 |  1.0247  1.0091
+  ( 8, 0)     4.0 |  1.0461  1.0666
+  (16, 0)     8.0 |  1.0465  1.0538
+  (24, 0)    12.0 |  1.0306  1.0518
+  (32, 0)    16.0 |  1.0274  1.0484
+  (40, 0)    20.0 |  1.0242  1.0435
+  (48, 0)    24.0 |  1.0364  1.0488
+  (56, 0)    28.0 |  1.0341  1.0415
+  (64, 0)    32.0 |  1.0284  1.0314
+  (72, 0)    36.0 |  1.0188  1.0279
+  (80, 0)    40.0 |  1.0073  1.0209
+  ( 8, 8)     5.7 |  1.0661  1.0621   (separability row)
+  (24,24)    17.0 |  1.0401  1.0454   (separability row)
+min |g| over the (p,0) rows:  P 0.904  PF 0.990
+matrix mode: no modal correction applied (cor columns and the ladder = raw estimates)
+rows (differential, actuator space).  g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+row               rd  |   g_raw    e_raw  flr_raw  SNRraw |   g_cor    e_cor  flr_cor  SNRcor
+rand60/grid@1nm   P   |  1.0003        4        3  297.37 |  1.0003        4        3  297.37
+                  PF  |  0.9999        3        3  377.61 |  0.9999        3        3  377.61
+break scale (10 nm differential on 47 grid sites (every 8 actuators), on a growing base; corrected estimates; g = gain over the poked site(s), floor pm over the unpoked, SNR; fold0/fold = beyond-fold fraction from the plain / refined stepped prior; past the fold quote GAIN, not SNR):
+    base  fold0   fold | P: g flr SNR          | PF: g flr SNR         |
+SPEC: grid-on-base SNR, reading P : raw 297.37 / corrected 297.37 -> DETECTED (>= 5)
+SPEC: grid-on-base SNR, reading PF: raw 377.61 / corrected 377.61 -> DETECTED (>= 5)
+DM 96x96 battery 7.2 min
+run complete in 8.0 min

@@ -1,6 +1,21 @@
 import numpy as np
 
 # Paraxial + Seidel engine for coaxial mirror systems (n-flip / unfolded model).
+#
+# *** DEFECT, found 2026-10-03 (dyson5 beat 5): the transfer y_next = y + t*u'
+# *** with POSITIVE t after every reflection puts the ray at the WRONG height on
+# *** the THIRD mirror unless the M2->M3 space is afocal (the proof_korsch and
+# *** tma_fixture cases, where it is).  Its two-mirror gates below pass because
+# *** they check the Seidel residuals, never the image position.  The MATLAB
+# *** twin (mmacos macos.design.seidel_seed) was rewritten with fixed-frame
+# *** signed curvatures, physical slopes and signed vertex displacements; it
+# *** reproduces the RC closed forms to 1e-15, the correct image positions, and
+# *** on the proof Korsch its conics give 0.2 um on axis / 1.3 um at 0.1 deg in
+# *** the engine where this file's give 2.3 / 79 um.  tma_fixture.json, generated
+# *** here, is a layout that forms NO real image under the classical alternation
+# *** (the n-flip said t3 = +1.064; the exact first order says the image is
+# *** virtual, 1.87 behind M3).  Do not generate new fixtures with this file
+# *** until it is ported to the MATLAB formulation.
 # Convention (validated below against the trusted 2-mirror RC & Cassegrain fixtures):
 #   light starts in +z with n=+1; each mirror flips n -> -n.
 #   R > 0  => concave / converging mirror (focuses parallel light at +f).

@@ -2,7 +2,7 @@ classdef tStrictKernel < matlab.unittest.TestCase
 %TSTRICTKERNEL  Gates for the shared strict-WFE metric kernel in design/src.
 %
 %   STRICT_REFS / STRICT_SPHERE_OPL / STRICT_WFE_DECK / STRICT_RUNGS /
-%   STRICT_LADDER_DECK moved out of design/rodgers1 (where they were
+%   STRICT_LADDER_DECK moved out of challenges/rodgers1 (where they were
 %   example-local, with the 4-rung ladder duplicated verbatim in
 %   pupil_audit.m and dense_field_check.m) into design/src, so the
 %   e2e2 design flow and the Rodgers study score through ONE kernel.
@@ -48,7 +48,7 @@ classdef tStrictKernel < matlab.unittest.TestCase
             here = fileparts(mfilename('fullpath'));
             root = fileparts(here);
             run(fullfile(root,'mmacos_setup.m'));
-            tc.deck = fullfile(root,'design','rodgers1', ...
+            tc.deck = fullfile(root,'challenges','rodgers1', ...
                                'rodgers1_epd4060_rodgersS3.in');
             tc.assumeTrue(exist(tc.deck,'file') == 2, ...
                 'rodgers1 EPD-4060 stage-3 deck not present');

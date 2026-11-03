@@ -1,0 +1,19 @@
+
+=== COPHI noise (oap rig, the record's polarizing train (as built)): 11.1 min ===
+  throughput source -> camera (flux 1 launched): test arm 0.2647, LO arm 0.3891
+  pm/read = ONE reading's noise per actuator (the unpoked-lit floor; contrast-gated); pm@hold = the hold-out check (+-30 % at 12 draws)
+  camera       name                                                             pm/read   pm@hold   reads/s   s per pm
+  baseline     as proposed: 1k x 1k, 60 ke, 30 fps (read noise ASSUMED 5 e-)       53.7      60.7       7.5        385
+  photonfocus  Photonfocus MV1-D1024E-160-CL (A1024B, 200 ke, 220 e- read)         36.5      46.1      37.5       35.5
+  pcoedge55    pco.edge 5.5 in TRUE global-shutter mode (30 ke, 2.2 e-)            38.3      50.8      12.5        117
+  cred2        First Light C-RED 2 (InGaAs 640 x 512, for the 1.3 um row; read ASSUMED 30 e-)      18.7      16.9       150       2.34
+  electronics, ONE reading's error (pm at the hold-out / over lit):
+    jitter   0.001         34.6      18.9
+    jitter   0.01           346       189
+    jitter   0.03      1.03e+03       566
+    ripple   0.0001        2.86      2.64
+    ripple   0.001         28.6      26.4
+    ripple   0.01           288       265
+    walk     0.01           134      63.9
+    walk     0.05           670       321
+wall 11.1 min

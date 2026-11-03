@@ -1,0 +1,48 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "clear22"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 22.39 deg (end bodies 6.88, node 22.39) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   235 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   193 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   179 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +176.8 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +206.8 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +216.8 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  51.4 -> separation  257.1 mm, margin +146.3 mm (spec >= 25)
+  input polarizer             d  247.1, part r  56.4 -> separation  247.1 mm, margin +131.3 mm (spec >= 25)
+  compensator                 d  200.0, part r  56.4 -> separation  141.4 mm, margin  +25.6 mm (spec >= 25)
+  output QWP                  d  160.0, part r  56.4 -> separation  160.0 mm, margin  +44.1 mm (spec >= 25)
+  analyzer                    d  170.0, part r  56.4 -> separation  170.0 mm, margin  +54.1 mm (spec >= 25)
+  focuser L2                  d  205.0, part r  51.4 -> separation  205.0 mm, margin  +94.1 mm (spec >= 25)
+  0 of 6 node parts under the 25 mm margin; beam radius 51.4, mount +8
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/lens_tail.mat (null 0.134 nm at opt res; seed 9.100)
+Stage B -- lens rig built (BS_AOI 22.5); emitted clear22_{test,ref}.in
+
+Clearance -- every physical part vs every beam it is not in (mount +8 mm):
+  element                type         arm     a+mnt  r_beam  clear mm  against
+  Comp                   Refractor    test     64.2    51.2      38.2  test: PolIn -> BSrefl
+  OutQWP                 WavePlate    test     59.1    46.1      53.6  ref: BStxbf -> QWPrefIn
+  Analyzer               TrPolarizer  test     59.1    46.1      63.8  ref: BStxbf -> QWPrefIn
+  L2                     Refractor    test     59.1    46.1      99.3  ref: BStxbf -> QWPrefIn
+  Pol                    TrPolarizer  test     60.8    47.8     137.5  test: Comptxbd -> QWPtestIn
+  L1                     Refractor    test     60.7    47.7     153.1  test: Comptxbd -> QWPtestIn
+  QWPtest                WavePlate    test     59.9    46.9     333.6  test: Baffle -> L1flat
+  TestOptic              Reflector    test     59.4    46.9     361.1  test: Baffle -> L1flat
+  QWPref                 WavePlate    ref      59.9    46.9     362.8  test: L2flat -> FocalMask
+  PZT                    Reflector    ref      59.9    46.9     390.9  test: FocalMask -> FLpow
+  BS                     Reflector    test     64.4    51.4       NaN  (no other beam crosses its plane)
+  FL                     Refractor    test     18.0     5.0       NaN  (no other beam crosses its plane)
+  Detector               FocalPlane   test     17.8     4.8       NaN  (no other beam crosses its plane)
+  worst +38.2 mm over 10 parts (spec >= 25 mm); wrote clear22_clearance.png
+
+
+wrote clear22_report.txt + clear22.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/clear22

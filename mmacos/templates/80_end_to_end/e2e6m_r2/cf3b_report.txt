@@ -1,0 +1,21 @@
+==== e2e6m CF3b -- the DM-spacing sweep (apl leg [0.15 0.4 0.7 1.1] m; v4 at [0.15 0.7] m)
+d=0.15 m apl : CF2 baseline reused (1.081e-07 relin)
+d=0.15 m v4  : CF2 baseline reused (5.377e-06 relin)
+
+-- spacing 0.40 m: emitting r1_seg_d040_* via the generator
+   emitted /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_d040_dm.in (DM elts [23 26]); shroud 7.451 m
+   apl : 9.077e-07 -> 7.742e-07 -> 4.977e-07 | lin-ach 5.619e-07 @ 10.7 nm | z/z_T 9.95e-03
+
+-- spacing 0.70 m: emitting r1_seg_d070_* via the generator
+   emitted /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_d070_dm.in (DM elts [23 26]); shroud 7.451 m
+   apl : 1.097e-06 -> 9.670e-07 -> 9.670e-07 | lin-ach 7.785e-10 @ 4.7 nm | z/z_T 1.74e-02
+   v4  : 2.310e-05 -> 1.955e-05 -> 8.973e-06 | lin-ach 7.294e-06 @ 11.0 nm | z/z_T 1.74e-02
+
+-- spacing 1.10 m: emitting r1_seg_d110_* via the generator
+   emitted /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_d110_dm.in (DM elts [23 26]); shroud 7.451 m
+   apl : 1.215e-06 -> 1.068e-06 -> 9.005e-07 | lin-ach 6.189e-11 @ 11.0 nm | z/z_T 2.74e-02
+
+KNEE at d = 0.15 m: floor 1.081e-07, worsening beyond.
+
+  figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/cf3b_spacing.png
+CF3b DONE in 149.4 min

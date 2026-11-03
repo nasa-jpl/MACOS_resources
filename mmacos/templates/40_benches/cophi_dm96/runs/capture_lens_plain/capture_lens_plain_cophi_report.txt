@@ -1,0 +1,60 @@
+
+=== COPHI capture (lens rig, the plain splitter) ===
+
+---- capture: from cold (lambda_1 632.8 nm, lambda_2 652.8 nm, Lambda = 20.65 um) ----
+  colour 2 re-traced at 652.8 nm: registration null 3.92e-05 nm, contrast 0.9979 (colour 1: 3.92e-05 nm, 0.9979)
+  truth: the engine's OPD change; reading h = -1 x dOPD/2 (sign measured on the 30 nm rung)
+
+  ladder (surface rms over lit; pixel errors over the test pupil, piston removed):
+  camera       surface | single colour: rms err, wrong | two colours: rms err, wrong orders
+  noise-free      30 nm |  3.05e-07 nm,   0.0000 %      |  3.05e-07 nm,     0.0000 %
+  baseline        30 nm |     0.149 nm,   0.0000 %      |     0.149 nm,     0.0000 %
+  photonfocus     30 nm |    0.0996 nm,   0.0000 %      |    0.0996 nm,     0.0000 %
+  noise-free      40 nm |      5.05 nm,   0.0255 %      |  3.06e-07 nm,     0.0000 %
+  baseline        40 nm |      5.05 nm,   0.0255 %      |     0.149 nm,     0.0000 %
+  photonfocus     40 nm |      5.05 nm,   0.0255 %      |    0.0996 nm,     0.0000 %
+  noise-free      50 nm |      15.1 nm,   0.2292 %      |  3.06e-07 nm,     0.0000 %
+  baseline        50 nm |      15.1 nm,   0.2292 %      |     0.149 nm,     0.0000 %
+  photonfocus     50 nm |      15.1 nm,   0.2292 %      |    0.0994 nm,     0.0000 %
+  noise-free      60 nm |      34.2 nm,   1.1716 %      |  3.06e-07 nm,     0.0000 %
+  baseline        60 nm |      34.2 nm,   1.1703 %      |     0.149 nm,     0.0000 %
+  photonfocus     60 nm |      34.3 nm,   1.1741 %      |    0.0996 nm,     0.0000 %
+  noise-free      80 nm |      75.2 nm,   5.6530 %      |  3.06e-07 nm,     0.0000 %
+  baseline        80 nm |      75.2 nm,   5.6530 %      |      0.15 nm,     0.0000 %
+  photonfocus     80 nm |      75.2 nm,   5.6543 %      |    0.0996 nm,     0.0000 %
+  noise-free     100 nm |       113 nm,  12.6291 %      |  3.06e-07 nm,     0.0000 %
+  baseline       100 nm |       113 nm,  12.6291 %      |     0.149 nm,     0.0000 %
+  photonfocus    100 nm |       113 nm,  12.6291 %      |    0.0996 nm,     0.0000 %
+  noise-free     120 nm |       142 nm,  20.1324 %      |  3.07e-07 nm,     0.0000 %
+  baseline       120 nm |       142 nm,  20.1235 %      |     0.149 nm,     0.0000 %
+  photonfocus    120 nm |       142 nm,  20.1350 %      |    0.0999 nm,     0.0000 %
+  noise-free     160 nm |       187 nm,  33.5129 %      |  3.06e-07 nm,     0.0000 %
+  baseline       160 nm |       187 nm,  33.5129 %      |     0.149 nm,     0.0000 %
+  photonfocus    160 nm |       187 nm,  33.5167 %      |    0.0992 nm,     0.0000 %
+  noise-free     240 nm |       264 nm,  51.3989 %      |  3.05e-07 nm,     0.0000 %
+  baseline       240 nm |       264 nm,  51.3964 %      |     0.149 nm,     0.0000 %
+  photonfocus    240 nm |       264 nm,  51.3989 %      |    0.0994 nm,     0.0000 %
+  noise-free     480 nm |       517 nm,  74.1254 %      |  3.05e-07 nm,     0.0000 %
+  baseline       480 nm |       517 nm,  74.1293 %      |      0.15 nm,     0.0000 %
+  photonfocus    480 nm |       517 nm,  74.1318 %      |    0.0991 nm,     0.0000 %
+  multiplexing crosstalk (colour 1 read from both colours' frames vs from its own alone): 4.14e-16 rad rms
+
+  temporal unwrapping: a drifting surface (the 30 nm shape, 153 nm peak), 6 readings, the step per reading as a fraction of lambda/4 at the PEAK pixel:
+    0.50 x lambda/4 per reading: final rms err 3.06e-07 nm, wrong pixels 0.0000 % -> UNWRAPS
+    0.90 x lambda/4 per reading: final rms err 3.06e-07 nm, wrong pixels 0.0000 % -> UNWRAPS
+    1.10 x lambda/4 per reading: final rms err 16.6 nm, wrong pixels 0.0076 % -> FAILS
+    1.50 x lambda/4 per reading: final rms err 67 nm, wrong pixels 0.2216 % -> FAILS
+    baseline      7.50 readings/s -> temporal unwrapping holds to a drift of 1.19 um/s at the peak pixel (0.239 um/s of rms for this shape)
+    photonfocus  37.50 readings/s -> temporal unwrapping holds to a drift of 5.93 um/s at the peak pixel (1.2 um/s of rms for this shape)
+
+  two-colour arithmetic (range +-Lambda/4; amplification Lambda/lambda; the fine reading must hold sqrt2 sigma x Lambda/lambda < lambda/8):
+    lambda 632.8 nm, dlam   1.0 nm: Lambda      401 um, range +-     100 um, amplification   633.8, fine sigma <  0.0882 nm
+    lambda 632.8 nm, dlam  20.0 nm: Lambda     20.7 um, range +-    5.16 um, amplification    32.6, fine sigma <    1.71 nm
+    lambda 632.8 nm, dlam 100.0 nm: Lambda     4.64 um, range +-    1.16 um, amplification     7.3, fine sigma <    7.63 nm
+    lambda 1319 nm, dlam   1.0 nm: Lambda 1.74e+03 um, range +-     435 um, amplification  1320.0, fine sigma <  0.0883 nm
+    lambda 1319 nm, dlam  20.0 nm: Lambda     88.3 um, range +-    22.1 um, amplification    67.0, fine sigma <    1.74 nm
+    lambda 1319 nm, dlam 100.0 nm: Lambda     18.7 um, range +-    4.68 um, amplification    14.2, fine sigma <    8.22 nm
+  the bench's per-pixel phase noise is ~75 pm of surface per reading (baseline; the noise stage), so even
+  dlam 1 nm (amplification ~630, requirement ~0.07 nm) resolves the fringe in ONE multiplexed reading; a 200 nm rms
+  surface from cold (peaks ~0.8-1 um) needs range +-1 um, i.e. Lambda >= 4 um -- ONE rung of dlam <= ~100 nm at 633
+wall 9.4 min

@@ -1,0 +1,49 @@
+dyson5 t5e -- a telescope DECK end to end with its own Dyson (TMA step 2) (2026-10-04 23:01)
+CONVENTIONS: telescope = dyson5_tma_step5_1k5.in mapped onto the exact chain by tel_deck_geom (coaxial conics from the deck; every chief the
+  straight object-space line through the deck's ApStop).  Field = 1500 px x IFOV 54.5 urad = 4.688 deg cross-track; the
+  spectrometer size:D:130, slit 27.0 mm (1500 px x 18 um).  Spec plate scale f = 330.0 mm (pixel / IFOV).  Spots are RADIAL
+  rms about the centroid (a 41-grid over the deck's Aperture) -- per-axis rms is this / sqrt(2).
+
+GATE 1 (bridge, telescope alone on the deck's FocalPlane): fields -2.344 -1.758 -1.172 -0.586 0.000 0.586 1.172 1.758 2.344  deg
+  slit line          rms spot um, engine:   271.64   187.50   147.48   134.01   131.45   133.61   146.81   186.88   271.55 
+                                    chain:    879.82   978.82  1061.03  1114.99  1133.77  1114.99  1061.03   978.82   879.82 
+  sky line (db = 0)  rms spot um, engine:   279.82   190.89   148.85   134.38   131.45   133.99   148.18   190.26   279.73 
+                                    chain:    875.66   976.49  1060.06  1114.76  1133.77  1114.76  1060.06   976.49   875.66 
+  chief at the FocalPlane, engine vs chain: max 3.07e-04 m;  21330 engine rays re-traced by the chain from their launch: max 3.89e-03 m
+
+THE DECK'S FIRST ORDER (chain == engine above):
+  plate scale: local 327.8 mm (+-0.02 deg about the centre), 335.6 mm to the strip edge (offset / tan) -- spec 330.0 mm
+  the strip at the image: 27.48 mm long (+-13.74 mm), the slit 27.0 mm
+  the straight SKY line images BOWED: 0.36 mm off the slit line at the strip edge; landing on the slit line takes 0.059 deg along track
+  the deck's FocalPlane is tilted 27.75 deg to the exit chief (about the slit axis: no defocus ALONG the slit line)
+  SLIT VIGNETTING: the slit admits +-2.305 deg of the +-2.344 deg strip = 98.3 % of the swath (1475 of 1500 px); the rest falls off the slit ends
+
+END TO END (telescope + size:D:130 over the ADMITTED strip +-2.305 deg, 7 fields x 7 wavelengths, the grating the stop) -- INFORMATIVE:
+  smile 6.4691 px  keystone 0.5353 px  CRF 15.699 px  SRF 15.655 px  EE 0.000  grating admits 1.000  clearance -4.89 mm (TelM1 -> TelM2 vs TelM3, FAIL)  11 elements
+  engine chief vs chain at the FPA (centre field): 1.2e-12 m
+  spec: smile, keystone < 0.1 px; CRF < 1.5 px; SRF on the slit floor.  deck /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_t5e_step5_1k5_e2e.in
+  smile per lambda (px): 6.3760 6.4174 6.4283 6.4364 6.4453 6.4560 6.4691 
+  keystone per field (px): 0.5353 0.3483 0.1800 0.0000 0.1800 0.3483 0.5353 
+  pass fraction per field: 1.000 1.000 1.000 1.000 1.000 1.000 1.000 
+  the grating-stop chief crosses the slit plane OFF the slit line by (um, per field): +4.7 +2.2 +0.6 -0.0 +0.6 +2.2 +4.7 
+  READING: the slit is an unmasked pass station here, so the telescope's blur at the slit (gate 1: 131-272 um rms over the
+  full strip's slit line) passes into the Dyson whole, and the pupil mismatch (deck ApStop vs the grating's image) puts
+  the instrument's chief off the slit line -- the smile/CRF/SRF above are the TELESCOPE's image quality seen through a
+  Dyson, not the Dyson's distortion.  A real slit would clip that light (the vignetting is then in throughput, not in smile).
+  NOT the number: plate scale 328 mm (local) vs 330 mm spec, 98.3 % of the swath on the slit.
+
+PUPIL MATCH (TMA step 3, addendum 36): the TELESCOPE's beam (D 183.3 mm, chief through the deck's ApStop), NO stop set,
+  on the joined deck; angles to the slit normal in deg (x along the slit, y across), pupil = where the chiefs cross the
+  slit axis (m from the slit, + toward the Dyson); mismatch = the telescope chief's miss of the grating vertex (the stop,
+  aperture radius 80.8 mm); admitted = rays reaching the FPA / launched (engine), with the element stopping most of the rest.
+    field   x slit |   tel x   tel y tel pupil |   Dys x   Dys y Dys pupil |   d ang   miss G |  admit slit  lost at
+   -2.344   -13.74 |  +0.527  -0.135    +1.493 |  +0.029  -0.037   +27.437 |   0.508     2.55 |  1.000  OFF  -
+   -1.758   -10.20 |  +0.530  -0.103    +1.103 |  +0.032  -0.043   +18.265 |   0.502     2.51 |  1.000   on  -
+   -1.172    -6.75 |  +0.422  -0.076    +0.916 |  +0.026  -0.047   +14.864 |   0.397     1.99 |  1.000   on  -
+   -0.586    -3.36 |  +0.233  -0.057    +0.827 |  +0.014  -0.050   +13.412 |   0.218     1.09 |  1.000   on  -
+   +0.000    +0.00 |  +0.000  -0.051       NaN |  +0.000  -0.051       NaN |   0.000     0.00 |  1.000   on  -
+   +0.586    +3.36 |  -0.233  -0.057    +0.827 |  -0.014  -0.050   +13.412 |   0.218     1.09 |  1.000   on  -
+   +1.172    +6.75 |  -0.422  -0.076    +0.916 |  -0.026  -0.047   +14.864 |   0.397     1.99 |  1.000   on  -
+   +1.758   +10.20 |  -0.530  -0.103    +1.103 |  -0.032  -0.043   +18.265 |   0.502     2.51 |  1.000   on  -
+   +2.344   +13.74 |  -0.527  -0.135    +1.493 |  -0.029  -0.037   +27.437 |   0.508     2.55 |  1.000  OFF  -
+  (fields beyond +-2.305 deg land OFF the slit: their admitted fraction is to the FPA through an unmasked slit plane)

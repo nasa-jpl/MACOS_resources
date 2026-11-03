@@ -213,17 +213,24 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             t.add_mirror('M3','radius_m', 3.016227,'spacing_after','derive');
             t.add_focal_plane('FP');
             t.build();
-            % safe K=0 seed (NOT the broken n-flip conics) + correct f/20 focus
-            tc.verifyEqual([t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc], ...
-                [0 0 0], 'AbsTol',0, 'convex conic seed must be K=0');
+            % RE-PINNED 2026-10-03: seidel_seed is now the signed fixed-frame
+            % third-order solver (its 2026-06 n-flip twin traced the chief ray to
+            % the third mirror at the wrong height, so its conics never nulled
+            % coma/astigmatism: on this fixture the engine gives 2.3 um on axis /
+            % 79 um at 0.1 deg for the old conics, 0.2 / 1.3 um for the new).
+            % Assertions that measured HOW BAD the old seed was (K = 0, 1000x
+            % crushes, 'implausibly small') are replaced by the property itself.
+            % a REAL third-order seed on the convex-flagged train + the correct f/20 focus
+            Kc = [t.spec.elt(1).Kc t.spec.elt(2).Kc t.spec.elt(3).Kc];
+            tc.verifyTrue(all(isfinite(Kc)) && any(Kc ~= 0), 'convex conic seed must be a finite, nonzero third-order null');
             tc.verifyGreaterThan(t.spec.derived.fnum, 18, 'convex f/# wrong');
             tc.verifyLessThan(t.spec.derived.fnum, 25, 'convex f/# wrong');
             % the conic optimize crushes the field WFE to diffraction-limited
             res = t.optimize('fields_arcmin',[0.5 1.0], 'max_iters',150);
             tc.verifyLessThan(max(res.wfe_after)/2.3e-6, 0.07, ...
                 'convex conic optimize did not reach the diffraction limit');
-            tc.verifyLessThan(max(res.wfe_after), max(res.wfe_before)/1000, ...
-                'convex conic optimize did not crush the WFE');
+            tc.verifyLessThanOrEqual(max(res.wfe_after), max(res.wfe_before), ...
+                'convex conic optimize made the seed worse');
         end
 
         function test_zernmodes_single_line_emit_loads(tc)
@@ -369,6 +376,35 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 sprintf('recovered despace not ~0: %.4g mm', res.x_opt));
         end
 
+        function test_add_pupil_mode_follows_session(tc)
+            % add_pupil carries no FEX-mode default of its own: an omitted
+            % 'mode' is the session's (macos.fex() reads macos.modes()), and
+            % mode 0 (centroid) is accepted.  Before 2026-10-28 add_pupil
+            % defaulted to 1 and refused 0 (mustBePositive).
+            mk = @() tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
+            % (1) mode 0 runs (the old validator refused it)
+            t0 = mk();
+            t0.add_pupil('mode', 0);
+            tc.verifyGreaterThan(t0.spec.pupil.ep_radius, 0);
+            % (2) the session in CENTROID, set with the real setter (modes_set,
+            % 2026-10-28; until then a stub macos.modes stood in): an omitted
+            % mode builds the mode-0 pupil.  On every Cassegrain fixture tried
+            % (bare, hole, field bias 30/60/120 arcmin; measured 2026-10-28)
+            % the centroid and chief-ray pupils coincide to the last bit, so
+            % this comparison cannot by itself tell "the session's mode" from
+            % "a default of 1"; that discrimination is tSessionModes/
+            % test_fex_follows_the_session_axis on e5hex1, where the axes
+            % differ.  Here the check is that add_pupil runs under a CENTROID
+            % session with no mode of its own and lands on the mode-0 pupil.
+            macos.modes('centroid', true);
+            tc.addTeardown(@() macos.modes('centroid', false));
+            ts = mk();  ts.add_pupil();
+            tz = mk();  tz.add_pupil('mode', 0);
+            tc.verifyEqual(macos.modes().centroid, true, 'add_pupil must leave the session mode alone');
+            tc.verifyEqual(ts.spec.pupil.ep_radius, tz.spec.pupil.ep_radius, 'AbsTol', 0);
+            tc.verifyEqual(ts.spec.pupil.ep_vpt, tz.spec.pupil.ep_vpt, 'AbsTol', 0);
+        end
+
         function test_add_pupil_inserts_exit_pupil(tc)
             % add_pupil inserts a FLAT image-Return + a SPHERICAL exit-pupil
             % Return BEFORE the focal plane, PRESERVING the FP (nElt += 2).
@@ -405,9 +441,74 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % Pure-math: the ported Seidel-seed solver reproduces the locked
             % proof_korsch f/8 conics (R=[8 2 4], t=[3 4.5,derive]).
             [K, tf, EFL] = macos.design.seidel_seed([8 2 4], [3 4.5], 1.0);
-            tc.verifyEqual(K,   [-0.622 0.148 -3.904], 'AbsTol', 2e-3, 'seidel conics');
+            % RE-PINNED 2026-10-03: seidel_seed is now the signed fixed-frame
+            % third-order solver (its 2026-06 n-flip twin traced the chief ray to
+            % the third mirror at the wrong height, so its conics never nulled
+            % coma/astigmatism: on this fixture the engine gives 2.3 um on axis /
+            % 79 um at 0.1 deg for the old conics, 0.2 / 1.3 um for the new).
+            % Assertions that measured HOW BAD the old seed was (K = 0, 1000x
+            % crushes, 'implausibly small') are replaced by the property itself.
+            tc.verifyEqual(K,   [-0.9841 -0.8148 -0.0265], 'AbsTol', 2e-3, 'seidel conics');
             tc.verifyEqual(EFL, 8.0, 'AbsTol', 1e-3, 'EFL (f/8)');
             tc.verifyEqual(tf,  2.0, 'AbsTol', 1e-3, 't_focus');
+        end
+
+        function test_seidel_seed_closed_forms_and_first_order(tc)
+            % The signed solver against things it cannot have been fitted to:
+            % the paraboloid (K = -1 exactly), Schroeder's Ritchey-Chretien
+            % conics for two layouts (the convex secondary the n-flip could not
+            % represent), and the exact first order of dyson5's Petzval-flat
+            % telecentric three-mirror, where the n-flip put the image 16 mm
+            % BEHIND M3 (the must-fail leg: the legacy twin's t_focus < 0).
+            ss = @macos.design.seidel_seed;
+            [K, tf, EFL] = ss(2.0, [], 1.0, false);
+            tc.verifyEqual(K, -1, 'AbsTol', 1e-12, 'a concave mirror alone must seed as a paraboloid');
+            tc.verifyEqual([tf EFL], [1 1], 'AbsTol', 1e-12);
+            for cse = {[8 4 0.125], [57.6 10.4 0.271]}
+                f = cse{1}(1); m = cse{1}(2); beta = cse{1}(3);
+                f1 = f/m;  R1 = 2*f1;  s2 = f1*(1+beta)/(m+1);  sep = f1*(m-beta)/(m+1);
+                R2 = 2*f*(1+beta)/(m^2-1);
+                [K, tf, EFL] = ss([R1 R2], sep, 1.0, [false true]);
+                K1rc = -1 - 2*(1+beta)/(m^2*(m-beta));
+                K2rc = -((m+1)/(m-1))^2 - 2*m*(m+1)/((m-beta)*(m-1)^3);
+                tc.verifyEqual(K, [K1rc K2rc], 'AbsTol', 1e-9, sprintf('RC conics, f %g m %g beta %g', f, m, beta));
+                tc.verifyEqual(tf, m*s2, 'AbsTol', 1e-9, 'RC image position');
+                tc.verifyEqual(EFL, f, 'AbsTol', 1e-9, 'RC EFL');
+            end
+            % dyson5 beat-5 geometry (metres): exact first order by a signed thin-mirror trace
+            R = [0.700 0.125 0.152];  t = [0.140 0.076];  D = 0.070;
+            fth = [R(1)/2, -R(2)/2, R(3)/2];  y = D/2;  u = 0;
+            for k = 1:3, u = u - y/fth(k);  if k < 3, y = y + t(k)*u; end, end
+            tf_exact = -y/u;  EFL_exact = -(D/2)/u;
+            [K, tf, EFL] = ss(R, t, D);
+            tc.verifyEqual([tf EFL], [tf_exact EFL_exact], 'RelTol', 1e-9, 'dyson5 first order');
+            tc.verifyTrue(all(isfinite(K)) && max(abs(K)) < 100, 'dyson5 conics must be finite and sane');
+            [~, tf_old] = macos.design.seidel_seed_nflip(R, t, D);
+            tc.verifyLessThan(tf_old, 0, 'the legacy n-flip must still show its defect here (image behind M3)');
+        end
+
+        function test_seidel_seed_conics_image_in_the_engine(tc)
+            % The proof Korsch built with the NEW conics vs the OLD pinned ones,
+            % traced in the engine at 0.1 deg: the new seed must be at least 20x
+            % tighter (measured 1.3 um vs 79 um rms spot; spheres 754 um).
+            sets = {[-0.9841 -0.8148 -0.0265], [-0.622 0.148 -3.904]};
+            r = zeros(1, 2);
+            for i = 1:2
+                K = sets{i};
+                t = macos.design.Telescope('family','TMA','aperture_diameter_m',1.0, ...
+                    'model_size',tc.ModelSize,'grid_npts',tc.GridNpts);
+                t.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0,'conic',K(1));
+                t.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5,'conic',K(2));
+                t.add_mirror('M3','radius_m',4.0,'spacing_after','derive','conic',K(3));
+                t.build();
+                macos.set_src_fov('src_dir', [0 sind(0.1) cosd(0.1)]);
+                tr = macos.trace(4);  ri = macos.get_ray_info(tr.nRays);
+                ok = ri.ok_trace(:) & ri.ok_pass(:);  p = ri.pos(:, ok);  dp = p - mean(p, 2);
+                n = macos.get_elt_psi(4);  n = n(:)/norm(n);  dpt = dp - n*(n'*dp);
+                r(i) = sqrt(mean(sum(dpt.^2, 1)));
+            end
+            tc.verifyLessThan(r(1), 3e-6, sprintf('new seed at 0.1 deg: %.2e m rms', r(1)));
+            tc.verifyGreaterThan(r(2)/r(1), 20, sprintf('old/new spot ratio %.1f', r(2)/r(1)));
         end
 
         function test_tma_builder_emits_coaxial_korsch(tc)
@@ -437,8 +538,24 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             s = macos.trace(4);
             tc.verifyLessThan(s.rmsWFE, 5e-7, ...
                 sprintf('TMA on-axis WFE too large -- emission suspect: %.3e', s.rmsWFE));
-            tc.verifyGreaterThan(s.rmsWFE, 1e-8, ...
-                'TMA on-axis WFE implausibly small for an un-optimized seed');
+            % RE-PINNED 2026-10-03: seidel_seed is now the signed fixed-frame
+            % third-order solver (its 2026-06 n-flip twin traced the chief ray to
+            % the third mirror at the wrong height, so its conics never nulled
+            % coma/astigmatism: on this fixture the engine gives 2.3 um on axis /
+            % 79 um at 0.1 deg for the old conics, 0.2 / 1.3 um for the new).
+            % Assertions that measured HOW BAD the old seed was (K = 0, 1000x
+            % crushes, 'implausibly small') are replaced by the property itself.
+            % non-vacuity: the same train with SPHERES must be far worse
+            t0 = macos.design.Telescope('family','TMA', ...
+                'aperture_diameter_m',1.0, 'model_size',tc.ModelSize, ...
+                'grid_npts',tc.GridNpts);
+            t0.add_mirror('M1','radius_m',8.0,'spacing_after_m',3.0,'conic',0);
+            t0.add_mirror('M2','radius_m',2.0,'spacing_after_m',4.5,'conic',0);
+            t0.add_mirror('M3','radius_m',4.0,'spacing_after','derive','conic',0);
+            t0.build();
+            s0 = macos.trace(4);
+            tc.verifyGreaterThan(s0.rmsWFE, 100*s.rmsWFE, ...
+                'the sphere train must be far worse than the seeded one (seed inert?)');
         end
 
         function test_tma_multifield_optimize_native(tc)
@@ -457,12 +574,19 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             res = t.optimize('fields_arcmin',[1.2 2.4], 'max_iters',60);
             tc.verifyTrue(res.converged, 'CALIB did not converge');
             % off-axis improved by >100x -- the multi-field payoff
-            tc.verifyGreaterThan(res.wfe_before(end)/res.wfe_after(end), 100, ...
-                'off-axis WFE not strongly improved');
+            % RE-PINNED 2026-10-03: seidel_seed is now the signed fixed-frame
+            % third-order solver (its 2026-06 n-flip twin traced the chief ray to
+            % the third mirror at the wrong height, so its conics never nulled
+            % coma/astigmatism: on this fixture the engine gives 2.3 um on axis /
+            % 79 um at 0.1 deg for the old conics, 0.2 / 1.3 um for the new).
+            % Assertions that measured HOW BAD the old seed was (K = 0, 1000x
+            % crushes, 'implausibly small') are replaced by the property itself.
+            tc.verifyLessThanOrEqual(res.wfe_after(end), res.wfe_before(end), ...
+                'off-axis WFE got worse under optimize');
             tc.verifyLessThan(max(res.wfe_after), 5e-8, ...
                 sprintf('not ~diffraction-limited: max %.3e m', max(res.wfe_after)));
             % conics actually moved and were written back to the spec
-            tc.verifyGreaterThan(max(abs(res.conics - Kseed)), 0.1, 'conics did not move');
+            tc.verifyTrue(all(isfinite(res.conics)), 'conics not finite after optimize');
             tc.verifyEqual(t.spec.derived.K, res.conics, 'AbsTol', 1e-12);
             % the clean re-emitted design traces optimized (conic readback)
             s = macos.trace(4);
@@ -705,8 +829,15 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 're-emitted moved design does not reproduce the optimized WFE');
             tc.verifyLessThan(s.rmsWFE, 1e-8, ...
                 'rigid+conic optimize not diffraction-limited');
-            tc.verifyLessThan(s.rmsWFE, seed/10, ...
-                'rigid+conic optimize did not substantially improve the seed');
+            % RE-PINNED 2026-10-03: seidel_seed is now the signed fixed-frame
+            % third-order solver (its 2026-06 n-flip twin traced the chief ray to
+            % the third mirror at the wrong height, so its conics never nulled
+            % coma/astigmatism: on this fixture the engine gives 2.3 um on axis /
+            % 79 um at 0.1 deg for the old conics, 0.2 / 1.3 um for the new).
+            % Assertions that measured HOW BAD the old seed was (K = 0, 1000x
+            % crushes, 'implausibly small') are replaced by the property itself.
+            tc.verifyLessThanOrEqual(s.rmsWFE, seed, ...
+                'rigid+conic optimize made the seed worse');
             % the optimizer moved M2 off the pinned axis (recorded in spec)
             tc.verifyGreaterThan(norm(t.spec.elt(2).psi(:) - [0;0;-1]), 1e-7, ...
                 'rigid-body DOFs did not move M2 (tilt expected)');
@@ -756,7 +887,14 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % aberrate equally -> the x field reached the trace, symmetrically.
             tc.verifyEqual(res.wfe_before(2), res.wfe_before(4), 'RelTol', 0.25, ...
                 'x-arm WFE ~= y-arm WFE -> x field component did not reach the trace');
-            tc.verifyGreaterThan(res.wfe_before(2), 5*res.wfe_before(1), ...
+            % RE-PINNED 2026-10-03: seidel_seed is now the signed fixed-frame
+            % third-order solver (its 2026-06 n-flip twin traced the chief ray to
+            % the third mirror at the wrong height, so its conics never nulled
+            % coma/astigmatism: on this fixture the engine gives 2.3 um on axis /
+            % 79 um at 0.1 deg for the old conics, 0.2 / 1.3 um for the new).
+            % Assertions that measured HOW BAD the old seed was (K = 0, 1000x
+            % crushes, 'implausibly small') are replaced by the property itself.
+            tc.verifyGreaterThan(res.wfe_before(2), res.wfe_before(1), ...
                 'off-axis arm not aberrated vs on-axis -> field set inert');
             % and the conics balance the full 2-D field to diffraction-limited
             tc.verifyLessThan(max(res.wfe_after), 5e-8, ...
@@ -959,7 +1097,12 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % (0, 2.5, -1) with psi swung to (0,-1,0).
             t0 = tc.make_tma_();  t0.add_focal_plane('FP');  t0.build();
             macos.trace(numel(t0.spec.elt));
-            W = macos.opd();  v = W(isfinite(W) & W ~= 0);  rms0 = std(v);
+            % the pupil from the valid-ray mask, not W ~= 0: under the chief
+            % reference (the default since 2026-10-10) 4 of this TMA's 276
+            % rays sit at the chief's path and read exactly 0 unfolded, but
+            % not folded (round-off) -- W ~= 0 made the fold look 9.8e-12
+            % "non-neutral".
+            W = macos.opd();  v = W(isfinite(W) & macos.opd_mask());  rms0 = std(v);
 
             t1 = tc.make_tma_();  t1.add_focal_plane('FP');
             t1.add_fold('FM','after','M2','dist_m',2.0);
@@ -973,7 +1116,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'M3 psi not reflected');
             tc.verifyEqual(e(2).zElt, 2.0, 'AbsTol', 1e-15);
             macos.trace(numel(e));
-            W = macos.opd();  v = W(isfinite(W) & W ~= 0);  rms1 = std(v);
+            W = macos.opd();  v = W(isfinite(W) & macos.opd_mask());  rms1 = std(v);
             tc.verifyLessThan(abs(rms1 - rms0), 1e-12, ...
                 sprintf('flat fold is not WFE-neutral (d=%.3g m)', ...
                         abs(rms1 - rms0)));
@@ -1222,8 +1365,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
         function test_design_report_smoke(tc)
             % design_report: one-struct report (first-order f/#s, WFE
             % ladder + Strehl via the FarField EP, FP tilt, packaging).
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
             t.add_pupil();
             rep = design_report(t, 'rings_arcmin', 0.25, 'quiet', true);
@@ -1236,14 +1378,21 @@ classdef tDesignTelescope < matlab.unittest.TestCase
                 'Strehl is a peak ratio against the unaberrated aperture');
             tc.verifyFalse(isnan(rep.fp_tilt_deg));
             tc.verifyTrue(ischar(rep.text) && numel(rep.text) > 200);
+            % Dave 2026-10-26 (mmacos manual ch. 1): the live EFL is the
+            % plate scale at the (biased) field point, and the report says
+            % so beside the engine's system EFL (SYSPROP): e2e 72.32 vs
+            % 72.14 m under one bare label "EFL" before.
+            tc.verifySubstring(rep.text, 'plate-scale EFL at the field point');
+            tc.verifySubstring(rep.text, 'system EFL');
+            tc.verifyGreaterThan(rep.EFL_sys_m, 0);
+            tc.verifyLessThan(abs(rep.EFL_m - rep.EFL_sys_m) / rep.EFL_sys_m, 0.05);
         end
 
         function test_offner_layout(tc)
             % offner_layout: concentric 1:1 relay chief geometry --
             % closure (image at -h), path/tilt symmetry, positive
             % vignetting clearance, and exact scale invariance.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             [L, T, g] = offner_layout(2.0, 0.25);
             tc.verifyEqual(L(1), L(4), 'AbsTol', 1e-9, 'object/image legs');
             tc.verifyEqual(L(2), L(3), 'AbsTol', 1e-9, 'inner legs');
@@ -1258,8 +1407,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % field_zone_lmon: per-mirror field-zone normalization radii
             % (solve doctrine) -- pooled footprint over the field set,
             % growing with field span; M1's zone ~ the half-aperture.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_tma_();  t.add_focal_plane('FP');  t.build();
             F = macos.design.field_ring(2.0, 'units', 'arcmin');
             lz0 = field_zone_lmon(t, 1:3, zeros(0,2));   % footprint only
@@ -1324,8 +1472,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % known injected Zernike departure back out -- same contract as
             % the CALIB path (test_optimize_freeform_corrects_injected),
             % via one poke-Jacobian + damped step instead of FD-LM.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_('Cassegrain', 1.0, 8.0, 4.0, 0.125);
             t.set_freeform(1, 6, 2e-6);              % inject 2 um astig on M1
             t.build();  s_err = macos.trace();
@@ -1342,8 +1489,7 @@ classdef tDesignTelescope < matlab.unittest.TestCase
             % + the daylight gap.  On the biased [8 2 4] the two bundles
             % overlap near M3 (gap<0) -- the report must SAY so rather than
             % green-light a colliding fold.
-            addpath(fullfile(getenv('HOME'), ...
-                    'dev/MACOS_resources/mmacos/design/src'));
+            addpath(design_src_path());
             t = tc.make_tma_();  t.add_focal_plane('FP');
             t.set_field_bias(10);
             t.build();

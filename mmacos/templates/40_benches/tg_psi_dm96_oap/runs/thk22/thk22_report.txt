@@ -1,0 +1,109 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "thk22"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 22.39 deg (end bodies 6.88, node 22.39) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   235 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   193 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   179 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +176.8 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +206.8 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +216.8 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  51.4 -> separation  257.1 mm, margin +146.3 mm (spec >= 25)
+  input polarizer             d  247.1, part r  56.4 -> separation  247.1 mm, margin +131.3 mm (spec >= 25)
+  compensator                 d  200.0, part r  56.4 -> separation  141.4 mm, margin  +25.6 mm (spec >= 25)
+  output QWP                  d  160.0, part r  56.4 -> separation  160.0 mm, margin  +44.1 mm (spec >= 25)
+  analyzer                    d  170.0, part r  56.4 -> separation  170.0 mm, margin  +54.1 mm (spec >= 25)
+  focuser L2                  d  205.0, part r  51.4 -> separation  205.0 mm, margin  +94.1 mm (spec >= 25)
+  0 of 6 node parts under the 25 mm margin; beam radius 51.4, mount +8
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/thk22_tail.mat (null 20.094 nm at opt res; seed 75.242)
+Stage B -- lens rig built (BS_AOI 22.5); emitted thk22_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      21.4  
+  L1flat         Refractor        850.0        --  
+  L1pow          Refractor        857.1        --  
+  PolIn          TrPolarizer      867.1        --  
+  BSrefl         Reflector       1114.3        --  flat mirror
+  Comptxfd       Refractor       1303.5        --  
+  Comptxbd       Refractor       1313.8        --  
+  QWPtestIn      WavePlate       1528.8        --  
+  TestOptic      Reflector       1553.8      51.4  flat mirror
+  QWPtestOut     WavePlate       1578.8        --  
+  Comptxfu       Refractor       1793.8        --  
+  Comptxbu       Refractor       1804.1        --  
+  BStxfo         Refractor       1993.3        --  
+  BStxbo         Refractor       2003.7        --  
+  Recomb         Reference       2153.7        --  
+  OutQWP         WavePlate       2163.7        --  
+  Analyzer       TrPolarizer     2173.7        --  
+  L2pow          Refractor       2208.7        --  
+  L2flat         Refractor       2218.7        --  
+  FocalMask      Reference       2637.2        --  
+  FLpow          Refractor       2651.3        --  
+  FLflat         Refractor       2657.6        --  
+  Detector       FocalPlane      2693.6        --  camera (see the sampling budget for the pixel count)
+
+Stage PLACE -- affine window placement (lens rig):
+  ray affine: mag 10.3472 DM-mm/det-mm, det 107.0653, in-plane rotation -180.00 deg, dxd 1.9462e-02 mm -> 4.966 detector px per actuator
+  anchor: blob px (495.68,490.49) <-> DM (-3.500,-4.620) mm; field parity [t=1 su=-1 sv=-1] (ref-poke err 0.65 px)
+  lit actuators: 1976 of 9216
+camera: pupil image 5.76 mm across (296 modeled px at 19.5 um); sCMOS 2048x2048 at 6.50 um -> 886 raw px across the pupil; binned 4 = 221, and binning 3 = 295 lands nearest the modeled 296
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 1669 px across the pupil, 834 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+  bootstrap (ray affine): 100.00% within 2 px, median 0.45 px (252 of 252 blobs caught)
+  fit residual: affine 0.09 px, deg-2 0.09 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 252 CoMs): fit residual 0.09 px
+  refined pass 2 (deg-1, 252 of 252 caught): fit residual 0.09 px, gate 100.00% within 2 px, median 0.08 px
+  D1 GATE: 100.00% of lit within 2 px (need >= 99.0%), median err 0.08 px
+  by radius (mm):           5.0   10.0   15.0   20.0   25.0 
+    within2px    1.00   1.00   1.00   1.00   1.00 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.347 / 10.347, anamorphism 0.00%, principal axis +90.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map): 100.00% within 2 px -- VACUOUS on the lens (its mapping is axis-aligned)
+Stage MATRIX -- measured response matrix dw/da (lens rig, step 8, sign same):
+  flat-DM null: 20.1079 nm rms surface (20107.9 pm) [tail expects 20.0938] -- the same-plane-fold arm difference
+  J: 64 states, 1976 columns (lit), window 39 px, reg lambda 1.00e-03 (of median col energy)
+  Stage C single actuator @150nm: gain 0.9885, off-target floor 40.0 pm
+Stage D -- modal transfer (matrix estimator):
+  mode(p,q)  cyc/pup     gain  cross-talk
+    1,1          0.7   1.0049      0.0049
+    2,2          1.4   0.9904      0.0021
+    4,4          2.8   1.0086      0.0117
+    8,8          5.7   1.0018      0.0163
+   16,16        11.3   1.0051      0.0156
+   24,24        17.0   1.0046      0.0170
+   32,32        22.6   1.0059      0.0197
+   48,48        33.9   1.0071      0.0270
+   64,64        45.3   1.0077      0.0015
+   80,80        56.6   0.9957      0.0045
+   96,96        67.9   0.9626      0.0134
+   48,0         24.0   1.0057      0.0273
+Stage E -- differential rows (matrix estimator; actuator space, pm):
+  base           deviation          gain   resid pm     corr
+  flat           single 10nm      1.0023        1.8   1.0000
+  flat           random 10nm      1.0063      104.1   1.0000
+  random 16nm    single 10nm      1.0085        3.9   0.9999
+  random 16nm    random 10nm      1.0058      147.0   0.9999
+Stage E break ladder -- single 10nm differential vs base rms (lens):
+  base rms       gain   floor pm     corr  meas rms    fold  note
+      30 nm   1.0139        6.4   0.9997     26.6 nm  0.000  
+      60 nm   1.0226        9.3   0.9994     52.1 nm  0.002  
+     120 nm   1.3674      555.4   0.4887     75.8 nm  0.013  
+     240 nm  -4.1237     1511.2  -0.6885     79.5 nm  0.016  BROKE
+     480 nm   1.0420      504.2   0.4216     79.6 nm  0.016  
+Stage E reg sweep -- dense random 10nm gain vs matrix_lam (bright vs dark 25% columns):
+  lambda          all   bright     dark
+  1e-03        1.0063   1.0069   1.0040
+  1e-04        1.0116   1.0121   1.0099
+  1e-05        1.0122   1.0126   1.0105
+
+wrote thk22_report.txt + thk22.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/thk22

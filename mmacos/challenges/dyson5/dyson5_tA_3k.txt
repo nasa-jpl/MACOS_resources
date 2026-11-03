@@ -1,0 +1,65 @@
+dyson5 tA -- TMA stage A: the eccentric section of the TELECENTRIC Korsch parent, first order before figure (2026-10-04 17:46)
+CONVENTIONS: f spec 330.0 mm (pixel 18 um / IFOV 54.55 urad), D 183.3 mm (F/1.8), strip +-4.688 deg (3000 px), lambda 633 nm, model 256.
+  parent: tma_layout(D, 1.0, F, 'secondary_mag', 3.5, 'int_focus_m', -0.125 D, 'telecentric', true) -- M1 the stop, M3 between
+  M2 and M1 (the virtual-intermediate-image Korsch).  Section: Telescope.set_field_bias(bias) + set_offaxis('none','dist',d).
+  THE THREE NUMBERS (engine, the chief ray per strip field): SPREAD = max angle of a field's chief to the centre chief (deg;
+  0 = telecentric); PUPIL = where the edge chief crosses the centre chief's line, m from the FP hit (+ beyond the FP; Inf =
+  telecentric); PLATE = traced scale, local (+-0.02 deg about the bias) / to the strip edge (offset / tan).  TILT = the common
+  angle of the section's chiefs to the parent FP normal (= atan(d/f) on the parent; about the slit axis, harmless).
+  CLEAR = Telescope.check_clipping (body-in-beam + footprint margin), min margin and the element.  SPOT = best-focus rms
+  radius per field (step 1's helper), um.
+
+PARENT: R = [0.3667 0.0998 0.1667] m, t = [0.1477 0.0460] m, M3 z -0.1016 m, EFL 0.3300 m, paraxial chief exit slope -1.3e-15
+
+SCAN (as is, no figure):
+    bias dec mm | clear    margin at    |  spread  pupil m |    plate     edge |   tilt
+   -10.0    100 | FAILED: resolve_section_poles_ reads macos.draw_rays' V axis as global Y, but this deck's source frame is not the global frame: draw 'XY' V-axis = [-0 +0.984808 +0.173648], expected [+0 +1 +0] (10.00 deg off) (xGrid=[+1 +0 +0] yGrid=[-0 +0.984808 +0.173648] zGrid=[+0 -0.173648 +0.984808]) draw_rays projects onto the SOURCE/RAY-GRID basis, not the global one, so U/V would be silently mirrored here. Heritage/SegMirMaker decks and macos.design.segment_rx output carry xGrid=(-1,0,0). Use macos.draw_rays3d (global x,y,z) instead.
+   -10.0    120 | FAILED: resolve_section_poles_ reads macos.draw_rays' V axis as global Y, but this deck's source frame is not the global frame: draw 'XY' V-axis = [-0 +0.984808 +0.173648], expected [+0 +1 +0] (10.00 deg off) (xGrid=[+1 +0 +0] yGrid=[-0 +0.984808 +0.173648] zGrid=[+0 -0.173648 +0.984808]) draw_rays projects onto the SOURCE/RAY-GRID basis, not the global one, so U/V would be silently mirrored here. Heritage/SegMirMaker decks and macos.design.segment_rx output carry xGrid=(-1,0,0). Use macos.draw_rays3d (global x,y,z) instead.
+   -10.0    140 | FAILED: resolve_section_poles_ reads macos.draw_rays' V axis as global Y, but this deck's source frame is not the global frame: draw 'XY' V-axis = [-0 +0.984808 +0.173648], expected [+0 +1 +0] (10.00 deg off) (xGrid=[+1 +0 +0] yGrid=[-0 +0.984808 +0.173648] zGrid=[+0 -0.173648 +0.984808]) draw_rays projects onto the SOURCE/RAY-GRID basis, not the global one, so U/V would be silently mirrored here. Heritage/SegMirMaker decks and macos.design.segment_rx output carry xGrid=(-1,0,0). Use macos.draw_rays3d (global x,y,z) instead.
+   -10.0    160 | FAILED: resolve_section_poles_ reads macos.draw_rays' V axis as global Y, but this deck's source frame is not the global frame: draw 'XY' V-axis = [-0 +0.984808 +0.173648], expected [+0 +1 +0] (10.00 deg off) (xGrid=[+1 +0 +0] yGrid=[-0 +0.984808 +0.173648] zGrid=[+0 -0.173648 +0.984808]) draw_rays projects onto the SOURCE/RAY-GRID basis, not the global one, so U/V would be silently mirrored here. Heritage/SegMirMaker decks and macos.design.segment_rx output carry xGrid=(-1,0,0). Use macos.draw_rays3d (global x,y,z) instead.
+   -10.0    180 | FAILED: resolve_section_poles_ reads macos.draw_rays' V axis as global Y, but this deck's source frame is not the global frame: draw 'XY' V-axis = [-0 +0.984808 +0.173648], expected [+0 +1 +0] (10.00 deg off) (xGrid=[+1 +0 +0] yGrid=[-0 +0.984808 +0.173648] zGrid=[+0 -0.173648 +0.984808]) draw_rays projects onto the SOURCE/RAY-GRID basis, not the global one, so U/V would be silently mirrored here. Heritage/SegMirMaker decks and macos.design.segment_rx output carry xGrid=(-1,0,0). Use macos.draw_rays3d (global x,y,z) instead.
+   -10.0    200 | FAILED: resolve_section_poles_ reads macos.draw_rays' V axis as global Y, but this deck's source frame is not the global frame: draw 'XY' V-axis = [-0 +0.984808 +0.173648], expected [+0 +1 +0] (10.00 deg off) (xGrid=[+1 +0 +0] yGrid=[-0 +0.984808 +0.173648] zGrid=[+0 -0.173648 +0.984808]) draw_rays projects onto the SOURCE/RAY-GRID basis, not the global one, so U/V would be silently mirrored here. Heritage/SegMirMaker decks and macos.design.segment_rx output carry xGrid=(-1,0,0). Use macos.draw_rays3d (global x,y,z) instead.
+    -8.0    100 | PASS      +17.6 M2    |   6.864   -0.279 |    419.7    429.5 |  24.06
+    -8.0    120 | PASS      +29.3 FP    |   7.094   -0.277 |    432.0    446.2 |  26.54
+    -8.0    140 | PASS      +33.7 FP    |   7.344   -0.274 |    443.9    464.9 |  28.77
+    -8.0    160 | PASS      +37.9 FP    |   7.625   -0.270 |    455.0    485.9 |  30.71
+    -8.0    180 | PASS      +42.1 FP    |   7.947   -0.265 |    464.7    509.9 |  32.35
+    -8.0    200 | PASS      +46.3 FP    |   8.307   -0.259 |    472.4    537.1 |  33.67
+    -6.0    100 | PASS       +3.9 M2    |   5.229   -0.330 |    385.4    402.3 |  18.55
+    -6.0    120 | PASS      +19.6 M3    |   5.140   -0.336 |    389.5    411.1 |  20.79
+    -6.0    140 | PASS      +26.8 M3    |   4.975   -0.347 |    392.3    419.5 |  22.90
+    -6.0    160 | PASS      +31.1 FP    |   4.709   -0.362 |    393.5    427.3 |  24.93
+    -6.0    180 | PASS      +33.9 FP    |   4.312   -0.388 |    393.1    434.0 |  26.95
+    -6.0    200 | PASS      +36.7 FP    |   3.756   -0.432 |    390.9    439.0 |  29.03
+    -5.0    100 | FAIL       -2.6 M2    |   4.285   -0.384 |    368.5    389.0 |  17.11
+    -5.0    120 | PASS      +11.3 M3    |   4.019   -0.407 |    369.7    394.6 |  19.61
+    -5.0    140 | PASS      +17.6 M3    |   3.644   -0.445 |    369.8    399.5 |  22.11
+    -5.0    160 | PASS      +24.3 M3    |   3.144   -0.509 |    368.8    403.4 |  24.65
+    -5.0    180 | PASS      +30.1 FP    |   2.507   -0.627 |    366.7    406.2 |  27.30
+    -5.0    200 | PASS      +32.2 FP    |   1.732   -0.891 |    363.8    407.6 |  30.14
+    -4.0    100 | FAIL       -9.6 M2    |   3.336   -0.482 |    353.7    376.7 |  16.53
+    -4.0    120 | PASS       +3.9 M3    |   2.931   -0.551 |    353.3    379.9 |  19.42
+    -4.0    140 | PASS       +9.9 M3    |   2.422   -0.672 |    352.4    382.5 |  22.37
+    -4.0    160 | PASS      +16.3 M3    |   1.817   -0.917 |    351.0    384.2 |  25.44
+    -4.0    180 | PASS      +18.9 M2    |   1.150   -1.527 |    349.3    385.3 |  28.67
+    -4.0    200 | PASS      +21.8 M2    |   0.785   -2.741 |    347.8    385.6 |  32.09
+    -3.0    100 | FAIL      -16.3 M2    |   2.522   -0.652 |    342.3    366.2 |  16.61
+    -3.0    120 | FAIL       -2.4 M3    |   2.086   -0.806 |    341.7    367.9 |  19.85
+    -3.0    140 | PASS       +3.3 M3    |   1.614   -1.069 |    341.0    369.2 |  23.19
+    -3.0    160 | PASS       +4.7 M2    |   1.187   -1.432 |    340.4    370.1 |  26.65
+    -3.0    180 | PASS       +5.4 M2    |   0.998   -1.263 |    340.2    370.7 |  30.24
+    -3.0    200 | PASS       +6.0 M2    |   1.210   -0.387 |    340.6    371.4 |  33.95
+
+WORKING POINT: bias -3.0 deg, decenter 180 mm -- PASS +5.4 mm (M2); spread 0.998 deg, pupil -1.263 m, plate 340.2 / 370.7 mm (spec 330.0)
+  first-order residual before calibration: plate +3.1 % of spec (the section's local magnification at the bias)
+
+CALIBRATION (parent F/# so the SECTION's local plate scale = spec; the telecentric M3 re-solved each pass; plate read on the STRIP-SOLVED section):
+  pass 0: parent F/1.8000, strip-solved section -> plate 340.2 / 371.1 mm
+  pass 1: parent F/1.7459 (EFL 0.3201 m), R = [0.3667 0.0998 0.1617], t = [0.1477 0.0435] -> plate 329.8 / 358.1 mm, spread 1.033 deg, pupil -0.907 m, PASS +4.1 mm (M2)
+
+LADDER (calibrated parent, bias -3.0 deg, decenter 180 mm; conics only, CALIB WFE over the strip):
+  rung   | clear    margin at    |  spread  pupil m |    plate     edge | best-focus rms spot per field (um)
+  as-is  | PASS       +4.1 M2    |   1.027   -0.908 |    329.7    358.0 | 641.2 343.0 409.8 417.7 409.8 343.0 641.2   (max 641.2 um = 35.6 px)
+         K = [-1.206 -6.435 -15.77]; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_3k_as-is.in
+  strip  | PASS       +4.1 M2    |   1.033   -0.907 |    329.8    358.1 | 644.3 341.1 400.3 410.7 400.3 341.1 644.3   (max 644.3 um = 35.8 px)
+         K = [-1.207 -6.425 -15.79]; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_3k_strip.in

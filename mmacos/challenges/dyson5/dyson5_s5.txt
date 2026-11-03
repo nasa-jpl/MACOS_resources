@@ -1,0 +1,27 @@
+dyson5 s5 -- R5, the fold prism, under the clearance gate (2026-10-01 14:09)
+CONVENTIONS: R4 of record + an entrance PLATE (slit 0.5 mm in air before it, cemented to the block face) and a
+  mirror-coated FOLD PRISM cemented under the image (fold plane 16 mm below the face at 45 deg, folding toward -y,
+  away from the slit; TIR fails at F/1.8 in silica), exit face placed for first-order conjugate symmetry, the FPA
+  (normal +y, dispersion along +z) an AIR GAP beyond it.  COLD-SHIELD HEIGHT h is the parameter: air gap = h + 1.0 mm,
+  the SAME on the slit side (slit to plate), so the concentric form keeps equal object and image media;
+  at each h the R5 rung (R4's variables + the face offset at the fold's scale, exit distance >= 7.5 mm) is re-solved
+  on the exact chain (lsqnonlin, 40 iterations, warm-started from R4 then along the sweep), the deck emitted with
+  apertures and ENGINE-scored (7 x 7), the clearance gate run with the FPA package (54 x 9 mm + 5 mm, 10 mm deep,
+  shield h toward the prism) in the FOLDED frame; plate and prism are one cemented part with the block.  Record: the tallest shield that closes.
+
+h mm     gap mm  face mm    smile    keyst     CRF     SRF     EE    clear    PASS   fold_e  worst pair
+0.0        1.00    25.00   0.0051   0.0085   1.267   2.035  0.695     0.90    PASS     7.97  BODY FPApackage vs FoldMirror
+1.0        2.00    32.75   0.0052   0.0524   1.745   2.139  0.258     1.15    PASS    14.52  FoldMirror -> PrismExit vs FPApackage
+2.0        3.00    32.75   0.0055   0.0581   2.306   2.411  0.135     1.04    PASS    13.48  FoldMirror -> PrismExit vs FPApackage
+3.0        4.00    32.75   0.0047   0.0686   2.776   2.805  0.072     1.00    PASS    12.45  FoldMirror -> PrismExit vs FPApackage
+5.0        6.00    32.75   0.0151   0.1201   3.746   3.839  0.040     1.00    PASS    10.24  BODY FPApackage vs PrismExit
+record height: 0 mm, the tallest shield that closes
+refine h = 0 mm from the best sweep basin (h = 0 mm, face 25.00 mm), 80 iterations: face 25.00 mm, CRF 1.321 EE 0.725 smile 0.0044 keystone 0.0033, clearance +0.90 mm PASS
+  -> the sweep solve stands as the record
+
+engine score                                smile    keyst     CRF     SRF     EE  clear mm
+R4 of record                               0.0051   0.0026   1.327   2.032  0.759      1.19 (no shield; slit mask vs package)
+R5 fold prism, shield 0 mm (record)        0.0051   0.0085   1.267   2.035  0.695      0.90 (BODY FPApackage vs FoldMirror)
+R5 of record: face offset 25.00 mm (plate 24.00 mm thick), fold plane 16 mm below the face, exit face 7.97 mm beyond the fold,
+  air gap 1.00 mm, FPA centre [0.0 -21.0 9.0] mm (slit at [0.0 6.0 0.0]); R_g factor 0.97958, block Kc -0.00657, asph [-0.008611 -14.74], dC [-0.05 1.89] mm,
+  meniscus vertex 240.00 mm, t 4.00 mm, c 0.5073 / 0.5051 /m; groove period 114.426 um; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s5_r5_h00.in

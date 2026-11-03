@@ -1,0 +1,32 @@
+=== tg96_collimate: tag coll_oap, optics oap (2026-09-17 12:31) ===
+scale 1.7143, BS_AOI 22.5, DM leg 450, DM aperture 48.00 mm radius, 65 rays across (winner re-measured at 193)
+SRC_AT_FOCUS 1; substrates: plate [1.4585           2], mask [1.4585           2], edge margin 4.0 mm
+the record's lens: L1_Kr 427.2794 (= (n-1)*854.6, the conjugate the source really sat at), L1_Kc -0.583016, L2_Kc -0.581843
+start: SRC_TRIM 0.0000  L1_Kr 427.2794  L1_Kc -0.583016  L2_Kc -0.581843  MASK_TRIM 0.5393
+the bench the sheet describes (SRC_AT_FOCUS 1): exit spread 1.710e-05 rad rms (0.7 waves over the beam), spot 0.3240 um rms, focus -0.001 mm from the marker
+the same conics with the source moved to the conjugate: exit spread 1.710e-05 rad rms (0.7 waves), spot 0.3240 um rms, focus -0.001 mm, 2165 of 3210 rays
+
+---- stage 1: the collimated space (L1_Kr, L1_Kc) ----
+the mirror rig collimates with a parabola: no conic to solve, but the source station is free (the input polarizer's plate sits in the diverging leg).
+winner: SRC_TRIM -0.3706 mm -> exit spread 1.363e-08 rad rms, 0.00 waves over the beam (was 1.710e-05, 0.70 waves)
+---- stage 2: the focuser's conic (L2_Kc) ----
+the mirror rig focuses with a parabola: nothing to solve.
+---- stage 3: the seat (MASK_TRIM) ----
+winner: MASK_TRIM +0.6319 mm -> marker within -0.0001 mm of the ray focus (was -0.001)
+
+---- the winner at 193 rays across ----
+exit spread 1.358e-08 rad rms (0.0 waves of curvature over the beam), spot 0.0910 um rms, marker -0.0001 mm from the ray focus, 19474 of 28918 rays through
+beam 51.59 mm radius at L1, 59.29 at the DM (aperture 48.00: THE DM IS THE STOP; 67% of the cone through)
+
+GATES: exit spread < 1e-4 rad rms  PASS (1.358e-08)
+       spot < 1 um rms             PASS (0.0910 um)
+       seat within 0.5 mm          PASS (-0.0001 mm)
+
+---- the sheet lines (tg96_params.m / zwfs_params.m) ----
+P.bench.SRC_AT_FOCUS = true;
+P.oap.SRC_TRIM    = -0.370629;   % mm, the MIRROR rig's source station (its input polarizer's plate sits in the diverging leg)
+P.bench.L1_Kr = 249.246312;  P.bench.L1_Kc = -0.583016;   % sheet units (x s in the runner)
+P.bench.L2_Kr = -124.076000;  P.bench.L2_Kc = -0.581843;
+P.oap.MASK_TRIM   = 0.631902;   % mm, the MIRROR rig's seat on its own ray focus
+
+run complete

@@ -1,0 +1,7 @@
+dyson5 tPZ -- addendum 43 step 1: the Petzval scan over secondary_mag (2026-10-05 10:02)
+CONVENTIONS: telecentric Korsch parent (M1 stop), section -4 deg / 180 mm, strip +-4.688 deg (edge image height 27.1 mm),
+  F/# calibrated per m2 so the as-is SECTION's local plate = 330.0 mm.  P = 1/R1 - 1/R2 + 1/R3 (1/m; magnitudes), predicted edge
+  sag h^2 P/2; ENGINE: dz = best-focus point along the chief, edge minus centre (+ = toward the Dyson), as-is conics.
+
+   m2     F/# | R mm                     t mm            |    P 1/m    1/P m  sag pred | dz engine | clear   margin at   |   M2 mm   M3 mm  len mm
+ 3.00  1.7135 | [366.7 120.3 185.8]      [143.2 50.6]    |   -0.203   -4.920    -0.074 |    +2.112 | PASS      +4.1 M2   |    86.6    80.7   143.2

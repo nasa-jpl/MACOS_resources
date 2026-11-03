@@ -1,0 +1,108 @@
+% tst_nsref_seq.in -- the NSRefractor grid-frame gate (PLAN_CONSOLIDATION 1.2, 2026-10-11):
+% a flat glass window whose front face carries a GridData figure, one 2e-7 m bump at an
+% off-centre pixel (tst_nsref_grid.txt).  _seq: Face1 a sequential Refractor; _ns: the same face
+% as a one-member NSRefractor group.  The two must trace identically.
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -1.0E+00
+          zSource=1.0E+21
+        BaseUnits=  m
+        WaveUnits=  m
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+         GridType=  Circular
+         nGridpts=  33
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+             nElt=  4
+
+             iElt=  1
+          EltName=  Stop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  Face1
+          Element=  Refractor
+          Surface=  GridData
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.0E-01
+           RptElt=  0.0E+00  0.0E+00  2.0E-01
+           IndRef=1.5E+00
+           Extinc=0.0E+00
+            nCoat=  0
+         nGridMat=  16
+         GridFile=  tst_nsref_grid.txt
+        GridSrfdx=  6.666667E-04
+            pData=  0.0E+00  0.0E+00  2.0E-01
+            xData=  1.0E+00  0.0E+00  0.0E+00
+            yData=  0.0E+00  1.0E+00  0.0E+00
+            zData=  0.0E+00  0.0E+00  -1.0E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Face2
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  3.0E-01
+           RptElt=  0.0E+00  0.0E+00  3.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Det
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  4.0E-01
+           RptElt=  0.0E+00  0.0E+00  4.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+         nOutCord=  5
+             Tout=  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00  0.0D+00  0.0D+00
+                    0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  0.0D+00  1.0D+00

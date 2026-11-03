@@ -1,0 +1,29 @@
+A/B: native STOP-element aiming (macos.stop -> engine ChiefRayAiming at the
+inserted Reference stop element) vs the Stage-0 Newton aiming, r2 deck,
+2026-08-19, engine build_release_gfortran @ dev-candidate 052ef30.
+Full per-ray data: probe_native_stop.mat.  Verdict: NATIVE ADOPTED --
+chief FP landings identical to the printed digit, |dWFE| <= 0.036 nm on
+2400-9664 nm values (attributable to Newton's looser 1e-9 m convergence),
+native stop-plane miss <= 1.1e-12 m.
+
+  field (XAN,YAN)  |  stop miss N (m)  stop miss V (m) | chief dFP (mm) | WFE N (nm)  WFE V (nm)   dWFE (nm)
+  -----------------+-------------------------------------+----------------+------------------------------------
+  [ +0.0 +12.0]     |      6.938e-10        2.585e-14   |      0.000000  |   2805.831   2805.832     +0.0003
+  [ +0.0 +22.0]     |      2.951e-11        6.255e-13   |      0.000000  |   2559.942   2559.942     +0.0001
+  [ +0.0 +32.0]     |      4.364e-10        2.151e-16   |      0.000000  |   7383.229   7383.228     -0.0005
+  [+10.0 +12.0]     |      1.574e-11        6.921e-14   |      0.000000  |   2781.923   2781.922     -0.0008
+  [+10.0 +22.0]     |      1.147e-10        1.059e-12   |      0.000000  |   2383.951   2383.951     -0.0002
+  [+10.0 +32.0]     |      2.146e-09        1.121e-16   |      0.000000  |   9664.079   9664.115     +0.0359
+  [-10.0 +12.0]     |      1.584e-11        6.860e-14   |      0.000000  |   2781.921   2781.922     +0.0005
+  [-10.0 +22.0]     |      1.150e-10        1.054e-12   |      0.000000  |   2383.950   2383.950     +0.0002
+  [-10.0 +32.0]     |      2.148e-09        1.552e-17   |      0.000000  |   9664.150   9664.115     -0.0346
+
+  max |dWFE| = 0.0359 nm   max chief dFP = 0.000000 mm   max native stop miss = 1.059e-12 m
+
+Engine-side note recorded during the A/B: stop_info_set (macos_api_mod.F90)
+rejects iElt >= nElt-2, so on the 4-element rodgers3 decks the stop cannot
+be bound to M2 even though the stop plane coincides with it (.seq th5 = 0).
+The inserted Reference stop element is therefore REQUIRED by the veneer
+path, which matches the template rule (emit a Reference at the stop plane).
+The zero-distance Reference->M2 insert traces cleanly (negative-L
+intersection allowed after a Reference element; ConSrf ifLNsrf).

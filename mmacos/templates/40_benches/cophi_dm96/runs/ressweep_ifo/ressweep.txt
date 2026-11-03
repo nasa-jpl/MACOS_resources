@@ -1,0 +1,43 @@
+ressweep ifo -- 13-Oct-2026 11:00:53
+px/act = camera pixels per actuator pitch (model 3.277 at NGRID 385; > 3.277 = finer source grid).
+Battery (noise-free, the 30 nm working surface, matrix on it; one-step | converged): gain / err pm / floor pm
+ px/act    lit | single 10 nm             | grid 1 nm                | dense random 10 nm      
+  4.009   6948 | 0.9831/0.9884   2.7/  1.5   2| 0.9838/0.9892   2.9/  1.7   2| 0.9843/0.9896 222.8/138.4   -|
+  3.277   6948 | 0.9832/0.9887   2.7/  1.5   2| 0.9838/0.9892   2.9/  1.7   2| 0.9844/0.9896 222.9/138.7   -|
+  2.000   6948 | 0.9802/0.9876   3.5/  1.7   3| 0.9816/0.9893   3.7/  1.8   3| 0.9822/0.9895 279.8/149.4   -|
+  1.500   6948 | 0.9793/0.9883   3.9/  1.7   3| 0.9799/0.9883   4.3/  2.1   3| 0.9807/0.9890 322.6/169.4   -|
+  1.000   6948 | 0.9565/0.9943  14.0/  2.7  13| 0.9178/0.9562  30.3/ 24.6  27| 0.9517/0.9836 1478.5/1172.2   -|
+
+Registration (camera shifted +-0.1 pitch after calibration; worst of the four shifts): gain one-step / converged, largest neighbour / dev, noise-free floor pm, wrong actuator
+  4.009 | at 0: g 0.9831, nbr 0.0062, flr 1.76 | worst (+0.40,+0.00 px): g 0.9412 / 0.9460, nbr 0.1206, flr 17.49, wrong 0 of 4
+  3.277 | at 0: g 0.9832, nbr 0.0061, flr 1.75 | worst (-0.33,+0.00 px): g 0.9341 / 0.9391, nbr 0.1233, flr 17.34, wrong 0 of 4
+  2.000 | at 0: g 0.9802, nbr 0.0096, flr 2.62 | worst (+0.00,+0.33 px): g 0.9487 / 0.9558, nbr 0.1060, flr 15.76, wrong 0 of 4
+  1.500 | at 0: g 0.9793, nbr 0.0108, flr 2.97 | worst (+0.33,+0.00 px): g 0.9543 / 0.9627, nbr 0.1184, flr 17.80, wrong 0 of 4
+  1.000 | at 0: g 0.9565, nbr 0.0344, flr 12.95 | worst (+0.33,+0.00 px): g 0.8652 / 0.8830, nbr 0.2297, flr 44.45, wrong 0 of 4
+
+Noise (one reading; pm per reading = piston-free robust floor; s per pm = floor^2 / readings per s) and data:
+ px/act camera       binning   read e-  pm/read  s per pm     out px      Gb/s   pupil px
+  4.009 polcam       digital      6.07      110       162   6.55e+05     0.786   1.16e+05
+  4.009 polcam       onchip        2.4      110       162   6.55e+05     0.786   1.16e+05
+  3.277 polcam       digital      7.41      110       161   4.39e+05     0.527   7.79e+04
+  3.277 polcam       onchip        2.4      110       160   4.39e+05     0.527   7.79e+04
+  2.000 polcam       digital      12.1      141       266   1.64e+05     0.196    2.9e+04
+  2.000 polcam       onchip        2.4      141       264   1.64e+05     0.196    2.9e+04
+  1.500 polcam       digital      16.2      150       302   9.21e+04      0.11   1.63e+04
+  1.500 polcam       onchip        2.4      151       302   9.21e+04      0.11   1.63e+04
+  1.000 polcam       digital      24.3      238       758   4.09e+04    0.0491   7.25e+03
+  1.000 polcam       onchip        2.4      238       758   4.09e+04    0.0491   7.25e+03
+
+Loop (linear instrument = this sampling's matrix + the camera's noise; g 0.5, K 60, seed 77; digital binning): hold ss pm (piston-free)
+  4.009 polcam       M  450 (6 s) none     ss 3.09 (pf 3.06)  sig_n 5.26  theory 3.04  gG 0.500
+  4.009 polcam       M  450 (6 s) thermal  ss 10.5 (pf 10.5)  sig_n 5.26  theory 10.5  gG 0.500
+  3.277 polcam       M  450 (6 s) none     ss 3.08 (pf 3.05)  sig_n 5.28  theory 3.05  gG 0.500
+  3.277 polcam       M  450 (6 s) thermal  ss 10.5 (pf 10.5)  sig_n 5.28  theory 10.5  gG 0.500
+  2.000 polcam       M  450 (6 s) none     ss 4 (pf 3.95)  sig_n 6.81  theory 3.93  gG 0.500
+  2.000 polcam       M  450 (6 s) thermal  ss 10.8 (pf 10.8)  sig_n 6.81  theory 10.7  gG 0.500
+  1.500 polcam       M  450 (6 s) none     ss 4.25 (pf 4.21)  sig_n 7.23  theory 4.18  gG 0.500
+  1.500 polcam       M  450 (6 s) thermal  ss 10.9 (pf 10.9)  sig_n 7.23  theory 10.8  gG 0.500
+  1.000 polcam       M  450 (6 s) none     ss 8.43 (pf 8.43)  sig_n 12.2  theory 7.02  gG 0.500
+  1.000 polcam       M  450 (6 s) thermal  ss 13.1 (pf 13.1)  sig_n 12.2  theory 12.2  gG 0.500
+
+Wall: ifo_s400 29 min; ifo_s328 26 min; ifo_s200 26 min; ifo_s150 26 min; ifo_s100 28 min; 

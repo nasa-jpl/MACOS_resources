@@ -60,6 +60,22 @@ arguments
     opts.src_samp             double {mustBeScalarOrEmpty, mustBeInteger} = []
     opts.compute_los          (1,1) logical = false
     opts.spot_elt             double {mustBeScalarOrEmpty, mustBeInteger} = []
+    opts.orient (1,:) char {mustBeMember(opts.orient, {'raw','xy'})} = 'raw'   % OPD array orientation (doc/opd_conventions.md)
+    opts.sign   (1,:) char {mustBeMember(opts.sign, {'opl','wavefront'})} = 'opl' % OPD sign convention
+    opts.opd_ref (1,:) char {mustBeMember(opts.opd_ref, {'mean','chief',''})} = ''
+                                     % OPD reference (macos.opd_ref): '' (default)
+                                     % = the deck's own as loaded -- the engine
+                                     % default (chief) or its UseChfRay4OPD= (A.6
+                                     % 2026-10-16: was 'chief', which overrode a
+                                     % deck's N); 'chief' = the chief ray (the
+                                     % engine default and the manual's,
+                                     % 2026-10-10; was 'mean' here);
+                                     % 'mean' = whole-aperture mean -- on SEGMENTED
+                                     % decks a single-segment poke under 'mean'
+                                     % pistons EVERY other segment by
+                                     % -(N_k/N)*mean(poked response) (PLAN 0.x);
+                                     % under 'chief' they read exactly 0.
+                                     % Re-applied after every Rx (re)load.
 end
 
 % reload_rx=true is the right default for a standalone single-field
@@ -70,6 +86,9 @@ end
 % OPD.
 if opts.reload_rx
     session.load_rx(rx_path);
+    if ~isempty(opts.opd_ref) && ~strcmp(session.opd_ref(), opts.opd_ref)
+        session.opd_ref(opts.opd_ref);   % '' (default): the deck's own, as loaded
+    end
 end
 apply_ngridpts(session, opts.ngridpts, 'dw_dz_zernike');
 
@@ -80,11 +99,7 @@ if ~isempty(opts.src_samp)
 end
 
 n_elt = session.num_elt();
-if opts.exit_pupil_elt < 0
-    wf_elt = n_elt - 1;
-else
-    wf_elt = opts.exit_pupil_elt;
-end
+wf_elt = wf_elt_auto(session, opts.exit_pupil_elt);   % EP read; errors on a pupil-less powered nElt-1
 
 target_modes = (opts.zmode_start : opts.n_zcoef).';
 if isempty(target_modes)
@@ -170,6 +185,8 @@ out.dwdz          = dwdz;
 out.w_nom_2d      = w_nom_2d;
 out.w_nom_vec     = w_nom_vec;
 out.indx          = indx;
+out.mask_2d       = false(indx.size);                % the valid-ray mask the
+out.mask_2d(sub2ind(indx.size, indx.i, indx.j)) = true;  % rows came from (opd_mask)
 out.channel_names = names;
 out.iElt          = iElt_out;
 out.mode          = mode_out;
@@ -179,6 +196,7 @@ out.wf_elt        = wf_elt;
 out.delta         = opts.delta;
 out.method        = opts.method;
 
+out = apply_opd_convention(out, opts.orient, opts.sign);
 % Add LOS fields if SPOT was computed
 if opts.compute_los
     out.dcdx      = dcdx;
@@ -200,5 +218,9 @@ W = session.opd();
 end
 
 function S = local_spot(spot_elt)
-S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'chief');
+% 'at','elt': the centroid for a line-of-sight sensitivity must be measured
+% about the ELEMENT, not the chief ray -- about the chief, a rigid displacement
+% of the spot (a fold or FSM tilt) is subtracted out and dcdx reads ~0 for it
+% (Luis's OPTIIX FSM test, 2026-10-06; only the shape change survived)
+S = macos.spot(spot_elt, 'ref', 'tout', 'at', 'elt');
 end

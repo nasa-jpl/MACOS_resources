@@ -1,0 +1,179 @@
+function out = ctb_dm_jacobian(opts)
+%CTB_DM_JACOBIAN  Engine-measured EFC Jacobian: dE(dark zone)/d(actuator).
+%   out = CTB_DM_JACOBIAN() pokes every active actuator of the CTB DMs
+%   through the FULL masked diffraction chain (ctb_chain: apodizer +
+%   FPM + Lyot applied in place) and records the finite-difference
+%   change of the complex FPA field on the dark-zone pixels.  This is
+%   the engine-faithful G matrix EFC needs -- measured against the
+%   engine, not a Fourier model of it (the e2e6m S3b lesson: an
+%   optimizer mines any model gap; the design operator must BE the
+%   engine).
+%
+%   G(:,c) = (E_+h(dz) - E_-h(dz)) / (2h),  c = (DM, actuator) column:
+%   central differences, two pokes per actuator (Dave 2026-10-28, PLAN
+%   1.2 (eeee)).  A one-sided 2 nm poke was 1.2-1.5 % off the derivative
+%   for interior actuators -- the field's second-order term -- which set
+%   the pairwise-probe estimator's floor (ctb_probe_estimate).
+%
+%   Name-value:
+%     'model_size'    grid (512)
+%     'nact'          actuators across each DM lattice (32)
+%     'beam_d_mm'     controlled beam diameter on the DMs (21.3, the
+%                     measured CTB footprint at DM1/DM2)
+%     'coupling'      influence-function nearest-neighbor coupling (0.12)
+%     'h_mm'          poke, mm of surface (2e-6 = 2 nm).  Central
+%                     differences at 2 nm agree with 0.2 nm to 1.2e-4
+%                     (interior actuators) .. 7.2e-4 (edge); 0.02 nm is
+%                     worse (up to 1e-2: rounding), so 2 nm stays
+%     'dms'           which DMs to include (default [1 2])
+%     'inner_lamD','outer_lamD'  dark-zone annulus (3, 15)
+%     'chain'         name-value cell forwarded to ctb_chain (mask config)
+%     'save'          write ctb_dm_jacobian_N<model>.mat + .fp.json (true)
+%     'replace_fp'    re-make an existing .fp.json truth that the new
+%                     measurement disagrees with (false: refuse, error
+%                     'ctb_dm_jacobian:fpTruth'; see ctb_fp_guard)
+%     'outdir'        (this dir)
+%     'verbose'       progress prints every 50 pokes (true)
+%     'dmrx'          the DM deck to poke, as ctb_dm_rx returns it (rx_out,
+%                     ielt, ng, gdx_mm, cbm); default = ctb_dm_rx(), the
+%                     bench's own.  Pass the station map for that deck in
+%                     'chain' ({'elt', ...}).  h_mm and beam_d_mm stay in
+%                     millimetres whatever the deck's base unit (scaled by
+%                     its cbm); out.cbm records it for the EFC's prints.
+%
+%   out: G (npix x ncol complex single), col_dm/col_act (column maps),
+%   dz_idx (linear FPA indices), E0_dz, peak_bare, lamD_px, center_px,
+%   dm (model geometry per DM), h_mm, config, timing, rx and elt (the
+%   deck and its station map: ctb_efc rebuilds the chain from them).
+%
+%   The .mat is the EFC input; it is fingerprinted (jac_fingerprint) and
+%   the full array is gitignored above ~10 MB by the bench_ctb policy --
+%   regen with this driver.  An existing .fp.json is a truth: it is
+%   written only when absent (or with 'replace_fp'), never overwritten
+%   by a measurement that disagrees with it.
+%
+%   Run:  >> out = ctb_dm_jacobian;     (3520 runs, ~26 min at 512)
+%   See also: ctb_dm, ctb_chain, ctb_efc, jac_fingerprint.
+    arguments
+        opts.model_size (1,1) double {mustBeInteger,mustBePositive} = 512
+        opts.nact       (1,1) double {mustBeInteger,mustBePositive} = 32
+        opts.beam_d_mm  (1,1) double {mustBePositive} = 21.3
+        opts.coupling   (1,1) double = 0.12
+        opts.h_mm       (1,1) double {mustBePositive} = 2e-6
+        opts.dms        (1,:) double = [1 2]
+        opts.inner_lamD (1,1) double = 3.0
+        opts.outer_lamD (1,1) double = 15.0
+        opts.region     (1,:) char {mustBeMember(opts.region, ...
+                             {'annulus','halfplane'})} = 'annulus'
+        opts.chain      (1,:) cell = {}
+        opts.tag        (1,:) char = ''
+        opts.a0         (1,:) cell = {}
+        opts.save       (1,1) logical = true
+        opts.outdir     (1,:) char = ''
+        opts.verbose    (1,1) logical = true
+        opts.replace_fp (1,1) logical = false
+        opts.dmrx       struct = struct()
+    end
+    here = fileparts(mfilename('fullpath'));
+    addpath(fullfile(here, '..', '..', '..', 'src'));
+    if isempty(opts.outdir), opts.outdir = here; end
+
+    % ---- deck + chain + DM models --------------------------------------
+    if isempty(fieldnames(opts.dmrx)), r = ctb_dm_rx(); else, r = opts.dmrx; end
+    cbm = 1e-3;  if isfield(r, 'cbm'), cbm = r.cbm; end       % deck base unit, m
+    u_mm = 1e-3 / cbm;                                        % mm -> deck units
+    ch = ctb_chain('rx', r.rx_out, 'model_size', opts.model_size, ...
+                   opts.chain{:});
+    ndm = numel(opts.dms);
+    dm = cell(1, ndm);
+    if isempty(opts.a0)
+        opts.a0 = arrayfun(@(~) zeros(opts.nact^2, 1), 1:ndm, ...
+                           'UniformOutput', false);
+    end
+    for k = 1:ndm
+        j = opts.dms(k);
+        dm{k} = ctb_dm('ielt', r.ielt(j), 'ng', r.ng, 'gdx_mm', r.gdx_mm(j), ...
+                       'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm * u_mm, ...
+                       'coupling', opts.coupling);
+        dm{k}.apply(opts.a0{k});          % linearization point (flat default)
+    end
+
+    % ---- dark zone + nominal field -------------------------------------
+    M  = ch.dz_mask(opts.inner_lamD, opts.outer_lamD, opts.region);
+    dz_idx = find(M);
+    E0 = ch.run();
+    e0 = E0(dz_idx);
+    c0 = mean(abs(e0).^2) / ch.peak_bare;
+    fprintf('[jac] dark zone %g-%g lam/D (%s): %d px, initial mean contrast %.3e\n', ...
+        opts.inner_lamD, opts.outer_lamD, opts.region, numel(dz_idx), c0);
+
+    % ---- poke loop ------------------------------------------------------
+    ncol = sum(cellfun(@(d) d.nact_active, dm));
+    G = complex(zeros(numel(dz_idx), ncol, 'single'));
+    col_dm  = zeros(1, ncol);  col_act = zeros(1, ncol);
+    h = opts.h_mm * u_mm;                                     % the poke, deck units
+    t0 = tic;  c = 0;
+    for k = 1:ndm
+        acts = find(dm{k}.active).';
+        for j = acts
+            a = opts.a0{k};  a(j) = a(j) + h;
+            dm{k}.apply(a);
+            Ep = ch.run();
+            a(j) = opts.a0{k}(j) - h;
+            dm{k}.apply(a);
+            Em = ch.run();
+            c = c + 1;
+            G(:, c) = single((Ep(dz_idx) - Em(dz_idx)) / (2*h));
+            col_dm(c) = opts.dms(k);  col_act(c) = j;
+            if opts.verbose && mod(c, 50) == 0
+                el = toc(t0);
+                fprintf('[jac] %d/%d actuators  %.1f s  (%.2f s/actuator, ETA %.1f min)\n', ...
+                    c, ncol, el, el/c, el/c*(ncol-c)/60);
+            end
+        end
+        dm{k}.apply(opts.a0{k});
+    end
+    dt = toc(t0);
+    fprintf('[jac] done: %d actuators, central differences, %d pokes in %.1f min (%.2f s/poke)\n', ...
+        ncol, 2*ncol, dt/60, dt/(2*ncol));
+
+    % ---- package + save -------------------------------------------------
+    for k = ndm:-1:1
+        d = dm{k};
+        dmgeo(k) = struct('ielt',d.ielt, 'nact',d.nact, ...
+            'pitch_mm',d.pitch_mm, 'coupling',d.coupling, ...
+            'beam_d_mm',d.beam_d_mm, 'active',d.active, ...
+            'acx',d.acx, 'acy',d.acy, 'ng',d.ng, 'gdx_mm',d.gdx_mm);
+    end
+    out = struct('G',G, 'col_dm',col_dm, 'col_act',col_act, ...
+        'dz_idx',dz_idx, 'E0_dz',e0, 'peak_bare',ch.peak_bare, ...
+        'lamD_px',ch.lamD_px, 'center_px',ch.center_px, 'N',ch.N, ...
+        'dm',dmgeo, 'h_mm',h, 'inner_lamD',opts.inner_lamD, ...
+        'outer_lamD',opts.outer_lamD, 'region',opts.region, 'contrast0',c0, ...
+        'chain_opts',{ch.config}, 'a0',{opts.a0}, 'tag',opts.tag, ...
+        'rx',ch.rx, 'elt',ch.elt, 'fd','central', 'cbm',cbm, 'timing_s',dt, 'date',datestr(now)); %#ok<TNOW1,DATST>
+    if opts.save
+        tg = '';  if ~isempty(opts.tag), tg = ['_' opts.tag]; end
+        mat = fullfile(opts.outdir, sprintf('ctb_dm_jacobian_N%d%s.mat', ch.N, tg));
+        save(mat, '-struct', 'out', '-v7.3');
+        fpp = regexprep(mat, '\.mat$', '.fp.json');
+        % an existing fingerprint is a truth: refuse to overwrite it with a
+        % measurement that disagrees (outside the try, so it is not demoted
+        % to a warning)
+        if ctb_fp_guard(fpp, out, opts.replace_fp)
+            try
+                meta = struct('rx', out.rx, 'fd', 'central', 'h_mm', h, 'model_size', ch.N, ...
+                    'nact', opts.nact, 'beam_d_mm', opts.beam_d_mm, ...
+                    'coupling', opts.coupling, 'inner_lamD', opts.inner_lamD, ...
+                    'outer_lamD', opts.outer_lamD, 'region', opts.region, ...
+                    'date', out.date);
+                jac_fingerprint('write', fpp, out, meta);
+            catch me
+                warning('ctb_dm_jacobian:fp', 'fingerprint failed: %s', me.message);
+            end
+        else
+            fprintf('[jac] %s agrees with this measurement; left as it is\n', fpp);
+        end
+        fprintf('[jac] saved %s (%.1f MB)\n', mat, dir(mat).bytes/1e6);
+    end
+end

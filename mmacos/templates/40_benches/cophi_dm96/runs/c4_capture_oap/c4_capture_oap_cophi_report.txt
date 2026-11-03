@@ -1,0 +1,49 @@
+
+=== COPHI capture (oap rig, the plain splitter) ===
+
+---- capture: from cold (lambda_1 632.8 nm, lambda_2 652.8 nm, Lambda = 20.65 um) ----
+  colour 2 re-traced at 652.8 nm: registration null 0.759 nm, contrast 0.9974 (colour 1: 0.746 nm, 0.9974)
+  LOCK-IN (I/Q) form: the two colours on ALTERNATE I/Q samples (one sample each), no buckets, no multiplexing
+  truth: the engine's OPD change; reading h = -1 x dOPD/2 (sign measured on the 30 nm rung)
+
+  ladder (surface rms over lit; pixel errors over the test pupil, piston removed):
+  camera       surface | single colour: rms err, wrong | two colours: rms err, wrong orders
+  noise-free      30 nm |  0.000306 nm,   0.0000 %      |  0.000306 nm,     0.0000 %
+  lockin_c4       30 nm |     0.128 nm,   0.0000 %      |     0.128 nm,     0.0000 %
+  noise-free      40 nm |      5.07 nm,   0.0257 %      |  0.000408 nm,     0.0000 %
+  lockin_c4       40 nm |      5.07 nm,   0.0257 %      |     0.128 nm,     0.0000 %
+  noise-free      50 nm |      16.8 nm,   0.2812 %      |   0.00051 nm,     0.0000 %
+  lockin_c4       50 nm |      16.8 nm,   0.2825 %      |     0.129 nm,     0.0000 %
+  noise-free      60 nm |      36.5 nm,   1.3290 %      |  0.000612 nm,     0.0000 %
+  lockin_c4       60 nm |      36.4 nm,   1.3265 %      |     0.128 nm,     0.0000 %
+  noise-free      80 nm |      77.9 nm,   6.0608 %      |  0.000815 nm,     0.0000 %
+  lockin_c4       80 nm |      77.9 nm,   6.0596 %      |     0.128 nm,     0.0000 %
+  noise-free     100 nm |       114 nm,  13.0616 %      |   0.00102 nm,     0.0000 %
+  lockin_c4      100 nm |       114 nm,  13.0642 %      |     0.128 nm,     0.0000 %
+  noise-free     120 nm |       144 nm,  20.6428 %      |   0.00122 nm,     0.0000 %
+  lockin_c4      120 nm |       144 nm,  20.6441 %      |     0.128 nm,     0.0000 %
+  noise-free     160 nm |       188 nm,  33.9125 %      |   0.00163 nm,     0.0000 %
+  lockin_c4      160 nm |       188 nm,  33.9086 %      |     0.129 nm,     0.0000 %
+  noise-free     240 nm |       266 nm,  51.4260 %      |   0.00245 nm,     0.0000 %
+  lockin_c4      240 nm |       266 nm,  51.4273 %      |     0.129 nm,     0.0000 %
+  noise-free     480 nm |       510 nm,  73.6289 %      |   0.00489 nm,     0.0000 %
+  lockin_c4      480 nm |       510 nm,  73.6315 %      |     0.129 nm,     0.0000 %
+
+  temporal unwrapping: a drifting surface (the 30 nm shape, 154 nm peak), 6 readings, the step per reading as a fraction of lambda/4 at the PEAK pixel:
+    0.50 x lambda/4 per reading: final rms err 0.00094 nm, wrong pixels 0.0000 % -> UNWRAPS
+    0.90 x lambda/4 per reading: final rms err 0.00169 nm, wrong pixels 0.0000 % -> UNWRAPS
+    1.10 x lambda/4 per reading: final rms err 15.2 nm, wrong pixels 0.0064 % -> FAILS
+    1.50 x lambda/4 per reading: final rms err 66.5 nm, wrong pixels 0.1348 % -> FAILS
+    lockin_c4   4960.00 readings/s -> temporal unwrapping holds to a drift of 785 um/s at the peak pixel (159 um/s of rms for this shape)
+
+  two-colour arithmetic (range +-Lambda/4; amplification Lambda/lambda; the fine reading must hold sqrt2 sigma x Lambda/lambda < lambda/8):
+    lambda 632.8 nm, dlam   1.0 nm: Lambda      401 um, range +-     100 um, amplification   633.8, fine sigma <  0.0882 nm
+    lambda 632.8 nm, dlam  20.0 nm: Lambda     20.7 um, range +-    5.16 um, amplification    32.6, fine sigma <    1.71 nm
+    lambda 632.8 nm, dlam 100.0 nm: Lambda     4.64 um, range +-    1.16 um, amplification     7.3, fine sigma <    7.63 nm
+    lambda 1319 nm, dlam   1.0 nm: Lambda 1.74e+03 um, range +-     435 um, amplification  1320.0, fine sigma <  0.0883 nm
+    lambda 1319 nm, dlam  20.0 nm: Lambda     88.3 um, range +-    22.1 um, amplification    67.0, fine sigma <    1.74 nm
+    lambda 1319 nm, dlam 100.0 nm: Lambda     18.7 um, range +-    4.68 um, amplification    14.2, fine sigma <    8.22 nm
+  the bench's per-pixel phase noise is ~75 pm of surface per reading (baseline; the noise stage), so even
+  dlam 1 nm (amplification ~630, requirement ~0.07 nm) resolves the fringe in ONE multiplexed reading; a 200 nm rms
+  surface from cold (peaks ~0.8-1 um) needs range +-1 um, i.e. Lambda >= 4 um -- ONE rung of dlam <= ~100 nm at 633
+wall 14.5 min

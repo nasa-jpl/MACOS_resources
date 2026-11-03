@@ -111,14 +111,45 @@ classdef tViewRx < matlab.unittest.TestCase
             c1 = onCleanup(@() close(fig)); %#ok<NASGU>
             lab = arrayfun(@(t) string(t.String), ...
                            findobj(fig, 'Type', 'text'));
-            tc.verifyFalse(any(lab == sprintf('  E%d', kr(1))), ...
+            tc.verifyFalse(any(strtrim(lab) == sprintf('E%d', kr(1))), ...
                 'Return element must not draw by default');
             fig2 = macos.view_rx('visible', false, 'returns', true);
             c2 = onCleanup(@() close(fig2)); %#ok<NASGU>
             lab2 = arrayfun(@(t) string(t.String), ...
                             findobj(fig2, 'Type', 'text'));
-            tc.verifyTrue(any(lab2 == sprintf('  E%d', kr(1))), ...
+            tc.verifyTrue(any(strtrim(lab2) == sprintf('E%d', kr(1))), ...
                 'returns=true must restore the Return element');
+        end
+
+        function test_view_rx_glass_joins(tc)
+            % Glass fills a gap only where the MEDIUM is glass (the index
+            % measured from the trace, OPL step / path).  The small
+            % camera's corrector is a cemented doublet (three faces, two
+            % glasses), then an air gap, then a filter plate: three glass
+            % solids, and none over the air gap.  The old two-at-a-time
+            % pairing drew two (S1-S2 and the AIR gap S3-FLT1) and left the
+            % doublet's second glass and the filter empty (2026-11-02).
+            here = fileparts(mfilename('fullpath'));
+            deck = fullfile(fileparts(here), 'templates', '36_cameras', 'small_camera', 'small_camera.in');
+            c0 = onCleanup(@() macos.load_rx(fullfile(tc.man, 'CassWithExitPupil.in'))); %#ok<NASGU>
+            macos.load_rx(deck);  macos.stop(4);
+            gaps = [39.88054 41.38168; 41.38168 45.33138; 47.63008 51.63058];   % the deck's VptElt z
+            for style = {'solid', 'section'}
+                fig = macos.view_rx('visible', false, 'show', 'beam', 'labels', false, 'glass', style{1});
+                cf = onCleanup(@() close(fig)); %#ok<NASGU>
+                pt = findobj(fig, 'Type', 'patch');
+                isg = arrayfun(@(p) isnumeric(p.FaceColor) && isequal(round(p.FaceColor, 2), [0.55 0.75 0.95]), pt);
+                tc.verifyEqual(nnz(isg), 3, sprintf('%s: three glass solids', style{1}));
+                if strcmp(style{1}, 'section')
+                    g = pt(isg);  got = zeros(numel(g), 2);
+                    for i = 1:numel(g)
+                        V = g(i).Vertices;                     % face 1 (65 pts), then face 2 reversed
+                        got(i, :) = sort([V(33, 3) V(65 + 33, 3)]);
+                    end
+                    tc.verifyEqual(sortrows(got), gaps, 'AbsTol', 1e-2, 'the glass spans the deck''s glass gaps, on axis');
+                end
+                clear cf
+            end
         end
 
         function test_view_rx_legacy_modes(tc)

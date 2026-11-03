@@ -1,0 +1,21 @@
+dyson5 s2w -- propagation twin (2026-10-01 06:35)
+CONVENTIONS: far-field terminal (Rx_Cass_FarField idiom) on a REFERENCE sphere of radius 0.10 m centred on the
+  chief's FPA pierce, vertex upstream on the chief, re-posed per (slit x, lambda) with macos.set_xp; FP_return
+  and FPA vertices moved onto the chief pierce so the PSF grid is centred on the chief (centre pixel N/2+1);
+  grid index 1 = global X (slit, u), index 2 = global Y (dispersion, v) -- measured: the lambda-proportional
+  offset appears in index 2; pitch = macos.dx_at(FPA), = lambda L_ref/(N dx_ep), window = ngridpts x lambda F;
+  model 512, ngridpts 127; the slit is a POINT (slit-width diffraction = the separate slit-loss measurement).
+  WAVE offset = PSF intensity centroid from the chief, RAY offset = engine ray centroid from the chief, px;
+  SRF_wave = FWHM of rect(2 px) (x) LSF_v(PSF) (x) rect(1 px); CRF_wave = LSF_u(PSF) (x) rect(1 px).
+VALIDATION (Offner at order 0 = a concentric relay, lambda_c): PSF centroid offset (-0.0100, 0.0538) px, rms widths
+  1.320 / 1.332 px, ensquared in 1 px 0.722, CRF 1.055 px -- the terminal reproduces the Airy spot.
+OFFNER: wave - ray centroid offsets, max |du| 0.0198 px, max |dv| 0.0058 px  (dv per lambda at slit centre: +0.059 +0.064 +0.069 )
+        SRF_wave max 4.050 px  CRF_wave max 1.444 px  EE(1 px) min 0.131  PSF rms widths max 1.408/1.778 px  energy range 2.77e+04-1.19e+06
+DYSON twin runs on the s3 rung R3 deck (/home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_s3_r3.in); its geometric EE there: 0.476
+DYSON : wave - ray centroid offsets, max |du| 0.0026 px, max |dv| 0.0304 px  (dv per lambda at slit centre: +0.002 +0.008 +0.015 )
+        SRF_wave max 2.035 px  CRF_wave max 1.995 px  EE(1 px) min 0.496  PSF rms widths max 0.900/0.856 px  energy range 1.67e+05-7.26e+06
+STATUS: wave - ray centroid offsets up to 0.030 px (the seeds agree to 0.001 px).  The PSF intensity centroid is the
+  AMPLITUDE-WEIGHTED mean of the ray aberration (Fresnel transmission varies across the pupil through the
+  refractions; the ray centroid is unweighted), so where a deck carries more oblique refractions and a larger
+  spot the two part -- the ray maps are the geometric statement, the wave maps the radiometric one.  Checked:
+  tGratingOpl passes on this engine, so this is not the OPL defect.

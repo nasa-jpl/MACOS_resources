@@ -83,6 +83,15 @@ GRID_KEYS = ["nGridMat" "GridFile" "GridSrfdx" "GridType" ...
              "pData" "xData" "yData" "zData" "lData"];
 
 L = splitlines(string(fileread(rx_in)));
+
+% PRE-SCAN for lMon, per segment block.  The grid channel is emitted at
+% the block's zMon= line and needs the block's lMon to size the span --
+% but nothing says a prescription writes lMon BEFORE zMon, and the JWST
+% zoom fixture writes it after.  Scanning first makes the emission
+% key-order independent; for a deck that already ordered lMon first the
+% value, and so the output, is unchanged.
+lmon_pre = pre_scan_lmon_(L);
+
 outL   = strings(0, 1);
 inseg  = false;
 monf   = containers.Map;
@@ -124,7 +133,10 @@ for i = 1:numel(L)
                isKey(monf, 'yMon') && isKey(monf, 'zMon'), ...
             'grid_augment_rx: segment %d lacks a full clocked Mon frame', segn);
         lm = NaN;
-        if isKey(monf, 'lMon'), lm = sscanf(monf('lMon'), '%g'); end
+        if isKey(monf, 'lMon'), lm = parse_num_(monf('lMon')); end
+        if ~(isfinite(lm) && lm > 0) && segn <= numel(lmon_pre)
+            lm = lmon_pre(segn);      % lMon declared AFTER zMon
+        end
         assert(isfinite(lm) && lm > 0, ...
             'grid_augment_rx: segment %d has no usable lMon (need span)', segn);
         lmon(segn) = lm; %#ok<AGROW>
@@ -156,4 +168,30 @@ end
 out = struct('rx_out', string(rx_out), 'nseg', segn, 'ng', opts.ng, ...
     'gdx', gdx_out, 'lmon', lmon, 'replaced', replaced, ...
     'gridfile', string(gf));
+end
+
+
+% ---------------------------------------------------------------------
+function lm = pre_scan_lmon_(L)
+%PRE_SCAN_LMON_  First lMon= value of each Element= Segment block.
+lm = [];
+inseg = false;  n = 0;
+for i = 1:numel(L)
+    tl = strtrim(L(i));
+    if startsWith(tl, 'Element=')
+        inseg = contains(tl, 'Segment');
+        if inseg, n = n + 1;  lm(n) = NaN; end %#ok<AGROW>  % one per block
+    elseif inseg && startsWith(tl, "lMon=") && n > 0 && isnan(lm(n))
+        lm(n) = parse_num_(regexprep(char(tl), '^\s*\w+=', '')); %#ok<AGROW>
+    end
+end
+end
+
+
+function v = parse_num_(str)
+%PARSE_NUM_  First number of a prescription value, Fortran D exponents
+%   included -- sscanf('%g') stops at the 'D' of 1.5164D+03 and would
+%   silently return the mantissa.
+v = sscanf(regexprep(strtrim(char(str)), '([dD])([+-]?\d)', 'e$2'), '%g', 1);
+if isempty(v), v = NaN; end
 end
