@@ -23,7 +23,12 @@ import math
 import os
 import sys
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    sys.exit('zmx2macos needs numpy.  Set up once:\n'
+             '    python3 -m venv .venv && . .venv/bin/activate && pip install numpy\n'
+             '(or pip install --user numpy, or apt install python3-numpy); see QUICKSTART.md')
 
 VERSION = '1.0'
 INF = 1.0e22
