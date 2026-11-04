@@ -199,6 +199,41 @@ classdef tRunMet < matlab.unittest.TestCase
             end
         end
 
+        function test_infeasible_layout_keeps_the_as_built_truss(tc)
+            % No launcher pattern satisfies an impossible separation gate: the
+            % optimizer reports NO feasible layout and run_met must still finish
+            % with the as-built truss, its merits, report and figures.  Before
+            % 2026-11-04 the optimized-layout figure block referenced the truss
+            % that was never built ('am2' undefined) and the runner died after
+            % the Monte-Carlo (the Zemax Cassegrain template, min_sep 50 mm on
+            % 167 mm segments).
+            wd = tempname; mkdir(wd);
+            cwd = onCleanup(@() rmdir(wd, 's'));
+            here = fileparts(mfilename('fullpath'));
+            res_root = fileparts(fileparts(here));
+            copyfile(tc.seg.in, fullfile(wd, 'pie.in'));
+            copyfile(tc.seg.hx, fullfile(wd, 'pieHx.m'));
+            copyfile(fullfile(res_root, 'segmirmaker', 'test_in', ...
+                'flat.txt'), fullfile(wd, 'flat.txt'));
+            art = run_met(fullfile(wd, 'pie.in'), ...
+                'hx', fullfile(wd, 'pieHx.m'), 'jac', tc.jac, ...
+                'hub', 8, 'aft', 11, 'r_extra', 100, ...
+                'min_sep', 1e9, 'mc', 0, 'verbose', false, ...
+                'opt', struct('families', "spread", ...
+                    'phi_grid', deg2rad([30 90 150]), 'nf_grid', 3, ...
+                    'fclk_coarse', 0, 'fclk_fine', 0, 'nrefine', 1, 'topk', 1));
+            tc.verifyFalse(isfinite(art.opt.rb), 'an impossible gate must leave no winner');
+            tc.verifyEmpty(art.metopt_in);
+            tc.verifyTrue(isfile(art.met_in));
+            tc.verifyTrue(isfile(art.report));
+            tc.verifySubstring(fileread(art.report), 'NO feasible layout');
+            for k = 1:numel(art.figs)
+                tc.verifyTrue(isfile(art.figs{k}), art.figs{k});
+            end
+            tc.verifyFalse(any(contains(string(art.figs), '_metopt_layout')));
+            tc.verifyLessThan(art.merits.edge_met, art.merits.prior);
+        end
+
         function test_budget_met_stage_reproduces_run_met(tc)
             % The error budget's metrology stage (macos.budget.project_met
             % via cov_budget's 'met' option) on run_met's OWN products
