@@ -6,7 +6,7 @@ and mmacos.  Python 3 with numpy only; it needs no Zemax.
 
     python3 zmx2macos.py design.zmx [-o design.in] [--base-units m|mm] [--keep-dummies]
                          [--local-frames] [--grid N] [--aperture A] [--glass NAME=INDEX]
-                         [--glass-list FILE]
+                         [--glass-list FILE] [--exit-pupil]
 
 | option | meaning |
 |---|---|
@@ -18,6 +18,7 @@ and mmacos.  Python 3 with numpy only; it needs no Zemax.
 | `--aperture` | `Aperture=` in base units: a diameter, or for a point source a full angle in rad |
 | `--glass NAME=INDEX` | a fixed index for a glass the engine catalog lacks; `INDEX 1` makes it air |
 | `--glass-list` | the engine catalog (default `$MACOS_GLASS_LIST`, else `macos_glass_list.txt` beside the script, else `../macos/macos_f90/macos_glass_list.txt` beside this repository) |
+| `--exit-pupil` | insert the exit-pupil pair (`FP_return`, `ExitPupil`) before the FocalPlane, located by the engine's FEX recipe; see [The exit pupil](#the-exit-pupil---exit-pupil) |
 
 The run prints its notes and warnings, and writes them as comments at the head of the deck.
 A refusal prints `REFUSED:` with the reason, exits with status 2, and writes no file.
@@ -243,6 +244,68 @@ then follows it through every Zemax surface in the Zemax frames, and the two ima
 are compared.  This checks every psi, Kr sign, vertex, unit and glass the converter
 writes, against the engine's reading of the deck.
 
+## The exit pupil (`--exit-pupil`)
+
+A Zemax file carries no MACOS exit pupil, and every wavefront read in the mmacos chain
+(sensitivities, `dw_dx`, PSFs) is taken at one.  With `--exit-pupil` the converter writes
+the pair that `macos.design.Telescope.add_pupil` writes, immediately before the
+FocalPlane.  `nElt` grows by 2 and the FocalPlane stays last:
+
+| element | Element | Surface | KrElt | psi | VptElt | zElt |
+|---|---|---|---|---|---|---|
+| `FP_return` | Return | Flat | −1e22 | −(the chief ray arriving at the FP) | the FP vertex | R |
+| `ExitPupil` | Return | Conic | −R | from the EP toward the image (its centre of curvature) | the EP | R |
+
+Both have Kc 0, the FP's IndRef, Extinc 0, ApType None, no obscurations, PropType
+Geometric and `nECoord -6`.  The deck's head comments give the EP vertex, psi, R, the
+tangential and sagittal crossings, their ± spread, and the skew of the probe lines.
+
+**Where the pupil is.**  The converter uses the engine's FEX recipe (`FEXProbeCross`,
+`tracesub.F`), in its own Zemax-frame tracer, so the numbers need no engine:
+- Four probe chief rays: the source chief ray turned by ±5e-6 rad about two axes normal
+  to it, about the object-space entrance pupil (the engine's `StopPos`).  Each probe is
+  re-aimed through the stop vertex.
+- Each probe's image-space line is crossed with the chief ray's.  The EP is the point on
+  the chief ray at the mean crossing distance, which is the medial pupil.
+- R is the chief-ray distance from the EP to the focal plane, the engine's FEX radius for
+  a flat image surface.
+
+The probes are ±5e-6 rad, not 1 arcmin, because a real ray's crossing moves as the square
+of the probe angle: on the Cassegrain by 59.17 mm/rad² × θ², which is 5.0e-6 mm at
+1 arcmin and 1.5e-9 mm at 5e-6 rad.
+
+**What was measured** (`tests/test_exit_pupil.py`; each gate has a case that must fail):
+
+| deck | EP vertex (mm) | R (mm) | against |
+|---|---|---|---|
+| Cassegrain (`tests/fixtures/cassegrain_example.zmx`, synthetic) | (0, 0, −492.3076923062) | 692.3076923062 | analytic −492.3076923077 and 692.3076923077 (1/s′ = 2/R₂ − 1/s): 1.5e-9 |
+| DST | (1117.097534, −0.136878, 1643.447118) | 962.212798 | the engine's FEX: 1.15e-7 in the vertex and R, 1e-15 in psi |
+
+- **The engine's FEX on the emitted deck** finds the converter's EP to 5.7e-14 mm on
+  the Cassegrain and 1.15e-7 mm on the DST.  On the DST its tangential/sagittal split,
+  5.2e-5 mm, is the converter's.
+- **Chain-ready.**  Element nElt−1 is a Return with a finite Kr (the test in
+  `+macos/private/wf_elt_auto.m`).  The deck traces the same rays at the FP as without
+  the option: 3097 on the Cassegrain; 3210 traced and 3209 passing on the DST.
+- **OPD at the EP.**  6.1e-13 mm RMS on the on-axis Cassegrain.  On the DST it is
+  5.0994e-7 mm, against 5.5438e-7 at the FP.  With the sphere's psi reversed, the gate
+  fails.
+- **Without the option** the output is byte-identical to res b025646, the converter before
+  it (`tests/fixtures/cassegrain_example_b025646.in`).  On every deck at hand the option
+  adds the pair, the head lines and 2 to nElt, and changes nothing else.
+
+**A far pupil.**  The AFTA testbed's image space is nearly telecentric.  Its EP is
+2.61e6 mm beyond the image, and the tangential and sagittal crossings differ by 5e5 mm.
+The converter writes the sphere there, toward the image, and the deck traces: 3208 rays
+pass, with 2.44e-6 mm RMS at the EP.  The engine's FEX on that deck puts the vertex 108 mm
+(4e-5) away, reverses psi and the sign of zElt, and then loses every ray.  That is an
+engine finding, recorded here and not changed.
+
+**Next.**  The deck enters the mmacos chain like a `Telescope` deck after `add_pupil`:
+the wavefront reads find the pupil at nElt−1.  The chain itself (segmentation,
+sensitivities, metrology) is documented on the mmacos side, together with
+`macos.design.add_exit_pupil`, which places the same pair on any loaded deck.
+
 ## Not yet (phase 2)
 
 - An aperture centred on the beam footprint, for the off-axis conics now written
@@ -257,6 +320,7 @@ writes, against the engine's reading of the deck.
 
 Written 2026-11-03 from CCL's assessment
 (`~/dev/MACOS_sandbox/zemax2macos/ASSESSMENT_zmx2macos.md`) and brief
-(`macos/BRIEF_to_zmx2macos.md`).  The frame algebra is Matt Wette's, and its validation
+(`macos/BRIEF_to_zmx2macos.md`); `--exit-pupil` 2026-11-04 from
+`macos/BRIEF_to_zmx_exit_pupil.md`.  The frame algebra is Matt Wette's, and its validation
 against Zemax's global-coordinate reports is his 2001 memo (`zmx2in/zmxmemo.ps` in the
 sandbox).

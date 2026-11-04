@@ -4,7 +4,7 @@
 Usage:
     python3 zmx2macos.py design.zmx [-o design.in] [--base-units m|mm] [--keep-dummies]
                          [--local-frames] [--grid N] [--aperture A] [--glass NAME=INDEX]
-                         [--glass-list FILE]
+                         [--glass-list FILE] [--exit-pupil]
 
 The geometry is Matt Wette's (A, b) frame propagation from zmx2macos.c (rev 2.2,
 2003-11-04, JPL), ported unchanged: A is the rotation from the current Zemax local frame
@@ -576,41 +576,38 @@ def _hit(hits, num):
     return None
 
 
-def _src_ray(cv, frame0, u):
+def _src_ray(cv, frame0, u, origin=None):
     """The ray for aim parameters u = (a, b): a direction (point source) or a start offset
-    (collimated) about the object-space z axis."""
+    (collimated) about the object-space z axis.  origin: the source point (point source)
+    or the start point (collimated); default the deck's own."""
     x0, y0, z0 = frame0
     if not cv.obj_inf:
         d = z0 + u[0] * x0 + u[1] * y0
-        return cv.obj_pos.copy(), d / np.linalg.norm(d)
-    return cv.start + u[0] * x0 + u[1] * y0, z0.copy()
+        o = cv.obj_pos if origin is None else origin
+        return o.copy(), d / np.linalg.norm(d)
+    o = cv.start if origin is None else origin
+    return o + u[0] * x0 + u[1] * y0, z0.copy()
 
 
-def aim(cv):
-    """Aim the chief ray at the stop surface's vertex (2-D Newton on the source)."""
-    frame0 = (np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([0, 0, 1.0]))
-    if cv.obj_inf:
-        r1 = next(r for r in cv.recs if r['kind'] == 'surf')
-        L = 2.0 * max(r1['semi'], 1.0)
-        cv.start = r1['vtx'] - L * frame0[2]
+def _aim_core(cv, frame0, origin=None, tol=1e-11):
+    """Aim a ray from the source (frame0, origin) at the stop surface's vertex by a 2-D
+    Newton; tol is the miss relative to the deck's size.  Returns (u, ok, iterations)."""
     stop = cv.stop_num
     u = np.zeros(2)
     hu = 1e-7 if not cv.obj_inf else 1e-6
 
     def miss(u):
-        p, d = _src_ray(cv, frame0, u)
+        p, d = _src_ray(cv, frame0, u, origin)
         hs = trace(cv, p, d, upto=stop)
         h = _hit(hs, stop) if hs else None
         return None if h is None else h[1][:2]
 
+    ok = True
     for it in range(30):
         m = miss(u)
         if m is None:
-            cv.w('the chief ray could not be aimed at the stop (a trace failed); it leaves '
-                 'along the object-space axis and the engine\'s ApStop aims it at load')
-            u = np.zeros(2)
-            break
-        if np.hypot(*m) < 1e-11 * max(1.0, abs(cv.recs[-1]['b']).max()):
+            return np.zeros(2), False, it
+        if np.hypot(*m) < tol * max(1.0, abs(cv.recs[-1]['b']).max()):
             break
         J = np.zeros((2, 2))
         for j in range(2):
@@ -623,10 +620,118 @@ def aim(cv):
             u = u - np.linalg.solve(J, m)
         except np.linalg.LinAlgError:
             break
+    return u, ok, it
+
+
+def aim(cv):
+    """Aim the chief ray at the stop surface's vertex (2-D Newton on the source)."""
+    frame0 = (np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([0, 0, 1.0]))
+    if cv.obj_inf:
+        r1 = next(r for r in cv.recs if r['kind'] == 'surf')
+        L = 2.0 * max(r1['semi'], 1.0)
+        cv.start = r1['vtx'] - L * frame0[2]
+    u, ok, it = _aim_core(cv, frame0)
+    if not ok:
+        cv.w('the chief ray could not be aimed at the stop (a trace failed); it leaves '
+             'along the object-space axis and the engine\'s ApStop aims it at load')
     p, d = _src_ray(cv, frame0, u)
     cv.chief_p, cv.chief_d = p, d
     cv.chief_hits = trace(cv, p, d) or []
     cv.aim_iter = it
+
+
+FEX_DTH = 5.0e-6         # the engine's FEX probe angle (tracesub.F FEXProbeCross, dth)
+
+
+def _rot(axis, th):
+    """Rodrigues rotation matrix: th radians about the unit vector axis."""
+    a = np.asarray(axis, float) / np.linalg.norm(axis)
+    K = np.array([[0.0, -a[2], a[1]], [a[2], 0.0, -a[0]], [-a[1], a[0], 0.0]])
+    return np.eye(3) + math.sin(th) * K + (1.0 - math.cos(th)) * (K @ K)
+
+
+def _cross_pt(p1, r1, p2, r2):
+    """The point on line 1 (p1 + v r1) nearest line 2, as the engine's FindCrossPt.
+    Returns (v, the two lines' closest distance).  Written with the cross product: the
+    probe lines are nearly parallel, and 1 - (r1.r2)^2 would cancel to ~1e-7 relative."""
+    n = np.cross(r1, r2)
+    nn = float(n @ n)
+    if nn < 1e-24:
+        return None, None
+    w = p2 - p1
+    v = float(np.cross(w, r2) @ n) / nn
+    return v, abs(float(w @ n)) / math.sqrt(nn)
+
+
+def _entrance_pupil(cv, frame0, ax, dth):
+    """The pivot the probes turn about: the object-space chief rays' crossing (the engine's
+    StopPos, stop_set.F).  A collimated beam's probes are re-aimed in position, so any
+    pivot serves and surface 1's vertex is used.  A point source is moved off the chief
+    ray by dth times its distance to the stop, re-aimed, and its object-space line is
+    crossed with the chief ray's."""
+    r1st = next(r for r in cv.recs if r['kind'] == 'surf')
+    if cv.obj_inf:
+        return r1st['vtx']
+    stop = next(r for r in cv.recs if r.get('num') == cv.stop_num)
+    L = max(float(np.linalg.norm(stop['vtx'] - cv.obj_pos)), 1.0)
+    o2 = cv.obj_pos + dth * L * ax
+    u, good, _ = _aim_core(cv, frame0, o2, tol=1e-14)
+    if good:
+        p2, d2 = _src_ray(cv, frame0, u, o2)
+        v, _ = _cross_pt(cv.obj_pos, cv.chief_d, p2, d2)
+        if v is not None:
+            return cv.obj_pos + v * cv.chief_d
+    return cv.obj_pos + L * cv.chief_d          # telecentric object space: the stop's distance
+
+
+def exit_pupil(cv, dth=FEX_DTH):
+    """The exit pupil by the engine's FEX recipe, in the converter's own tracer.
+
+    Four probe chief rays, the source chief ray turned by +/-dth about two axes normal to
+    it (x and y of the source frame, as the engine seeds them from xGrid), each re-aimed
+    through the stop vertex; each probe's image-space line is crossed with the chief
+    ray's, and the EP vertex is the chief-ray point at the MEAN crossing distance.  The
+    radius is the chief-ray distance from the EP to the focal plane (the engine's FEX
+    radius for a flat iElt+1)."""
+    if not cv.chief_hits:
+        raise ZmxError('--exit-pupil: the chief ray does not reach the image')
+    img = cv.chief_hits[-1]
+    p1, r1 = img[2], img[3]
+    d0 = cv.chief_d / np.linalg.norm(cv.chief_d)
+    gx, gy = _perp(d0)
+    frame0 = (np.array([1.0, 0, 0]), np.array([0, 1.0, 0]), np.array([0, 0, 1.0]))
+    pivot = _entrance_pupil(cv, frame0, gx, dth)
+    vs, dists, ok = [], [], []
+    for ax in (gx, gy):
+        for sg in (1.0, -1.0):
+            Q = _rot(ax, sg * dth)
+            fr = tuple(Q @ f for f in frame0)
+            if cv.obj_inf:
+                origin = pivot + Q @ (cv.start - pivot)
+            else:
+                origin = pivot + Q @ (cv.obj_pos - pivot)
+            u, good, _ = _aim_core(cv, fr, origin, tol=1e-14)   # the miss / dth sets v
+            hs = trace(cv, *_src_ray(cv, fr, u, origin)) if good else None
+            if not hs or len(hs) != len(cv.chief_hits):
+                ok.append(False)
+                continue
+            v, dist = _cross_pt(p1, r1, hs[-1][2], hs[-1][3])
+            if v is None:
+                ok.append(False)
+                continue
+            vs.append(v); dists.append(dist); ok.append(True)
+    if len(vs) < 4:
+        raise ZmxError(f'--exit-pupil: {4 - len(vs)} of the 4 FEX probe chief rays failed '
+                       '(lost, or parallel to the chief ray: a telecentric image space)')
+    v = float(np.mean(vs))
+    ep = p1 + v * r1
+    R = abs(v)
+    fp = cv.elts[-1]['vtx']
+    cv.ep = dict(vtx=ep, R=R, v=v, chief_fp=p1, dir=r1,
+                 skew=max(dists), spread=max(abs(vs[0] - vs[1]), abs(vs[2] - vs[3])) / 2.0,
+                 tan_sag=((vs[0] + vs[1]) / 2.0, (vs[2] + vs[3]) / 2.0),
+                 R_vertex=float(np.linalg.norm(ep - fp)), dth=dth)
+    return cv.ep
 
 
 def beam(cv, opts):
@@ -783,6 +888,17 @@ def emit(cv, elts, opts, aperture, how):
     w(f'% Aperture: {how}')
     w(f'% Chief ray aimed at the stop (Zemax surface {cv.stop_num}) by the converter; the '
       'stop element carries ApStop= so the engine re-aims at load.')
+    if getattr(opts, 'exit_pupil', False) and getattr(cv, 'ep', None):
+        e, s_ = cv.ep, cv.scale
+        w(f"% Exit pupil (--exit-pupil; the engine's FEX recipe, 4 probe chief rays +/-"
+          f"{e['dth']:g} rad):")
+        w(f"%   EP vertex {_vec(e['vtx'] * s_)}")
+        w(f"%   ExitPupil psi {_vec((e['chief_fp'] - e['vtx']) / np.linalg.norm(e['chief_fp'] - e['vtx']))}")
+        w(f"%   R = {_fmt(e['R'] * s_)} (the chief-ray distance EP -> focal plane; "
+          f"|EP - FP vertex| = {e['R_vertex'] * s_:.10g})")
+        w(f"%   probe crossings: tangential/sagittal {e['tan_sag'][0] * s_:.10g} / "
+          f"{e['tan_sag'][1] * s_:.10g}, +/- spread {e['spread'] * s_:.3g}, "
+          f"skew {e['skew'] * s_:.3g}")
     for m in cv.notes:
         w(f'% note: {m}')
     for m in cv.warn:
@@ -827,9 +943,14 @@ def emit(cv, elts, opts, aperture, how):
     w('% Element Definitions')
     w('% ---------------------------------------------------------------------------------------')
     w('')
-    w(f'             nElt=  {len(elts)}')
+    ep = getattr(cv, 'ep', None) if getattr(opts, 'exit_pupil', False) else None
+    w(f'             nElt=  {len(elts) + (2 if ep else 0)}')
     hits = {h[0]: h for h in cv.chief_hits}
-    for i, r in enumerate(elts, 1):
+    i = 0
+    for r in elts:
+        if ep and r['etype'] == 'FocalPlane':
+            i = _pupil_pair(cv, r, i, ep, w)
+        i += 1
         _element(cv, r, i, hits.get(r['num']), opts, w)
     w('% ---------------------------------------------------------------------------------------')
     w('% Output Coordinate System Definition')
@@ -842,6 +963,42 @@ def emit(cv, elts, opts, aperture, how):
         w(('             Tout=  ' if i == 0 else '                    ') + '  '.join(row))
     w('')
     return '\n'.join(L) + '\n'
+
+
+def _pupil_pair(cv, fp, i, ep, w):
+    """FP_return + ExitPupil, the Telescope.add_pupil pair, before the FocalPlane.
+    Returns the last element number written."""
+    s = cv.scale
+    R = ep['R'] * s
+    n_fp = nval(fp['n_before'])
+    u = ep['dir'] / np.linalg.norm(ep['dir'])          # the chief ray arriving at the FP
+    toward = ep['chief_fp'] - ep['vtx']                  # EP -> the image
+    psi_ep = toward / np.linalg.norm(toward)             # -unit(FP -> EP): to the CoC
+    for name, surf, kr, psi, vpt in (
+            ('FP_return', 'Flat', -INF, -u, fp['vtx'] * s),
+            ('ExitPupil', 'Conic', -R, psi_ep, ep['vtx'] * s)):
+        i += 1
+        w('')
+        w('% the exit-pupil pair (--exit-pupil): ' +
+          ('a flat Return at the focal plane' if surf == 'Flat' else
+           'a sphere at the exit pupil, centred on the image'))
+        w(f'             iElt=  {i}')
+        w(f'          EltName=  {name}')
+        w('          Element=  Return')
+        w(f'          Surface=  {surf}')
+        w(f'            KrElt=  {_fmt(kr)}')
+        w(f'            KcElt=  {_fmt(0.0)}')
+        w(f'           psiElt=  {_vec(psi)}')
+        w(f'           VptElt=  {_vec(vpt)}')
+        w(f'           RptElt=  {_vec(vpt)}')
+        w(f'           IndRef=  {_fmt(n_fp)}')
+        w(f'           Extinc=  {_fmt(0.0)}')
+        w('             nObs=  0')
+        w('           ApType=  None')
+        w('         PropType=  Geometric')
+        w(f'             zElt=  {_fmt(R)}')
+        w('          nECoord=  -6')
+    return i
 
 
 def _element(cv, r, i, hit, opts, w):
@@ -1000,6 +1157,8 @@ def convert(path, opts):
     if not any(r['etype'] == 'FocalPlane' for r in elts):
         raise ZmxError('no image surface')
     cv.aperture, cv.how, cv.elts = aperture, how, elts
+    if opts.exit_pupil:
+        exit_pupil(cv)
     text = emit(cv, elts, opts, aperture, how)
     return text, cv
 
@@ -1019,6 +1178,9 @@ def options(argv=None):
     ap.add_argument('--glass', action='append', metavar='NAME=INDEX',
                     help='a fixed index for a glass the catalog lacks (repeatable); '
                          'INDEX 1 makes it air')
+    ap.add_argument('--exit-pupil', action='store_true',
+                    help='insert the exit-pupil pair (FP_return, ExitPupil Returns) before '
+                         "the FocalPlane, located by the engine's FEX recipe")
     ap.add_argument('--glass-list', default=default_glass_list(),
                     help='the engine glass catalog (default: ../macos/macos_f90/macos_glass_list.txt)')
     return ap.parse_args(argv)
@@ -1038,7 +1200,8 @@ def main(argv=None):
         print(f'note: {m}', file=sys.stderr)
     for m in cv.warn:
         print(f'WARNING: {m}', file=sys.stderr)
-    print(f'zmx2macos: {opts.input} ({cv.encoding}) -> {out}: {len(cv.elts)} elements, '
+    pair = ' + the exit-pupil pair' if opts.exit_pupil else ''
+    print(f'zmx2macos: {opts.input} ({cv.encoding}) -> {out}: {len(cv.elts)} elements{pair}, '
           f'{len(cv.warn)} warnings', file=sys.stderr)
     return 0
 
