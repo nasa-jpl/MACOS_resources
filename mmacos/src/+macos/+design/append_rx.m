@@ -56,8 +56,8 @@ function info = append_rx(base_in, add_in, out_in, opts)
     assert(isfile(base_in), 'append_rx: %s not found', base_in);
     assert(isfile(add_in),  'append_rx: %s not found', add_in);
 
-    B = read_rx_(base_in);
-    A = read_rx_(add_in);
+    B = rx_blocks(base_in, 'append_rx');
+    A = rx_blocks(add_in,  'append_rx');
 
     if ~strcmpi(B.units, A.units)
         error('macos:design:append_rx:units', ...
@@ -102,44 +102,4 @@ function info = append_rx(base_in, add_in, out_in, opts)
 
     info = struct('n_base', numel(eb), 'n_add', numel(ea), 'n_out', n, ...
                   'baseunits', B.units, 'out', out_in);
-end
-
-% =========================================================================
-function R = read_rx_(f)
-%READ_RX_  Split a prescription into header / element blocks / terminator.
-%   Element blocks are delimited by the `iElt=` lines; the terminator is
-%   the `% Output Coordinate System Definition` block the parser needs as
-%   the element-list end marker (without it SMACOS loads nElt = 0).
-    txt = fileread(f);
-    u = regexp(txt, '(?m)^\s*BaseUnits=\s*(\S+)', 'tokens', 'once');
-    R.units = '';  if ~isempty(u), R.units = u{1}; end
-
-    iTail = regexp(txt, '(?m)^%\s*Output Coordinate System', 'once');
-    if isempty(iTail)
-        iTail = regexp(txt, '(?m)^\s*nOutCord=', 'once');
-    end
-    if isempty(iTail)
-        error('macos:design:append_rx:terminator', ...
-            ['append_rx: %s has no nOutCord terminator block -- the parser ' ...
-             'needs it as the element-list end marker (without it SMACOS ' ...
-             'loads nElt = 0).'], f);
-    end
-    body = txt(1:iTail-1);
-    R.tail = txt(iTail:end);
-
-    st = regexp(body, '(?m)^\s*iElt=', 'start');
-    if isempty(st)
-        error('macos:design:append_rx:noelts', ...
-              'append_rx: %s declares no elements', f);
-    end
-    R.header = strip_trailing_(body(1:st(1)-1));
-    R.elts = cell(1, numel(st));
-    for k = 1:numel(st)
-        if k < numel(st), e = body(st(k):st(k+1)-1); else, e = body(st(k):end); end
-        R.elts{k} = strip_trailing_(e);
-    end
-end
-
-function s = strip_trailing_(s)
-    s = regexprep(s, '\s+$', '');
 end
