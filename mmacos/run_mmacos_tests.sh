@@ -284,7 +284,7 @@ SUITE_FAST=$(join_suites \
     "tCompose" "tSysProp" "tBeam" "tSegMirMaker" "tSegmentRx" "tEdgeSensors" \
     "tMet" "tMetView" "tRunMet" "tRunSensitivities" "tRunSegmentation" \
     "tRunCompare" "tSpot" "tDrawFrameGuard" "tDwDgridElts" \
-    "tApertureFrame" "tAppendRx" "tPropLayout" \
+    "tApertureFrame" "tAppendRx" "tAddExitPupil" "tPerFieldIndx" "tPropLayout" \
     "tPolarization" "tJonesPupil" "tVecChain" \
     "tPolElement" "tPolRadiometric" "tPolExternal" "tBench" "tOpdRef" \
     "tTgPol" "tTgPol2" "tTgPsiAxes" "tStopReload" "tDmgLoop" "tTmaLongslit" "tSpectrometerSens" "tPupilBlurDemo" "tRxShortCoef" "tRxRefuse" "tRxLineEndings" "tTraceKeepsRx" "tSaveFixedPoint" "tZrnGrRoundTrip" "tGridDropped" "tCalibTargets" \

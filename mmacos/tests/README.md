@@ -29,7 +29,7 @@ mex is loaded — see CLAUDE.md).
 
 | Suite | Model size | Classes |
 |---|---|---|
-| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tVeneerXP, tCoroContrast², tBandLimitedMask¹, tPolarization, tJonesPupil, tVecChain, tPolElement |
+| `SUITE_FAST` | 128 | tMmacosCmd, tMacosPkg, tMacosSession, tCrossSurface, tPerturbRoundtrip, tCodeVGrating, tSrsBugFlatZ, tDwDzZernike, tDwDx, tDwDxGroups, tDesignSystem, tDesignVary, tDesignSensitivities, tDesignOptimize, tAddExitPupil, tPerFieldIndx, tVeneerXP, tCoroContrast², tBandLimitedMask¹, tPolarization, tJonesPupil, tVecChain, tPolElement |
 | `SUITE_FREEFORM` | 256 | tFreeFormComposite, tCalib, tReadGridFile, tViewRx, tSurfInspect, tPolContrast |
 | `SUITE_MASKS` | 128 | tCodeVApeMasks{Circ,Ellipse,Polygon,Rect}, tCodeVObsMasks{Circ,Ellipse,Polygon,Rect} |
 | `SUITE_PROPER_512` | 512 | tProperCompareCassFF, tProperCompareCassFFAberrations |
@@ -71,6 +71,8 @@ excluded for being slow (~31 s) and using a Linux `/proc` RSS probe.
 | tProperCompareCassFF[Aberrations] | far-field PSF vs PROPER, nominal + SM perturbations |
 | tProperCompareCoro* | near-field / coronagraph propagation vs PROPER (NF, phase3, apodizer, DM phase) |
 | tDesignSystem | `macos.design.System.from_rx` import core — engine-readback spec matches direct getters (Sprint 2A-i) |
+| tPerFieldIndx | `sensitivities/per_field_indx` builds the per-field pixel index from the harvest's valid-ray mask (`per_field_mask_2d`, exported by `dw_multi_core`), so a valid pixel that reads exactly 0 keeps its Jacobian row; no engine.  Must-fail: the map-nonzero recipe drops the chief's pixel and `v2m` errors (the Zemax Cassegrain template, 2026-11-04) |
+| tAddExitPupil | `macos.design.add_exit_pupil` — the FP_return / ExitPupil pair on an IMPORTED deck (the zmx2macos f/6 Cassegrain, `Rx/Rx_Cass_Zemax.in`): the pupil lands on the textbook stop image in the secondary (z −492.3077 mm, R 692.3077 mm, to 1e-6; the must-fail is the 600 mm seed), no ray lost, null OPD at the pupil, `dw_dx` refuses the bare deck and reads the output, three named refusals (not a FocalPlane, already a pupil, no stop) and the `stop_elt` rescue |
 | tDesignVary | `macos.design.System.vary` declaration layer — name-based DOF addressing, alias expansion, Zernike modes, roles, validation (Sprint 2A-i) |
 | tDesignSensitivities | `macos.design.System.sensitivities` — rigid + Zernike blocks bitwise-match standalone dw_dx / dw_dz_zernike (Sprint 2A-i) |
 | tDesignOptimize | `macos.design.System.evaluate` / `optimize` — fmincon recovers a despace misalignment to min WFE; ray-loss guard; family guard (Sprint 2A-i) |
