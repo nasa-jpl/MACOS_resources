@@ -1182,7 +1182,10 @@ def options(argv=None):
                     help='insert the exit-pupil pair (FP_return, ExitPupil Returns) before '
                          "the FocalPlane, located by the engine's FEX recipe")
     ap.add_argument('--glass-list', default=default_glass_list(),
-                    help='the engine glass catalog (default: ../macos/macos_f90/macos_glass_list.txt)')
+                    help='the engine glass catalog (default: $MACOS_GLASS_LIST, else '
+                         'macos_glass_list.txt beside this script, else '
+                         'macos/macos_f90/macos_glass_list.txt beside the MACOS_resources '
+                         'repository; here %(default)s)')
     return ap.parse_args(argv)
 
 
