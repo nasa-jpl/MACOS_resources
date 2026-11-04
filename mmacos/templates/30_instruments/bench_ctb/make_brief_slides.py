@@ -29,9 +29,17 @@ from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
 from PIL import Image
 
-MD = os.path.abspath(sys.argv[1])
+# --scale F multiplies every body, bullet, note, table and h3 size (titles
+# keep theirs): 1.25 for a deck read on a projector; default 1 is byte-stable
+ARGS = sys.argv[1:]
+SCALE = 1.0
+if "--scale" in ARGS:
+    k = ARGS.index("--scale")
+    SCALE = float(ARGS[k + 1])
+    del ARGS[k:k + 2]
+MD = os.path.abspath(ARGS[0])
 HERE = os.path.dirname(MD)
-OUT = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else \
+OUT = os.path.abspath(ARGS[1]) if len(ARGS) > 1 else \
     os.path.splitext(MD)[0] + ".pptx"
 
 INK = RGBColor(0x28, 0x28, 0x28)
@@ -178,14 +186,14 @@ def est_text_h(text, w_in, size):
 
 
 def body_size(w_in):
-    return 12 if w_in >= 5.5 else (11.5 if w_in >= 4.5 else 11)
+    return (12 if w_in >= 5.5 else (11.5 if w_in >= 4.5 else 11)) * SCALE
 
 
 def add_title(sl, text, sub):
     tf = tb(sl, 0.45, 0.22, SW_IN - 0.9, 1.0)
     para(tf, text, size=24, bold=True, color=ACCENT, first=True)
     if sub:
-        para(tf, sub, size=12.5, color=GRAY, space_after=0)
+        para(tf, sub, size=12.5 * SCALE, color=GRAY, space_after=0)
     y = 1.24 if sub else 1.0
     ln = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.45), Inches(y),
                              Inches(SW_IN - 0.9), Pt(1.6))
@@ -216,20 +224,30 @@ def place_img(sl, path, x_in, y_in, w_in, h_in, caption):
 def place_table(sl, rows, x, y, w):
     nr = len(rows)
     nc = max(len(r) for r in rows)
-    size = 11 if w >= 6 else 10
+    size = (11 if w >= 6 else 10) * SCALE
     maxlens = [max((len(r[c]) if c < len(r) else 0) for r in rows) or 1
                for c in range(nc)]
     tot = float(sum(maxlens))
     cw = [w * (m / tot) for m in maxlens]
-    # per-row height from the worst wrapped cell (cpl mirrors est_text_h)
-    rhs = []
-    for r in rows:
-        lines = 1
-        for c in range(nc):
-            txt = r[c] if c < len(r) else ""
-            cpl = max(8, cw[c] * 72.0 / (0.52 * size))
-            lines = max(lines, ceil(len(txt) / cpl))
-        rhs.append(lines * size * 1.35 / 72.0 + 0.10)
+
+    def row_heights(size):
+        # per-row height from the worst wrapped cell (cpl mirrors est_text_h)
+        rhs = []
+        for r in rows:
+            lines = 1
+            for c in range(nc):
+                txt = r[c] if c < len(r) else ""
+                cpl = max(8, cw[c] * 72.0 / (0.52 * size))
+                lines = max(lines, ceil(len(txt) / cpl))
+            rhs.append(lines * size * 1.35 / 72.0 + 0.10)
+        return rhs
+
+    # auto-fit: a table that would run past the slide (leaving room for a
+    # one-line note under it) shrinks its font, half a point at a time, to 9
+    rhs = row_heights(size)
+    while y + sum(rhs) > BOTTOM - 0.55 and size > 9:
+        size -= 0.5
+        rhs = row_heights(size)
     shape = sl.shapes.add_table(nr, nc, Inches(x), Inches(y),
                                 Inches(w), Inches(sum(rhs)))
     tbl = shape.table
@@ -282,12 +300,12 @@ def render_slide(spec):
         y = cur[colname]
         if typ == "h3":
             tf = tb(sl, x, y, w, 0.35)
-            para(tf, payload, size=13.5, bold=True, color=ACCENT,
+            para(tf, payload, size=13.5 * SCALE, bold=True, color=ACCENT,
                  first=True, space_after=0)
             y += 0.34
         elif typ in ("bullets", "para", "note"):
             items = payload if typ == "bullets" else [payload]
-            size = body_size(w) if typ != "note" else 10.5
+            size = body_size(w) if typ != "note" else 10.5 * SCALE
             color = INK if typ != "note" else GRAY
             tf = tb(sl, x, y, w, 0.3)
             for j, it in enumerate(items):
