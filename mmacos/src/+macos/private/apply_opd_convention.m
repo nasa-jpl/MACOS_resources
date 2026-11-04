@@ -34,7 +34,7 @@ if strcmp(orient,'xy')
             end
         end
     end
-    for fn = {'w_nom_2d','per_field_w_nom_2d'}
+    for fn = {'w_nom_2d','per_field_w_nom_2d','per_field_mask_2d'}
         f = fn{1};
         if isfield(out,f)
             if iscell(out.(f))

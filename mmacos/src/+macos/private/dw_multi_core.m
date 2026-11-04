@@ -558,11 +558,15 @@ if has_cfg
     out.config_names       = {cfgs.name}.';
     out.(F.per_name)       = per_field_jac;         % Nc x Nf
     out.per_field_w_nom_2d = per_field_w_nom;       % Nc x Nf
+    out.per_field_mask_2d  = per_field_mask;        % Nc x Nf valid-ray masks (the
+                                                    % rows' pixels; a valid pixel
+                                                    % can read exactly 0)
 else
     % preserved surface: without 'configs' the cells keep their Nf x 1
     % shape and no configuration fields are added
     out.(F.per_name)       = per_field_jac(1, :).';
     out.per_field_w_nom_2d = per_field_w_nom(1, :).';
+    out.per_field_mask_2d  = per_field_mask(1, :).';
 end
 out.rx_path              = rx_path;
 out.delta                = opts.delta;

@@ -21,9 +21,24 @@ function idx = per_field_indx(out, ic, k)
 %   "residual" seen on the per-element centre-field pages under orient xy.
 %   The right index is m2v of the map in RAW orientation, remapped with the
 %   same rule apply_opd_convention uses (swap subscripts, flip size).
+%
+%   The index is built from the field's VALID-RAY MASK (out.per_field_mask_2d,
+%   the mask the core scattered the rows with), not from the map: under the
+%   chief-ray reference a valid pixel can read exactly 0 -- a perfect on-axis
+%   telescope reads 0 over its whole pupil -- and the nonzero test dropped
+%   those rows (v2m "Vectors must be the same length" on the Zemax Cassegrain
+%   template, 2026-11-04; the rule is macos_f90/notes/opd_reference.md,
+%   "zero is not no ray").  A harvest that predates the mask field falls back
+%   to the map, as before.
 if nargin < 3, k = ic;  ic = 1;  end
-C = out.per_field_w_nom_2d;
-if isvector(C), W = C{k};  else, W = C{ic, k};  end
+if isfield(out, 'per_field_mask_2d') && ~isempty(out.per_field_mask_2d)
+    C = out.per_field_mask_2d;
+    if isvector(C), W = C{k};  else, W = C{ic, k};  end
+    W = double(logical(W));
+else
+    C = out.per_field_w_nom_2d;
+    if isvector(C), W = C{k};  else, W = C{ic, k};  end
+end
 if isfield(out, 'opd_orient') && strcmp(out.opd_orient, 'xy')
     [~, idx] = macos.m2v(W.');                       % the order the rows were built in
     idx = struct('i', idx.j, 'j', idx.i, 'size', fliplr(idx.size));   % onto the xy grid
