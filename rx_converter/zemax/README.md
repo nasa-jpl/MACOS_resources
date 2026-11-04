@@ -301,10 +301,35 @@ pass, with 2.44e-6 mm RMS at the EP.  The engine's FEX on that deck puts the ver
 (4e-5) away, reverses psi and the sign of zElt, and then loses every ray.  That is an
 engine finding, recorded here and not changed.
 
-**Next.**  The deck enters the mmacos chain like a `Telescope` deck after `add_pupil`:
-the wavefront reads find the pupil at nElt−1.  The chain itself (segmentation,
-sensitivities, metrology) is documented on the mmacos side, together with
-`macos.design.add_exit_pupil`, which places the same pair on any loaded deck.
+The next section takes the deck from here into the MACOS chain.
+
+## Next: from the emitted .in into the MACOS chain
+
+The deck loads as it is in macos, pymacos and mmacos for tracing, OPD maps, PSFs and
+CALIB.  The design pipeline needs one step first: segmentation, the sensitivities (dw/dx,
+dw/dz, dw/dgrid), laser metrology, and the compare, simulate and budget stages.  Zemax has
+no exit-pupil element.  Every wavefront read in that chain takes the OPD at the element
+before the focal plane, and refuses a deck where that element is an optic.  There are two
+ways to add the pupil, with the same result (they agree to 1.5e-9 mm on the Cassegrain):
+
+- **In MATLAB, for any prescription:**
+  `xp = macos.design.add_exit_pupil('design.in', 'design_xp.in')`.  The engine's FEX
+  locates the pupil, and the output is checked by reloading and tracing it.
+- **From this converter, with no MATLAB:** `python3 zmx2macos.py design.zmx --exit-pupil`.
+  The converter's own tracer locates the pupil, gated against the engine (above).
+
+Then the stage runners carry the `.in` from stage to stage (mmacos
+`design/runners/README.md`):
+
+    seg  = run_segmentation(xp.rx_out, 'elt', 1, 'rings', 1, 'grid', 'Hex');   % the primary -> segments + Hx
+    sens = run_sensitivities(seg.in, 'fov_rad', 2.9e-4);                        % dwdx / dwdz (/ dwdgrid)
+    met  = run_met(seg.in, 'hx', seg.hx, 'hub', seg.seg.nseg + 1, 'jac', sens.mat);  % edge + laser truss
+
+From the converter's route, pass the emitted deck in place of `xp.rx_out`.
+
+The worked example is mmacos `templates/20_segmentation/zemax_cassegrain/`.  It takes the
+Cassegrain of `tests/fixtures/`, with a hole in the primary, through all four steps and
+writes its report.
 
 ## Not yet (phase 2)
 
