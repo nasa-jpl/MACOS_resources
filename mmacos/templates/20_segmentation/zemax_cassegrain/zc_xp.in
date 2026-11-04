@@ -1,0 +1,147 @@
+% ---------------------------------------------------------------------------------------
+% Converted by zmx2macos 1.0 from zemax_cassegrain.zmx
+% Zemax NAME: Zemax Cassegrain f/6 with a 25 mm hole (template zemax_cassegrain)
+% Zemax VERS: 190128 693 123456   lens unit MM -> BaseUnits mm
+% 4 Zemax surfaces -> 3 elements; coordinate breaks emit nothing; dummies dropped: none
+% Global frame: origin at Zemax surface 1, axes of the object-space frame.
+% Aperture: ENPD 500.0
+% Chief ray aimed at the stop (Zemax surface 1) by the converter; the stop element carries ApStop= so the engine re-aims at load.
+% ---------------------------------------------------------------------------------------
+
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=   0.0000000000000000E+00   0.0000000000000000E+00   1.0000000000000000E+00
+        ChfRayPos=   0.0000000000000000E+00   0.0000000000000000E+00  -5.0000000000000000E+02
+          zSource=   1.0000000000000000E+22
+
+        BaseUnits=  mm
+        WaveUnits=  mm
+
+           IndRef=   1.0000000000000000E+00
+           Extinc=   0.0000000000000000E+00
+          Wavelen=   5.8756179999999996E-04
+             Flux=   1.0000000000000000E+00
+
+         Aperture=   5.0000000000000000E+02
+         Obscratn=   0.0000000000000000E+00
+
+         GridType=  Circular
+         nGridpts=  65
+            xGrid=   1.0000000000000000E+00   0.0000000000000000E+00   0.0000000000000000E+00
+            yGrid=   0.0000000000000000E+00   1.0000000000000000E+00   0.0000000000000000E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=   5
+
+% Zemax surface 1 (STANDARD); chief ray at x 0, y 0 in the surface frame
+
+             iElt=   1
+          EltName=  Primary mirror (parabola)
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=  -1.0000000000000000E+03
+            KcElt=  -1.0000000000000000E+00
+           psiElt=  -0.0000000000000000E+00  -0.0000000000000000E+00  -1.0000000000000000E+00
+           VptElt=   0.0000000000000000E+00   0.0000000000000000E+00   0.0000000000000000E+00
+           RptElt=   0.0000000000000000E+00   0.0000000000000000E+00   0.0000000000000000E+00
+           IndRef=   1.0000000000000000E+00
+           Extinc=   1.0000000000000000E+22
+             xObs=   1.0000000000000000E+00   0.0000000000000000E+00   0.0000000000000000E+00
+             nObs=  1
+          ObsType=  Circle
+           ObsVec=   2.5000000000000000E+01   0.0000000000000000E+00   0.0000000000000000E+00
+           ApType=  None
+           ApStop=  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=   1.0000000000000000E+22
+          nECoord=  -6
+
+% Zemax surface 2 (STANDARD); chief ray at x 0, y 0 in the surface frame
+
+             iElt=   2
+          EltName=  Secondary mirror (hyperbola)
+          Element=  Reflector
+          Surface=  Conic
+            KrElt=  -2.3999999999999980E+02
+            KcElt=  -1.9600000000000000E+00
+           psiElt=  -0.0000000000000000E+00  -0.0000000000000000E+00  -1.0000000000000000E+00
+           VptElt=   0.0000000000000000E+00   0.0000000000000000E+00  -4.0000000000000000E+02
+           RptElt=   0.0000000000000000E+00   0.0000000000000000E+00  -4.0000000000000000E+02
+           IndRef=   1.0000000000000000E+00
+           Extinc=   1.0000000000000000E+22
+             xObs=   1.0000000000000000E+00   0.0000000000000000E+00   0.0000000000000000E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=   1.0000000000000000E+22
+          nECoord=  -6
+
+% Zemax surface 3 (STANDARD); chief ray at x 0, y 0 in the surface frame
+
+             iElt=   3
+          EltName=  FP_return
+          Element=  Return
+          Surface=  Flat
+            KrElt= -1.0000000000000000E+22
+            KcElt=   0.0000000000000000E+00
+           psiElt= -0.0000000000000000E+00 -0.0000000000000000E+00 -1.0000000000000000E+00
+           VptElt=  0.0000000000000000E+00  0.0000000000000000E+00  2.0000000000000000E+02
+           RptElt=  0.0000000000000000E+00  0.0000000000000000E+00  2.0000000000000000E+02
+           IndRef=   1.0000000000000000E+00
+           Extinc=   0.0000000000000000E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  6.9230769230621286E+02
+          nECoord=  -6
+
+             iElt=   4
+          EltName=  ExitPupil
+          Element=  Return
+          Surface=  Conic
+            KrElt= -6.9230769230621286E+02
+            KcElt=   0.0000000000000000E+00
+           psiElt= -0.0000000000000000E+00 -0.0000000000000000E+00  1.0000000000000000E+00
+           VptElt=  0.0000000000000000E+00  0.0000000000000000E+00 -4.9230769230621291E+02
+           RptElt=  0.0000000000000000E+00  0.0000000000000000E+00 -4.9230769230621291E+02
+           IndRef=   1.0000000000000000E+00
+           Extinc=   0.0000000000000000E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=  6.9230769230621286E+02
+          nECoord=  -6
+
+             iElt=   5
+          EltName=  Focal plane
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=  -1.0000000000000000E+22
+            KcElt=   0.0000000000000000E+00
+           psiElt=   0.0000000000000000E+00   0.0000000000000000E+00   1.0000000000000000E+00
+           VptElt=   0.0000000000000000E+00   0.0000000000000000E+00   2.0000000000000000E+02
+           RptElt=   0.0000000000000000E+00   0.0000000000000000E+00   2.0000000000000000E+02
+           IndRef=   1.0000000000000000E+00
+           Extinc=   0.0000000000000000E+00
+             xObs=   1.0000000000000000E+00   0.0000000000000000E+00   0.0000000000000000E+00
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=   1.0000000000000000E+22
+          nECoord=  -6
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00
+

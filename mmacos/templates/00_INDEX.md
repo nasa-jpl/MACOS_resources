@@ -70,6 +70,7 @@ A line marked *(no README)* is read from the entry script's first comment.
 |---|---|
 | [`e5_pie/`](20_segmentation/e5_pie) | pie segmentation with physical polygonal apertures |
 | [`e5_seg/`](20_segmentation/e5_seg) | segmented primary + edge sensors + laser-MET truss |
+| [`zemax_cassegrain/`](20_segmentation/zemax_cassegrain) | a Zemax telescope into the chain: converter deck -> `add_exit_pupil` -> segmentation -> sensitivities -> MET |
 | [`grid_surface/`](20_segmentation/grid_surface) | GRAPHICAL demo: a FreeForm-grid figure error in the wavefront  (no README; entry `grid_bug_demo.m`) |
 
 ### `30_instruments/` — T3 instruments

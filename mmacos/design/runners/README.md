@@ -49,6 +49,36 @@ six-stage sequence — the canonical template), `templates/20_segmentation/e5_se
 + `e5_pie/` (single-stage segmentation/MET narratives on the e5
 fixture).
 
+## Starting from an imported deck (Zemax, CODE V)
+
+A deck that arrived as text -- `rx_converter/zemax/zmx2macos.py` output, a
+CODE V conversion, a hand-written `.in` -- enters the same pipeline at the
+segmentation stage, after ONE preparatory step.  Zemax and CODE V have no
+exit-pupil element, and every wavefront read in the chain (the `dw_d*`
+supervisors behind `run_sensitivities` and `run_met`, PSFs) takes the OPD at
+element nElt-1 and refuses a deck whose nElt-1 is an optic
+(`+macos/private/wf_elt_auto.m`: the focal-plane OPD is blind to tilt).
+`macos.design.add_exit_pupil(rx_in, rx_out)` writes the pair
+`Telescope.add_pupil` emits for a designed telescope -- a flat `FP_return` at
+the image and a spherical `ExitPupil` Return at the exit pupil, located by
+the engine's FEX on the deck's own chief ray, the FocalPlane kept last --
+and verifies the result by reload and trace (same ray count at the focal
+plane).  Then:
+
+```matlab
+xp   = macos.design.add_exit_pupil('design.in', 'design_xp.in');     % [1] the pupil
+seg  = run_segmentation(xp.rx_out, 'elt', 1, 'rings', 1, 'grid', 'Hex');   % [2]
+sens = run_sensitivities(seg.in, 'fov_rad', 2.9e-4);                 % [3]
+met  = run_met(seg.in, 'hx', seg.hx, 'hub', seg.seg.nseg + 1, 'jac', sens.mat);  % [4]
+```
+
+The worked example is `templates/20_segmentation/zemax_cassegrain/`: a Zemax
+f/6 Cassegrain with a hole in the primary, through all four steps, with the
+numbers in its README.  The pupil step is engine-side and takes ANY
+prescription; the Zemax converter can also write the pair itself
+(`zmx2macos.py --exit-pupil`, the same contract), for a deck prepared without
+MATLAB.
+
 Conventions: every runner call is reproducible from its report header;
 geometry options are in the prescription's BaseUnits, noise/prior
 sigmas in SI; figures land beside the artifacts; examples never call

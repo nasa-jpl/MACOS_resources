@@ -1,0 +1,18 @@
+==== run_segmentation: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_xp.in (elt 1, Hex rings=1, gap 5) ====
+[0] parent: 3097 src rays, 3064 pass, rmsWFE 6.444e-13 (WaveUnits)
+
+[1] 7 segments, width 166.7 flat-to-flat, 11 elements
+    parent obscurations carried onto the center segment: 1
+      Seg1     center [        +0         +0         +0]  lMon 96.23
+      Seg2     center [    -83.33     +144.3     -13.89]  lMon 96.23
+      Seg3     center [    +83.33     +144.3     -13.89]  lMon 96.23
+      Seg4     center [    +166.7         +0     -13.89]  lMon 96.23
+      Seg5     center [    +83.33     -144.3     -13.89]  lMon 96.23
+      Seg6     center [    -83.33     -144.3     -13.89]  lMon 96.23
+      Seg7     center [    -166.7         +0     -13.89]  lMon 96.23
+    bare segmented: 2521 src rays, 2488 pass, rmsWFE 6.23e-13 (parent 6.444e-13, -3.32%)
+[3] physical apertures (pad 0): 2488 pass (bare 2488) -- 0 gap/rim rays clip
+    first-fail elements 1; rmsWFE 6.23e-13 (-3.32% vs parent)
+    footprint/aperture figure: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_footprints.png
+[4] standard views: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_views.png
+[5] artifact /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1.in: standalone reload 11 elts, 2488/2521 rays pass -> VERIFIED
