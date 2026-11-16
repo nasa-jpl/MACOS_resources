@@ -1,0 +1,392 @@
+"""
+Shared fixtures and helpers for the macos-vs-PROPER comparison suite.
+
+These tests run a single optical problem through both engines and compare
+intensity / wavefront at matched planes. They are a regression reference
+for the macos physical-optics paths (INT, PIX, far-field DFT) that CodeV
+cannot validate.
+
+Per-test artefacts are written to tests/proper_compare/results/:
+  - <test_name>.png       3-panel macos | PROPER | difference plot
+  - report.md             cumulative quantitative summary (appended)
+
+The results/ directory is gitignored; rerun the suite to regenerate.
+"""
+from __future__ import absolute_import
+
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+# put the same context shim the pymacos tests use, so pymacos is importable.
+# PYMACOS_SRC as in ../context.py: this conftest is collected BEFORE the root
+# test modules (proper_compare/ sorts first) and imports pymacos here, so a
+# hard-coded src/ made a whole-suite side-tree run load THIS tree's .so for
+# every test (found 2026-10-22: the (v) and NormHex gates read the old engine)
+sys.path.insert(0, os.environ.get('PYMACOS_SRC',
+                                  str(Path(__file__).resolve().parents[2] / "src")))
+import pymacos.macos as pymacos  # noqa: E402
+
+# PROPER (Krist's PyPROPER3). Installed in the venv site-packages.
+import proper  # noqa: E402
+
+# Matplotlib for the 3-panel comparison plots
+import matplotlib
+matplotlib.use('Agg')           # no display needed; PNG output only
+import matplotlib.pyplot as plt  # noqa: E402
+
+# scipy for .mat export (Matlab-readable)
+from scipy.io import savemat    # noqa: E402
+
+
+# ---------------------------------------------------------------------
+# tolerances for intensity / wavefront comparisons
+# ---------------------------------------------------------------------
+_TolPO = {
+    # Strehl-normalized intensity: 1e-3 absolute, 1e-3 relative on peak
+    "intensity_abs": 1e-3,
+    "intensity_rel": 1e-3,
+    # OPD/wavefront phase, in waves
+    "phase_waves": 1e-3,
+    # encircled energy fraction
+    "ee_abs": 5e-4,
+}
+
+
+@pytest.fixture(scope="session")
+def tol():
+    return _TolPO
+
+
+@pytest.fixture(scope="session")
+def pymacos_session():
+    """Yield the pymacos module to tests.
+
+    Model-size init is the responsibility of each test's macos_run()
+    (different phases may need different sizes, and pymacos.init()
+    supports re-init -- it reallocates the Fortran arrays when the
+    size changes, and is a no-op when called with the current size).
+    """
+    yield pymacos
+
+
+# ---------------------------------------------------------------------
+# pixel-grid alignment helper
+# ---------------------------------------------------------------------
+def resample_to_common_grid(arr_a, arr_b):
+    """Crop / center / pad two 2D arrays to a common shape (the smaller
+    of the two), assuming both are already at the same physical sampling
+    and centered on the array origin. PROPER and macos both put the PSF
+    peak at (n/2, n/2); this is enough for diffraction-limited cases.
+
+    Returns (a_aligned, b_aligned), both of shape (n, n).
+    """
+    arr_a = np.asarray(arr_a)
+    arr_b = np.asarray(arr_b)
+    n = min(arr_a.shape[0], arr_a.shape[1], arr_b.shape[0], arr_b.shape[1])
+    if n % 2:
+        n -= 1
+
+    def center_crop(a, n):
+        sy, sx = a.shape
+        oy, ox = (sy - n) // 2, (sx - n) // 2
+        return a[oy:oy + n, ox:ox + n]
+
+    return center_crop(arr_a, n), center_crop(arr_b, n)
+
+
+def encircled_energy(intensity, radii_pix):
+    """Encircled energy at each radius (in pixels) about the array
+    center. Returns a vector of fractional energy.
+    """
+    intensity = np.asarray(intensity, dtype=float)
+    intensity = intensity / intensity.sum()
+    ny, nx = intensity.shape
+    yc, xc = ny / 2.0 - 0.5, nx / 2.0 - 0.5
+    y, x = np.indices(intensity.shape)
+    r = np.sqrt((y - yc) ** 2 + (x - xc) ** 2)
+    return np.array([intensity[r <= rr].sum() for rr in radii_pix])
+
+
+# ---------------------------------------------------------------------
+# per-test artefacts: 3-panel plot + cumulative quantitative report
+# ---------------------------------------------------------------------
+# Per-phase artefact roots.  Each phase fixture below initialises its
+# own directory and report.md so reruns of one phase never overwrite
+# another phase's results.
+_HERE = Path(__file__).resolve().parent
+
+
+def _make_results_fixture(subdir: str):
+    """Build a session-scoped fixture that prepares a per-phase
+    artefact directory (creates it, truncates report.md, writes the
+    header).  Each phase test file consumes its own named fixture.
+    """
+    @pytest.fixture(scope="session")
+    def _fx():
+        path = _HERE / subdir
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "report.md").write_text(
+            "# macos vs PROPER comparison report\n\n"
+            f"_Generated by tests writing to `{subdir}/`._\n\n"
+            "_norm: 'peak' (Strehl-normalised; for image-plane PSFs) "
+            "vs 'sum' (flux-normalised; for pupil-plane / near-field "
+            "intensities)._\n\n"
+            "| test | peak (macos) | peak (PROPER) "
+            "| sum (macos) | sum (PROPER) "
+            "| Δcom (pix) | norm "
+            "| max |a-b| | RMS |a-b| | max CoM-aligned |\n"
+            "|------|-------------:|--------------:|"
+            "------------:|--------------:|"
+            "----------:|:----:|"
+            "----------:|----------:|----------------:|\n")
+        return path
+    return _fx
+
+
+results_dir_phase1 = _make_results_fixture("results_phase1")
+results_dir_phase2 = _make_results_fixture("results_phase2")
+results_dir_phase3 = _make_results_fixture("results_phase3")
+results_dir_phase6 = _make_results_fixture("results_phase6")
+
+# Backwards-compat alias: legacy `results_dir` fixture continues to
+# resolve to the Phase-2 directory (the current active phase).  New
+# test files should explicitly request the per-phase fixture instead.
+results_dir = _make_results_fixture("results_phase2")
+
+
+def _crop_center(arr, n):
+    sy, sx = arr.shape
+    oy, ox = (sy - n) // 2, (sx - n) // 2
+    return arr[oy:oy + n, ox:ox + n]
+
+
+def _peak_loc(arr):
+    return np.unravel_index(np.argmax(arr), arr.shape)
+
+
+def _centroid_loc(arr):
+    """Intensity-weighted center of mass, in fractional pixel
+    coordinates.  Robust against the "peak position inside a flat
+    region is noise" problem that breaks peak-tracking alignment on
+    coronagraph-style flat-top PSFs.  Reduces to "near the peak"
+    for Airy-like sharp PSFs, so it works for both Phase 1 and
+    Phase 2 cases.
+    """
+    arr = np.asarray(arr, dtype=float)
+    total = arr.sum()
+    if total <= 0:
+        n = arr.shape[0]
+        return (n / 2.0 - 0.5, n / 2.0 - 0.5)
+    y, x = np.indices(arr.shape)
+    return ((arr * y).sum() / total,
+            (arr * x).sum() / total)
+
+
+def compare_and_record(name, macos_int, proper_int, dx_m,
+                       results_dir,
+                       crop_pixels: int = 64,
+                       log_scale: bool = True,
+                       extra_metadata: dict = None,
+                       save_mat: bool = True,
+                       save_ascii_crop: bool = False,
+                       align_centroid: bool = True,
+                       norm_kind: str = 'peak'):
+    """Generate a 3-panel macos | PROPER | difference plot and append
+    a quantitative row to the report.
+
+    Both inputs are assumed to be on the same physical sampling
+    (verified upstream in tests/geometries).  Strehl-normalises each
+    side independently before computing the diff.
+
+    Reports two PSF-difference metrics:
+      max_abs           -- raw, position-aware (sensitive to PSF
+                           shift; useful for catching chief-ray
+                           re-aim disagreements under tilt-class
+                           aberrations).
+      max_abs_aligned   -- macos peak shifted onto PROPER peak before
+                           differencing; measures PSF *shape*
+                           agreement independent of any position
+                           disagreement.
+
+    Returns a dict of metrics including (dy, dx) -- the macos-to-
+    PROPER peak offset in pixels.
+    """
+    macos_int  = np.asarray(macos_int,  dtype=float)
+    proper_int = np.asarray(proper_int, dtype=float)
+    assert macos_int.shape == proper_int.shape, (
+        f"shape mismatch {macos_int.shape} vs {proper_int.shape}")
+
+    peak_m = float(macos_int.max())
+    peak_p = float(proper_int.max())
+    sum_m  = float(macos_int.sum())
+    sum_p  = float(proper_int.sum())
+
+    # Normalisation choice:
+    #   'peak' (Strehl-norm): each PSF rescaled so max=1.  Right for
+    #     image-plane Airy-style PSFs where the peak is physically
+    #     meaningful (Strehl ratio, encircled energy, contrast).
+    #   'sum' (flux-norm): each rescaled so total=1.  Right for
+    #     pupil-plane near-field intensities, where flux conservation
+    #     is the physically meaningful quantity; the peak inside a
+    #     flat-top region is noise-dominated and a small disagreement
+    #     in peak normalisation amplifies into a misleading Strehl-norm
+    #     residual.
+    if norm_kind == 'peak':
+        a = macos_int  / (peak_m if peak_m > 0 else 1.0)
+        b = proper_int / (peak_p if peak_p > 0 else 1.0)
+    elif norm_kind == 'sum':
+        a = macos_int  / (sum_m  if sum_m  > 0 else 1.0)
+        b = proper_int / (sum_p  if sum_p  > 0 else 1.0)
+    else:
+        raise ValueError(f"norm_kind must be 'peak' or 'sum', "
+                         f"got {norm_kind!r}")
+    diff = a - b
+    max_abs = float(np.max(np.abs(diff)))
+    rms_abs = float(np.sqrt((diff ** 2).mean()))
+
+    # Centroid offset (always computed; reported as Δcom).  When
+    # align_centroid=True (default), also roll macos to put its
+    # intensity center-of-mass on top of PROPER's before
+    # differencing -- a shape-only comparison.  Centroid > peak
+    # for flat-top PSFs (where peak position inside a uniform
+    # region is noise-dominated); falls back to "near the peak"
+    # for sharp Airy-like PSFs so Phase 1 metrics stay sensible.
+    #
+    # Tests that want strict positional agreement should set
+    # align_centroid=False and assert on max_abs (which equals
+    # max_abs_aligned in that case).
+    mcy, mcx = _centroid_loc(macos_int)
+    pcy, pcx = _centroid_loc(proper_int)
+    dy = int(round(pcy - mcy))
+    dx = int(round(pcx - mcx))
+    if align_centroid:
+        a_aligned = np.roll(a, shift=(dy, dx), axis=(0, 1))
+    else:
+        a_aligned = a
+    max_abs_aligned = float(np.max(np.abs(a_aligned - b)))
+
+    # central crop for plotting (full 512x512 hides the PSF in noise)
+    n_full = macos_int.shape[0]
+    n = min(crop_pixels, n_full)
+    if n % 2:
+        n -= 1
+    am = _crop_center(macos_int, n)
+    ap = _crop_center(proper_int, n)
+    ad = _crop_center(diff, n)
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.5))
+    extent_um = (n / 2) * dx_m * 1e6
+    ext = [-extent_um, extent_um, -extent_um, extent_um]
+
+    def _imshow(ax, data, title, cmap='viridis',
+                vmin=None, vmax=None, norm=None):
+        im = ax.imshow(data, origin='lower', extent=ext, cmap=cmap,
+                       vmin=vmin, vmax=vmax, norm=norm,
+                       interpolation='nearest')
+        ax.set_title(title, fontsize=10)
+        ax.set_xlabel('um')
+        ax.set_ylabel('um')
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    if log_scale and am.max() > 0 and ap.max() > 0:
+        from matplotlib.colors import LogNorm
+        vmin = max(1e-6 * peak_m, am[am > 0].min() if (am > 0).any() else 1e-12)
+        _imshow(axes[0], np.clip(am, vmin, None),
+                f'macos INT  peak={peak_m:.3e}',
+                norm=LogNorm(vmin=vmin, vmax=peak_m))
+        vmin2 = max(1e-6 * peak_p, ap[ap > 0].min() if (ap > 0).any() else 1e-12)
+        _imshow(axes[1], np.clip(ap, vmin2, None),
+                f'PROPER  peak={peak_p:.3e}',
+                norm=LogNorm(vmin=vmin2, vmax=peak_p))
+    else:
+        _imshow(axes[0], am, f'macos INT  peak={peak_m:.3e}')
+        _imshow(axes[1], ap, f'PROPER  peak={peak_p:.3e}')
+
+    dlim = max(abs(ad.min()), abs(ad.max()))
+    _imshow(axes[2], ad, f'(macos - PROPER) Strehl-norm '
+                          f'max|.|={max_abs:.2e}',
+            cmap='RdBu_r', vmin=-dlim, vmax=dlim)
+
+    fig.suptitle(name)
+    fig.tight_layout()
+    fig.savefig(results_dir / f'{name}.png', dpi=110)
+    plt.close(fig)
+
+    with (results_dir / "report.md").open('a') as fp:
+        fp.write(
+            f"| {name} | {peak_m:.3e} | {peak_p:.3e} "
+            f"| {sum_m:.3e} | {sum_p:.3e} "
+            f"| ({dx:+d}, {dy:+d}) "
+            f"| {norm_kind} "
+            f"| {max_abs:.3e} | {rms_abs:.3e} "
+            f"| {max_abs_aligned:.3e} |\n")
+
+    # ------------------------------------------------------------------
+    # Matlab-readable export.  Each .mat carries:
+    #   macos_int / proper_int           : as-computed (engine-native scaling)
+    #   *_sum_normalized                 : each rescaled so sum = 1.0
+    #                                      (fraction of input flux per pixel,
+    #                                       directly comparable across engines)
+    #   *_peak_normalized                : each rescaled so peak = 1.0
+    #                                      (the Strehl-normalised PSF used
+    #                                       for max|a-b| in the report)
+    #   dx_focal_m                       : focal-plane pixel pitch (m)
+    #   units_note                       : explanation string
+    # plus whatever the caller passes via extra_metadata.
+    # ------------------------------------------------------------------
+    if save_mat:
+        mat = {
+            'macos_int':              macos_int,
+            'proper_int':             proper_int,
+            'macos_sum_normalized':   macos_int  / (sum_m  if sum_m  > 0 else 1),
+            'proper_sum_normalized':  proper_int / (sum_p  if sum_p  > 0 else 1),
+            'macos_peak_normalized':  a,
+            'proper_peak_normalized': b,
+            'dx_focal_m':             dx_m,
+            'macos_sum':              sum_m,
+            'proper_sum':             sum_p,
+            'macos_peak':             peak_m,
+            'proper_peak':            peak_p,
+            'peak_offset_pix':        np.array([dx, dy]),
+            'max_abs':                max_abs,
+            'max_abs_aligned':        max_abs_aligned,
+            'units_note': (
+                'macos_int: focal-plane intensity in macos native '
+                'units (DFT-amplitude scaling, source Flux=1.0). '
+                'proper_int: PROPER intensity normalised so total '
+                'flux = 1.0 (input flux conserved by prop_end). '
+                'macos_sum_normalized and proper_sum_normalized '
+                'rescale each so sum=1, giving the fraction of '
+                'total flux per pixel; these are directly '
+                'comparable as PSF energy distributions.'),
+        }
+        if extra_metadata:
+            mat.update(extra_metadata)
+        savemat(results_dir / f'{name}.mat', mat,
+                do_compression=True)
+
+    # ASCII central crop -- quick to grep / diff / inspect without
+    # needing scipy.  Each engine gets its own *.txt; both are the
+    # sum-normalised form (so they're directly comparable as PSF
+    # distributions).
+    if save_ascii_crop:
+        nc = min(crop_pixels, macos_int.shape[0])
+        if nc % 2:
+            nc -= 1
+        am = _crop_center(macos_int  / (sum_m if sum_m > 0 else 1), nc)
+        ap = _crop_center(proper_int / (sum_p if sum_p > 0 else 1), nc)
+        np.savetxt(results_dir / f'{name}.macos.txt',  am,  fmt='%.6e')
+        np.savetxt(results_dir / f'{name}.proper.txt', ap,  fmt='%.6e')
+
+    return dict(peak_m=peak_m, peak_p=peak_p,
+                sum_m=sum_m, sum_p=sum_p,
+                dx_pix=dx, dy_pix=dy,        # Δcom in pixels
+                norm_kind=norm_kind,
+                max_abs=max_abs,
+                rms_abs=rms_abs,
+                max_abs_aligned=max_abs_aligned,
+                align_centroid=align_centroid)

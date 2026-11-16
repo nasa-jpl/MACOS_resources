@@ -1,0 +1,23 @@
+=== ZWFS S2: registration + measured-kernel reconstructor ===
+model 1024, NGRID 193, spot 2.0 lamF/D, pokes 20 nm
+ray affine: mag 10.1583 DM-mm/det-mm (det px scale 0.39755 mm)
+poke A blob at det (511.79, 511.79) px; truth at DM (-0.42, -0.42) mm
+G1 parity table: +0.527 +0.000 +0.004 +0.013 +0.014 +0.003 +0.002 -0.025 
+G1 registration: parity 1 of 8, meas sign +1, |corr| 0.5275 (runner-up 0.0246)
+G1 PASS
+kernel stencil 13x13 actuators; center response 0.1605 (raw transfer)
+illuminated radius 38.07 mm; 3276 of 9216 actuators scored (r < 0.85 R)
+G2 kernel invariance: poke B recovered at gain 0.8676 (gate |g-1| <= 0.15)
+G2 PASS
+G3 held-out poke (60,40): gain 0.9029, actuator-space error 132.4 pm rms (gate |g-1| <= 0.15)
+G3 PASS
+  lambda scan 0.05: gain 0.7473, resid 12212.9 pm
+  lambda scan 0.10: gain 0.7403, resid 10886.5 pm
+  lambda scan 0.20: gain 0.7168, resid 9017.9 pm
+  lambda scan 0.40: gain 0.6602, resid 6904.2 pm
+  lambda scan 0.80: gain 0.5461, resid 4966.3 pm
+  lambda scan 1.60: gain 0.3735, resid 3430.2 pm
+  lambda scan 3.20: gain 0.2092, resid 2509.2 pm
+G4 random 10 nm rms command: lambda* 3.20, gain 0.2092, resid 2509.2 pm rms about the fit (8191.7 pm raw)
+   (ungated preview; S4 differences two measurements -- this is single-shot absolute)
+S2 complete in 0.3 min

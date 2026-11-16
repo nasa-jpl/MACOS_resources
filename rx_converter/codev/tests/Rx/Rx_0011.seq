@@ -1,0 +1,39 @@
+RDM;LEN       "VERSION: 2025.03       LENS VERSION: 92       Creation Date: 18-Oct-2025"
+TITLE 'Prolate Ellipse'
+NAO   0.05
+DIM   M
+WL    500.0
+REF   1
+WTW   1
+INI   '   '
+CA    APE
+XAN   0.0
+YAN   0.0
+WTF   1.0
+VUX   0.0
+VLX   0.0
+VUY   0.0
+VLY   0.0
+DOR   1.15 1.05 1.1
+SO    0.0 0.0
+S     0.0 0.0
+S     0.0 0.0
+  STO
+  SLB "stop"
+  DAR
+  XDE 0.0; YDE 0.0; ZDE 300.0
+S     0.0 450.0
+  XDE 0.0; YDE 0.0; ZDE 0.0
+  ADE 60.0; BDE 0.0; CDE 0.0
+S     -276.9230769230769 -200.0 REFL
+  SLB "origin"
+  CON
+  K   -0.1479289940828402
+SI    0.0 0.0
+UID   S0 "afd64c19-cb01-4974-b842-0e1a8185772c"
+UID   S1 "2be8a705-811b-46e2-8ed7-d3cc63c1898d"
+UID   S2 "5bcfb41b-f2a0-4813-92b6-d1e581815b72"
+UID   S3 "e5856c96-7c41-4579-9199-2bf35931ee73"
+UID   S4 "26e81c74-bf9a-442c-9b13-8128eb779bb9"
+UID   S5 "a39b8a69-15b9-4ad2-9c47-5e8ee8b912fe"
+GO 

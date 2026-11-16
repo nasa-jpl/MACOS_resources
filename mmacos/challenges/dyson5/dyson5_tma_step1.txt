@@ -1,0 +1,26 @@
+dyson5 round 4 step 1 -- coaxial TMA parent (2026-10-03 07:41)
+f=330 mm, F/1.8, D=183.3 mm; primary f/1.00, secondary mag 3.50; conics solved AT the bias (CALIB); entrance stop
+  (engine stop_info_set rejects an M2 stop on the Telescope deck -- same D beam; the M2/exit-pupil stop is step 3).
+  conic-only DOFs (EFL held at 330 mm); field set = the 9.4 deg cross-track strip (+-4.7 deg -> the 54 mm slit).
+  spot = transverse rms radius about the centroid (perp to the chief) at the FP, um; EE = energy in an 18 um pixel.
+
+[layout calibration] holding D=183.3 mm, primary f/1.00, secondary mag 3.50; EFL by exact trace:
+  iter 1: requested f/1.800 (EFL_req 0.3300) -> exact EFL 0.3846 m (F/2.098)
+  iter 2: requested f/1.545 (EFL_req 0.2832) -> exact EFL 0.3517 m (F/1.918)
+  iter 3: requested f/1.449 (EFL_req 0.2657) -> exact EFL 0.3422 m (F/1.866)
+  iter 4: requested f/1.398 (EFL_req 0.2563) -> exact EFL 0.3380 m (F/1.843)
+  iter 5: requested f/1.365 (EFL_req 0.2502) -> exact EFL 0.3357 m (F/1.831)
+  iter 6: requested f/1.342 (EFL_req 0.2460) -> exact EFL 0.3343 m (F/1.824)
+[layout] R=[0.3667 0.0998 0.0737] m  t=[0.1477 0.2577] m  exact EFL 0.3343 m, F/1.82 at D=183.3 mm
+
+  bias  rms spot per field across the strip, um (NaN=field not imaged)  maxspot   EEmin  len mm   M2 mm   M3 mm mass kg  EFL mm
+    1   2904.693223.05 83.61  7.46 83.613223.052904.69           3223.05    0.000   257.7    58.9   220.9    1.69   334.3
+    2   6664.7741920.9421320.899591.4121320.8941920.946664.77   41920.94    0.000   257.7    56.3   187.7    1.41   334.3
+    3   NaN10642.7351519.5823722.2451519.5810642.73   NaN       51519.58    0.000   257.7    56.9   166.2    1.27   334.3
+    4   NaN8522.0511451.8312244.1711451.838522.05   NaN         12244.17    0.000   257.7    56.0   132.5    1.07   334.3
+    5   NaN   NaN2224.013595.972224.01   NaN   NaN               3595.97    0.000   257.7    65.7    57.3    0.81   334.3
+    6   FAILED: mmacos: calib_run failed
+
+BEST bias = 1 deg: 7/7 strip fields imaged; worst imaged-field spot 3223.05 um (179.06 px), EE_min 0.000, EFL 334.3 mm
+  conics K = [-0.6167 1.1827 -0.5420]; length 257.7 mm, M2 58.9 mm, M3 220.9 mm; mirror mass 1.69 kg at 25 kg/m^2 areal density
+  layout rendered: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step1_layout.png

@@ -1,0 +1,467 @@
+classdef tBench < matlab.unittest.TestCase
+%TBENCH  macos.design.Bench -- sequential add-optic bench builder.
+%   Builds a miniature folded bench exercising every add_* primitive
+%   (baffle, collimating + focusing singlets, BS reflect, retro mirror,
+%   BS transmit with Snell walk-off, fold, reference, detector), emits
+%   the .in, and verifies against the engine: element count, zero
+%   vignetting, and the builder's analytic chief ray matching the
+%   engine's traced chief at EVERY element (this is what validates the
+%   mirror-turn and plate-refraction geometry, including walk-off).
+
+    properties (Constant)
+        ModelSize = 128
+    end
+
+    methods (TestClassSetup)
+        function setupClass(testCase)
+            macos.init(testCase.ModelSize);
+        end
+    end
+
+    methods (Test)
+        function test_refract_statics(testCase)
+            % plate refraction: exit parallel to entry, bent inside
+            d  = macos.design.Bench.unit([1; 0.2; 0]);
+            nh = macos.design.Bench.unit([-1; -1; 0]);
+            d1 = macos.design.Bench.refract(d, nh, 1.0, 1.5);
+            d2 = macos.design.Bench.refract(d1, nh, 1.5, 1.0);
+            testCase.verifyLessThan(dot(d1, d), 1 - 1e-6);      % bent
+            testCase.verifyEqual(dot(d2, d), 1, 'AbsTol', 1e-12); % parallel out
+        end
+
+        function test_bench_end_to_end(testCase)
+            b = macos.design.Bench('tbench', ...
+                'aperture', 2*atan(10/200)*0.9, 'ngridpts', 21);
+            b.add_baffle(200, 10);
+            L1 = b.add_lens(200, 400, 30, 'mode','collimate', 'name','L1');
+            [~, bs] = b.add_bs_reflect(100, [0;-1;0], 'thickness', 6);
+            iDM = b.add_mirror(150, 'name','DM', 'aprad', 20);
+            iTx = b.add_bs_transmit(bs);
+            b.add_fold(100, [1;0;0], 'name','Fold1');
+            L2 = b.add_lens(100, 200, 30, 'mode','focus', 'name','L2');
+            b.add_reference(200 - L2.thickness, 'FocalMask');
+            iDet = b.add_detector(50, 'Detector');
+
+            % builder-side: plate walk-off is real (back-face vertex off
+            % the unrefracted straight line through the front face)
+            straight = b.E(iTx(1)).vpt + [0;1;0]*(b.E(iTx(2)).s - b.E(iTx(1)).s);
+            testCase.verifyGreaterThan(norm(b.E(iTx(2)).vpt - straight), 0.1);
+
+            rx = fullfile(tempname); mkdir(rx);
+            rxf = fullfile(rx, 'tbench.in');
+            b.emit(rxf);
+            macos.load_rx(rxf);
+            nE = macos.num_elt();
+            testCase.verifyEqual(nE, numel(b.E));
+
+            % no vignetting: the 0.9-fill cone clears the baffle
+            s1 = macos.trace(1);
+            sN = macos.trace(nE);
+            testCase.verifyGreaterThan(s1.nRays, 100);
+            testCase.verifyEqual(sN.nRays, s1.nRays);
+
+            % engine chief ray must cross every emitted vertex
+            for k = 1:nE
+                sk = macos.trace(k);
+                info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - b.E(k).vpt), 1e-6, ...
+                    sprintf('chief mismatch at elt %d (%s)', k, b.E(k).name));
+            end
+
+            % sanity on the optics: collimator/imager conic signs, and the
+            % focusing leg actually converges (spot at mask << beam at DM)
+            testCase.verifyGreaterThan(L1.Kr, 0);
+            testCase.verifyLessThan(L2.Kr, 0);
+            macos.trace(iDM);
+            iDM_info = macos.get_ray_info(macos.trace(iDM).nRays);
+            rDM = max(vecnorm(iDM_info.pos - iDM_info.pos(:,1)));
+            sM = macos.trace(nE - 1);   % FocalMask
+            m_info = macos.get_ray_info(sM.nRays);
+            rM = max(vecnorm(m_info.pos - m_info.pos(:,1)));
+            testCase.verifyLessThan(rM, 0.2*rDM);
+            macos.trace(iDet);   % leave state clean
+        end
+
+        function test_oap_relay(testCase)
+            % source -> collimating OAP -> fold -> focusing OAP -> detector.
+            % The chief-agreement loop is what validates the off-axis-
+            % section emission (RptElt=pole on the parent figure): a wrong
+            % Kr/psi pairing moves the parent surface off the pole and the
+            % chief misses it.  Collimation/spot tolerances are LOOSE
+            % because zSource offsets the effective point source ~25 mm
+            % from ChfRayPos (absorbed by optimization in real use).
+            b = macos.design.Bench('toap', ...
+                'aperture', 2*atan(8/200)*0.9, 'ngridpts', 21);
+            b.add_baffle(200, 8);
+            b.add_oap(100, [0;1;0], 'mode','collimate', 'focus_dist',300, ...
+                      'name','OAP1');
+            iF = b.add_fold(200, [1;0;0], 'name','Fold1');
+            b.add_oap(200, [0;-1;0], 'mode','focus', 'focus_dist',250, ...
+                      'name','OAP2');
+            iDet = b.add_detector(250, 'Detector');
+
+            rx = fullfile(tempname); mkdir(rx);
+            rxf = fullfile(rx, 'toap.in');
+            b.emit(rxf);
+            macos.load_rx(rxf);
+            nE = macos.num_elt();
+            testCase.verifyEqual(nE, numel(b.E));
+            s1 = macos.trace(1);
+            sN = macos.trace(nE);
+            testCase.verifyEqual(sN.nRays, s1.nRays);
+            for k = 1:nE
+                % chief crosses the POLE (rpt) -- equals vpt except for
+                % off-axis sections, where vpt is the parent vertex
+                sk = macos.trace(k);
+                info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - b.E(k).rpt), 1e-6, ...
+                    sprintf('chief mismatch at elt %d (%s)', k, b.E(k).name));
+            end
+            % beam roughly collimated after OAP1 (sign-flip failure ~100x this)
+            sF = macos.trace(iF);
+            info = macos.get_ray_info(sF.nRays);
+            ok = info.ok_trace(:) & info.ok_pass(:);
+            D = info.dir(:,ok); D = D ./ vecnorm(D);
+            dch = info.dir(:,1)/norm(info.dir(:,1));
+            spread = sqrt(mean(acos(max(min(dch.'*D,1),-1)).^2));
+            testCase.verifyLessThan(spread, 0.02);
+            % beam converges to a compact spot at the OAP2 focus
+            sD = macos.trace(iDet);
+            info = macos.get_ray_info(sD.nRays);
+            ok = info.ok_trace(:) & info.ok_pass(:);
+            d = info.pos(:,ok) - info.pos(:,1);
+            testCase.verifyLessThan(max(sqrt(sum(d.^2,1))), 3.0);
+        end
+
+        function test_station_is_the_pole(testCase)
+            % Bench.station(e) is where the element sits ON THE BEAM.  For
+            % every ordinary element that is its vertex; for an off-axis
+            % section the vertex is the PARENT conic's and lies far off the
+            % beam.  Reading .vpt instead made dmg_bench_clearance model a
+            % 150 mm phantom leg from OAP1's parent vertex, and put the TG96
+            % reflective layout's mirror symbols 133-149 mm off the rays
+            % (2026-09-15).  Non-vacuous: the two OAPs below have vertices
+            % tens of mm off their poles, so .vpt fails the last assertion.
+            b = macos.design.Bench('tstn', ...
+                'aperture', 2*atan(8/200)*0.9, 'ngridpts', 21);
+            b.add_baffle(200, 8);
+            b.add_oap(100, [0;1;0], 'mode','collimate', 'focus_dist',300, ...
+                      'name','OAP1');
+            b.add_fold(200, [1;0;0], 'name','Fold1');
+            b.add_oap(200, [0;-1;0], 'mode','focus', 'focus_dist',250, ...
+                      'name','OAP2');
+            b.add_detector(250, 'Detector');
+            rx = fullfile(tempname); mkdir(rx);
+            rxf = fullfile(rx, 'tstn.in');  b.emit(rxf);  macos.load_rx(rxf);
+            nE = macos.num_elt();
+            off = 0;
+            for k = 1:nE
+                p = macos.design.Bench.station(b.E(k));
+                testCase.verifyEqual(p, b.E(k).rpt(:), 'AbsTol', 0, ...
+                    sprintf('station is not the pole at elt %d', k));
+                isoap = ~isempty(strfind(b.E(k).name, 'OAP'));
+                if ~isoap                                  % ordinary: pole == vertex
+                    testCase.verifyEqual(p, b.E(k).vpt(:), 'AbsTol', 0, ...
+                        sprintf('station moved an ordinary element at %d', k));
+                else
+                    off = max(off, norm(b.E(k).vpt(:) - p));
+                end
+                % the station is ON the beam: the chief passes through it
+                sk = macos.trace(k);
+                info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - p), 1e-6, ...
+                    sprintf('station off the chief at elt %d (%s)', k, b.E(k).name));
+            end
+            % the vertices really are elsewhere -- otherwise the test above
+            % would pass just as well reading .vpt
+            testCase.verifyGreaterThan(off, 20);
+        end
+
+        function test_offner_relay(testCase)
+            % source -> baffle -> Offner 3-mirror concentric relay ->
+            % image Reference -> detector.  Chief agreement validates the
+            % exact-sphere construction and the Kr<0 / psi-concave
+            % emission on all three mirrors (M2 worked on its convex
+            % side).  Spot tolerance is loose (zSource offsets the true
+            % source ~25 mm; the 1:1 relay images the true point, so the
+            % nominal image plane sees a small defocus blur).
+            b = macos.design.Bench('trelay', ...
+                'aperture', 2*atan(5/300)*0.9, 'ngridpts', 21);
+            b.add_baffle(300, 5);
+            Rl = b.add_relay(100, 'focus_dist', 400, 'R', 400, ...
+                             'ring_offset', 40, 'side', 1, 'name','Off');
+            iImg = b.add_reference(Rl.image_dist, 'Image');
+            iDet = b.add_detector(50, 'Detector');
+
+            rx = fullfile(tempname); mkdir(rx);
+            rxf = fullfile(rx, 'trelay.in');
+            b.emit(rxf);
+            macos.load_rx(rxf);
+            nE = macos.num_elt();
+            testCase.verifyEqual(nE, numel(b.E));
+            s1 = macos.trace(1);
+            sN = macos.trace(nE);
+            testCase.verifyEqual(sN.nRays, s1.nRays);
+            for k = 1:nE
+                sk = macos.trace(k);
+                info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - b.E(k).rpt), 1e-6, ...
+                    sprintf('chief mismatch at elt %d (%s)', k, b.E(k).name));
+            end
+            % relay actually reconverges: spot at the image plane is small
+            % vs the M1 beam footprint
+            sM = macos.trace(Rl.i(1));
+            info = macos.get_ray_info(sM.nRays);
+            ok = info.ok_trace(:) & info.ok_pass(:);
+            dM = info.pos(:,ok) - info.pos(:,1);
+            rM1 = max(sqrt(sum(dM.^2,1)));
+            sI = macos.trace(iImg);
+            info = macos.get_ray_info(sI.nRays);
+            ok = info.ok_trace(:) & info.ok_pass(:);
+            dI = info.pos(:,ok) - info.pos(:,1);
+            rImg = max(sqrt(sum(dI.^2,1)));
+            testCase.verifyLessThan(rImg, 0.2*rM1);
+            macos.trace(iDet);
+        end
+
+        function test_add_polarizer_waveplate_emit(testCase)
+            % The new pol-element emitters (add_polarizer / add_waveplate):
+            % they must write valid TrPolarizer / WavePlate blocks (PolAxis= /
+            % Retardance= are REQUIRED by ChkDf2 or the load is REJECTED), the
+            % elements must be geometrically inert (chief passes straight), and
+            % the physics must be Malus (crossed polarizers extinguish) and a
+            % QWP-at-45 must make circular light -- closed forms, not read off
+            % the engine.  All at normal incidence in a collimated leg.
+            % beam travels along +x, so ALL pol axes must be TRANSVERSE (in the
+            % y-z plane); an axis along the propagation direction is degenerate.
+            b = macos.design.Bench('tpol', 'aperture', 1e-3, 'ngridpts', 15);
+            b.add_baffle(100, 20);
+            iP  = b.add_polarizer(50, [0 1 0], 'name','Pol');
+            iW  = b.add_waveplate(50, [0 1 1], 0.25, 'name','QWP');   % fast axis at 45 in y-z
+            iA  = b.add_polarizer(50, [0 1 0], 'name','Anz');
+            iD  = b.add_detector(50, 'Det');
+            rx = fullfile(tempname); mkdir(rx);  rxf = fullfile(rx,'tpol.in');
+            b.emit(rxf);
+
+            % the emitted blocks parse and reach elt_mod (else load throws)
+            macos.load_rx(rxf);
+            testCase.verifyEqual(macos.num_elt(), numel(b.E));
+            pv = macos.polarizer(iP);   testCase.verifyEqual(pv.elt_type, 15);
+            wv = macos.waveplate(iW);   testCase.verifyEqual(wv.elt_type, 18);
+            testCase.verifyEqual(wv.retardance, 0.25, 'AbsTol', 1e-9);
+            testCase.verifyEqual(wv.axis, [0;1;1]/sqrt(2), 'AbsTol', 1e-9); % parser unitizes
+
+            % geometrically inert: engine chief crosses every emitted vertex
+            for k = 1:macos.num_elt()
+                sk = macos.trace(k);  info = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(info.pos(:,1) - b.E(k).vpt), 1e-6, ...
+                    sprintf('chief mismatch at elt %d (%s)', k, b.E(k).name));
+            end
+
+            % +x beam: transverse plane is (y,z).  Feed a 45-deg source state
+            % (guaranteed projection onto any transverse axis), and let the
+            % INPUT POLARIZER define the linear state along global y; the
+            % analyzer crossed at global z must extinguish (Malus at 90 deg).
+            macos.polarization('on', 'Ex', [1/sqrt(2) 0], 'Ey', [1/sqrt(2) 0]);
+            macos.waveplate(iW, 'axis', [0 1 0], 'retardance', 0);   % neutral
+            macos.polarizer(iP, 'axis', [0 1 0]);
+            macos.polarizer(iA, 'axis', [0 1 0]);            % parallel first
+            macos.trace(iA);  fa = macos.ray_field(iA);  ma = (fa.status==0);
+            Iopen = sum(abs(fa.Ex(ma)).^2 + abs(fa.Ey(ma)).^2 + abs(fa.Ez(ma)).^2);
+            macos.polarizer(iA, 'axis', [0 0 1]);            % crossed (z vs y)
+            macos.trace(iA);  fa = macos.ray_field(iA);  ma = (fa.status==0);
+            Icross = sum(abs(fa.Ex(ma)).^2 + abs(fa.Ey(ma)).^2 + abs(fa.Ez(ma)).^2);
+            testCase.verifyGreaterThan(Iopen, 1e-3);         % non-vacuity: light gets through
+            testCase.verifyLessThan(Icross, 1e-12*Iopen);    % Malus at 90 deg ~ 0
+                                                             % (floor = transverse-basis
+                                                             %  orthonormality, ~1e-15)
+
+            % QWP fast axis at 45 deg in (y,z) turns the y-linear state (from iP)
+            % into circular: the transverse (y,z) Stokes S3 has |S3|/S0 = 1.
+            macos.polarizer(iP, 'axis', [0 1 0]);
+            macos.waveplate(iW, 'axis', [0 1 1], 'retardance', 0.25);
+            macos.trace(iW);  fw = macos.ray_field(iW);  mw = (fw.status==0);
+            S0 = sum(abs(fw.Ey(mw)).^2 + abs(fw.Ez(mw)).^2);
+            S3 = sum(2*imag(fw.Ey(mw).*conj(fw.Ez(mw))));
+            testCase.verifyGreaterThan(S0, 1e-3);            % non-vacuity
+            testCase.verifyEqual(abs(S3)/S0, 1, 'AbsTol', 1e-9);
+        end
+
+        function test_twyman_green_polarizing(testCase)
+            % twyman_green 'polarizing' variant: (a) DEFAULT false emits
+            % BIT-IDENTICALLY to the non-polarizing rig (all insertions gated);
+            % (b) the polarizing rig loads/traces clean and, with polarization
+            % OFF, its OPD is BIT-IDENTICAL to a Reference-TWIN (pol elements
+            % retyped Reference) -- the tPolElement unpolarized-twin invariant
+            % at bench scale.
+            G0 = macos.design.twyman_green('ngridpts', 15);                 % default
+            Gd = macos.design.twyman_green('ngridpts', 15, 'polarizing', false);
+            rx = fullfile(tempname); mkdir(rx);
+            f0 = fullfile(rx,'g0.in');  fd = fullfile(rx,'gd.in');
+            G0.bt.emit(f0);  Gd.bt.emit(fd);
+            testCase.verifyEqual(fileread(fd), fileread(f0));   % bit-identical off
+
+            Gp = macos.design.twyman_green('ngridpts', 15, 'polarizing', true);
+            fp = fullfile(rx,'gp.in');  Gp.bt.emit(fp);
+            % expect the four inserted pol elements (PolIn + 2 QWP + OutQWP + Analyzer)
+            names = {Gp.bt.E.name};
+            testCase.verifyTrue(any(strcmp(names,'PolIn')));
+            testCase.verifyTrue(any(strcmp(names,'QWPtestIn')) && any(strcmp(names,'QWPtestOut')));
+            testCase.verifyTrue(any(strcmp(names,'OutQWP')) && any(strcmp(names,'Analyzer')));
+
+            macos.load_rx(fp);  macos.polarization('off');
+            sN = macos.trace(Gp.T.iDET);
+            testCase.verifyGreaterThan(sN.nRays, 50);
+            wp = macos.opd();
+
+            % Reference-twin: retype pol elements, strip their keywords
+            L = regexp(fileread(fp), '\n', 'split');
+            L = strrep(L, 'Element=  TrPolarizer', 'Element=  Reference');
+            L = strrep(L, 'Element=  WavePlate',   'Element=  Reference');
+            L = L(~contains(L,'PolAxis=') & ~contains(L,'Retardance='));
+            ft = fullfile(rx,'gp_twin.in');
+            fid = fopen(ft,'w');  fprintf(fid,'%s\n',L{:});  fclose(fid);
+            macos.load_rx(ft);  macos.polarization('off');  macos.trace(Gp.T.iDET);
+            wt = macos.opd();
+            bo = isfinite(wp) & isfinite(wt);
+            testCase.verifyEqual(wp(bo), wt(bo));   % bit-identical pol-off
+        end
+
+        function test_twyman_green_optics(testCase)
+            % twyman_green 'optics' variant: (a) DEFAULT 'lens' emits
+            % BIT-IDENTICALLY to explicit 'lens' on BOTH arms (the refractive
+            % record is untouched); (b) 'oap' builds all-reflective -- each OAP
+            % pole->focus equals its conjugate (F1 collimator, F2 focuser),
+            % Kc=-1 (parabola), the chief crosses each OAP POLE (RptElt), the
+            % rig traces clean, and the collimated beam radius at the BS matches
+            % the lens rig (the fold is confined to the collimator/focuser legs,
+            % so the BS + arms + recomb geometry is preserved).
+            G0 = macos.design.twyman_green('ngridpts', 15);                 % default
+            Gl = macos.design.twyman_green('ngridpts', 15, 'optics','lens');
+            rx = fullfile(tempname); mkdir(rx);
+            f0t=fullfile(rx,'l0t.in'); f0r=fullfile(rx,'l0r.in');
+            flt=fullfile(rx,'llt.in'); flr=fullfile(rx,'llr.in');
+            G0.bt.emit(f0t); G0.br.emit(f0r);  Gl.bt.emit(flt); Gl.br.emit(flr);
+            testCase.verifyEqual(fileread(flt), fileread(f0t));   % lens byte-identical
+            testCase.verifyEqual(fileread(flr), fileread(f0r));
+
+            Go = macos.design.twyman_green('ngridpts', 15, 'optics','oap');
+            % pole->focus from emitted parabola geometry: f_par=-Kr/2,
+            % focus = vpt + f_par*psi, pole = rpt.
+            poi = @(E) norm(E.rpt(:) - (E.vpt(:) + (-E.Kr/2)*E.psi(:)));
+            iL1 = find(strcmp({Go.bt.E.name},'L1'),1);
+            iL2 = find(strcmp({Go.bt.E.name},'L2'),1);
+            testCase.verifyEqual(poi(Go.bt.E(iL1)), Go.P.F1, 'AbsTol', 1e-6);
+            testCase.verifyEqual(poi(Go.bt.E(iL2)), Go.P.F2, 'AbsTol', 1e-6);
+            testCase.verifyEqual(Go.bt.E(iL1).Kc, -1.0);
+            testCase.verifyEqual(Go.bt.E(iL2).Kc, -1.0);
+
+            fot=fullfile(rx,'ot.in'); Go.bt.emit(fot);  macos.load_rx(fot);
+            for ii = [iL1 iL2]
+                sk = macos.trace(ii);  ik = macos.get_ray_info(sk.nRays);
+                testCase.verifyLessThan(norm(ik.pos(:,1)-Go.bt.E(ii).rpt(:)), 1e-6);
+            end
+            s = macos.trace(Go.T.iDET);
+            testCase.verifyGreaterThan(s.nRays, 50);
+
+            % Collimated beam radius at the BS.  focus_dist=F1 preserves the
+            % CONJUGATE exactly (asserted above), but the same-plane fold gives
+            % the OAP collimator a slightly different beam magnification than a
+            % lens at the same conjugate -- a measured fold effect (~few %, the
+            % deck-dependent registration absorbs the scale), NOT a bug.  Gate
+            % only that it is in the same ballpark (catches gross regressions);
+            % the exact ratio is quantified in the OAP report.
+            rbs = @(rxf, G) beam_radius_at_(rxf, G, 'BSrefl');
+            r_oap = rbs(fot,Go);  r_lens = rbs(flt,Gl);
+            testCase.verifyEqual(r_oap, r_lens, 'RelTol', 0.10);
+        end
+
+        function test_twyman_green_nf_sandwich(testCase)
+            % 'mask_prop','nf': the FocalMask sits between two reference
+            % spheres carrying NF1/NF2 legs.  The exit sphere MUST carry the
+            % entrance sphere's zElt/Kr (SYMMETRIC sandwich, the ctb_dcr.in
+            % FPM idiom): the engine's SPH2PL multiplies the focal field by
+            % exp(i*S*(m^2+n^2)) with S ~ (Z2-Z1)*Z1/Z2, so Z2 ~= Z1
+            % Fresnel-DEFOCUSES the reimaged pupil (zwfs_dm96 rig: 16%
+            % flat-pupil change, 29% rms amplitude modulation under a 30 nm
+            % DM state, ringed poke kernel -- the S1-S6 record, 2026-09-09
+            % finding).  'nf_legacy' reproduces that emission (exit zElt/Kr
+            % = 0.6*D_MASK_FL) and NOTHING else moves.
+            arch = {'tail_arch','fieldlens', 'FL_F',25.02100857, ...
+                    'FL_Kc',-2.11278288, 'D_MASK_FL',6.277463741, ...
+                    'DET_TRIM',1.085330067, 'ngridpts',15};
+            Gs = macos.design.twyman_green(arch{:}, 'mask_prop','nf');
+            Gl = macos.design.twyman_green(arch{:}, 'mask_prop','nf_legacy');
+            nm = @(G) {G.bt.E.name};
+            iin  = find(strcmp(nm(Gs), 'MaskSphereIn'), 1);
+            iout = find(strcmp(nm(Gs), 'MaskSphereOut'), 1);
+            testCase.verifyNotEmpty(iin);  testCase.verifyNotEmpty(iout);
+            testCase.verifyEqual(Gs.bt.E(iout).zelt, Gs.bt.E(iin).zelt);   % symmetric
+            testCase.verifyEqual(Gs.bt.E(iout).Kr,   Gs.bt.E(iin).Kr);
+            testCase.verifyEqual(Gl.bt.E(iout).zelt,  0.6*6.277463741, 'AbsTol', 1e-12);
+            testCase.verifyEqual(Gl.bt.E(iout).Kr,   -0.6*6.277463741, 'AbsTol', 1e-12);
+            testCase.verifyEqual(Gl.bt.E(iin).zelt,   Gs.bt.E(iin).zelt);  % entrance unchanged
+            testCase.verifyEqual([Gl.bt.E.s], [Gs.bt.E.s]);                % stations identical
+            % the emitted decks differ ONLY on the exit sphere's KrElt/zElt
+            rx = tempname;  mkdir(rx);
+            fs = fullfile(rx,'s.in');  fl = fullfile(rx,'l.in');
+            Gs.bt.emit(fs);  Gl.bt.emit(fl);
+            Ls = regexp(fileread(fs), '\n', 'split');
+            Ll = regexp(fileread(fl), '\n', 'split');
+            testCase.verifyEqual(numel(Ls), numel(Ll));
+            d = find(~strcmp(Ls, Ll));
+            testCase.verifyEqual(numel(d), 2);
+            testCase.verifyTrue(all(contains(Ls(d), 'KrElt=') | contains(Ls(d), 'zElt=')));
+        end
+
+        function test_tail_arches(testCase)
+            % l2_trade detector-leg architectures (twyman_green
+            % 'tail_arch'): each builds, emits, traces with zero ray loss,
+            % and the engine chief crosses every emitted vertex.  Params
+            % are the optimized values from l2_trade/TRADE_NOTE.md.
+            archs = { ...
+                {'tail_arch','fieldlens', 'FL_F',25.02100857, ...
+                 'FL_Kc',-2.11278288, 'D_MASK_FL',6.277463741, ...
+                 'DET_TRIM',1.085330067}, ...
+                {'tail_arch','doublet', 'MASK_TRIM',1.614619633, ...
+                 'L2A_Kc',-3.575374653, 'L2B_Kc',2.328903027, ...
+                 'DET_TRIM',2.97066401}};
+            for a = 1:numel(archs)
+                G = macos.design.twyman_green('ngridpts',21, archs{a}{:});
+                rx = fullfile(tempname); mkdir(rx);
+                rxf = fullfile(rx, 'tg_arm.in');
+                G.bt.emit(rxf);
+                macos.load_rx(rxf);
+                nE = macos.num_elt();
+                testCase.verifyEqual(nE, numel(G.bt.E));
+                s1 = macos.trace(1);
+                sN = macos.trace(nE);
+                testCase.verifyEqual(sN.nRays, s1.nRays, ...
+                    sprintf('%s: ray loss through the tail', archs{a}{2}));
+                for k = 1:nE
+                    sk = macos.trace(k);
+                    info = macos.get_ray_info(sk.nRays);
+                    testCase.verifyLessThan( ...
+                        norm(info.pos(:,1) - G.bt.E(k).vpt), 1e-6, ...
+                        sprintf('%s: chief mismatch at elt %d (%s)', ...
+                        archs{a}{2}, k, G.bt.E(k).name));
+                end
+            end
+        end
+    end
+end
+
+% ---- file-local helpers -------------------------------------------------
+function r = beam_radius_at_(rxf, G, elt_name)
+%BEAM_RADIUS_AT_  Max transverse ray radius (mm) of the traced bundle at the
+%   element named ELT_NAME in arm G.bt, measured perpendicular to the chief.
+    ie = find(strcmp({G.bt.E.name}, elt_name), 1);
+    assert(~isempty(ie), 'beam_radius_at_: element %s not found', elt_name);
+    macos.load_rx(rxf);
+    s = macos.trace(ie);  info = macos.get_ray_info(s.nRays);
+    ok = info.ok_trace(:) & info.ok_pass(:);
+    p  = info.pos(:,ok) - info.pos(:,1);
+    d0 = info.dir(:,1)/norm(info.dir(:,1));
+    p  = p - d0*(d0.'*p);
+    r  = max(sqrt(sum(p.^2, 1)));
+end

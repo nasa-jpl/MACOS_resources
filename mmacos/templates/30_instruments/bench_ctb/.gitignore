@@ -1,0 +1,4 @@
+# Dave's edit copy of the deck and the baseline of the same build (the fold-back diff); the
+# tracked deck is deck_ctb.pptx, built from deck_ctb.md by make_brief_slides.py
+deck_ctb_edit.pptx
+deck_ctb_edit_base.pptx

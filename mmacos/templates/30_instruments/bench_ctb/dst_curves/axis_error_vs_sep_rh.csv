@@ -1,0 +1,14 @@
+# Digitized from Llop-Sayson et al., Proc. SPIE 13092, 130921Y (2024), Fig. 9
+# Method: pdfimages full-res bitmap, hand-read at markers/gridlines (S0 of
+# BRIEF_ctb_dst_defects). Estimated precision +-0.002 rad. Record Holder. Separation in AxoStep MMSP pixels, 5.8 um/px at the mask; at F/32.7 and 625 nm, lambda*F# = 20.4 um, so 50 px ~ 14.2 lambda/D.
+separation_pix,axis_error_rad
+5,0.1335
+10,0.1175
+15,0.1075
+20,0.1
+25,0.084
+30,0.0695
+35,0.0575
+40,0.048
+45,0.0405
+50,0.035

@@ -1,0 +1,387 @@
+{
+  "_comment": [
+    "Gates the MATLAB driver CANNOT measure, and therefore does not silently",
+    "omit: they run in another language binding, under another compiler, in",
+    "another repo, or against a historical pre-fix engine binary that no",
+    "longer exists in the tree.  Each entry records the command that produces",
+    "it and the date it was captured; the report labels every one of them as",
+    "externally sourced, with that date, so a reader can tell at a glance",
+    "which numbers `make polval-regen` refreshed and which it did not.",
+    "",
+    "Update protocol: re-run the command, paste the result here, bump",
+    "'captured'.  Do NOT copy any of these into the report prose -- the prose",
+    "carries @@TOKENS@@ only."
+  ],
+  "values": {
+    "X_MMACOS_SUITE": {
+      "text": "488 pass, 0 fail",
+      "gate": "mmacos matlab.unittest suite, all classes",
+      "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh",
+      "captured": "2026-07-28",
+      "note": "fast 337 / masks 62 / freeform 60 / proper-512 10 / pol-512 6 / proper-1024 13; gfortran-linked mex. PARTIAL RE-RUN, stated as such: at the external-anchor landing only the FAST group was re-measured (337 pass, 0 fail -- was 329, the +8 being tPolExternal and nothing else moving). The other five groups carry their 2026-07-28 radiometric-landing values; that landing's engine is unchanged here, since the external anchor adds no Fortran and touches no shared binding code, so they cannot have moved. Re-run the full script to convert 488 from a composition into a measurement.",
+      "source": "external"
+    },
+    "X_PYMACOS_SUITE": {
+      "text": "6694 pass, 1 skipped",
+      "gate": "pymacos pytest suite (ifx-linked = the standing ifx smoke)",
+      "command": "cd MACOS_resources/pymacos/tests && python -m pytest -q   (from tests/, which is where context.py resolves src/ from)",
+      "captured": "2026-07-28",
+      "source": "external",
+      "note": "re-run at the radiometric landing and UNCHANGED. No pymacos fixture declares a COATED Refractor, so the coated transmission branch is unreachable from this binding -- the run confirms inertness rather than covering the fix."
+    },
+    "X_PROPER_COMPARE": {
+      "text": "26/26",
+      "gate": "pymacos PROPER-comparison suite",
+      "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_PROPER_RESIDUAL": {
+      "text": "4.836e-13",
+      "units": "committed macos-vs-PROPER residual",
+      "gate": "ladder 3 -- polarized PROPER re-run reproduces the committed scalar residual EXACTLY, for both polarization-off and polarization-on/vector-off",
+      "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh   (with pol_set on)",
+      "captured": "2026-07-27",
+      "source": "external",
+      "note": "re-confirmed in the 2026-07-27 re-run: unchanged in results_phase2/report.md and results_phase3/report.md"
+    },
+    "X_PROPER_VECDIFF": {
+      "text": "1.3e-2",
+      "gate": "ladder 3 -- vector run differs from scalar on the Coro near-field leg at identical total power; attribution UNVERIFIED",
+      "command": "cd MACOS_resources/pymacos && ./run_proper_tests.sh   (with vecdif_set on)",
+      "captured": "2026-07-26",
+      "source": "external"
+    },
+    "X_GMI": {
+      "text": "6/6, bit-identical (vs-ref = 0.000e+00)",
+      "gate": "GMI regression -- polarization work must be a no-op on polarization-off prescriptions",
+      "command": "cd MACOS_resources/GMI && ./makegmi.sh && <GMI regression driver>",
+      "captured": "2026-07-28",
+      "source": "external",
+      "note": "re-run at the coated-Refractor radiometric landing; the whole coated branch is gated on ifPol and GMI carries no polarization, so bit-identity is the expected -- and required -- result"
+    },
+    "X_PREFIX_FF_TOTAL": {
+      "text": "8.937660518e-01",
+      "gate": "ladder 5 -- far-field vector total power BEFORE the PFFPROP->FFPROP*3 unification",
+      "command": "rebuild the engine with propsub.F at a0f6dba^, then re-run the ladder-5 case",
+      "captured": "2026-07-26",
+      "note": "HISTORICAL. Requires rebuilding the pre-fix engine; not reproducible from the current tree. The post-fix counterpart (G35_VECTOR_TOT) IS regenerated every run.",
+      "source": "external"
+    },
+    "X_PREFIX_VECCHAIN": {
+      "text": "0.21 .. 0.38",
+      "units": "relative error",
+      "gate": "non-vacuity -- the pre-fix engine FAILS the vector-chain gates",
+      "command": "rebuild the engine with propsub.F at a0f6dba^, then run tVecChain",
+      "captured": "2026-07-26",
+      "note": "HISTORICAL. 0.21 after one leg, 0.38 after two.",
+      "source": "external"
+    },
+    "X_PREFIX_POWER": {
+      "text": "4-7%",
+      "gate": "non-vacuity -- the pre-fix engine also mis-states total power",
+      "command": "rebuild the engine with propsub.F at a0f6dba^, then run tVecChain",
+      "captured": "2026-07-26",
+      "note": "HISTORICAL.",
+      "source": "external"
+    },
+    "X_SPSIGN_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "capture date of the pre-fix A/B below",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_RESID": {
+      "text": "1.14e+02",
+      "gate": "pre-fix median relative residual vs the perfect-conductor closed form (max 1.61e+05)",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "note": "model 128, Rx_Cass_FarField, same rays as G41",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_RADIAL": {
+      "text": "0.988 / 1.038 / 1.029 / 1.035",
+      "gate": "pre-fix median |Ey/Ex| at rho = 0.25 / 0.50 / 0.75 / 1.00",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "note": "flat -- no slope-driven effect can be",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_SLOPE": {
+      "text": "0.033",
+      "gate": "pre-fix log-log slope of cross-pol vs pupil radius",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PREFIX_RET": {
+      "text": "3.9e-10",
+      "gate": "pre-fix spurious retardance from a perfect conductor",
+      "command": "copy macos_f90/elemsub.F aside, restore the pre-fix RP form (the '! fixed by jzlou' line), makems.sh release gfortran, relink the mex, run tPolarization -k odd_mirror; then restore the copy and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_PRE1": {
+      "text": "1.0163e+00",
+      "gate": "PRE-fix cross-polarized power fraction after ONE mirror",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "note": "model 256; the driver's own G42_PYPX1 is the model-128 post-fix value",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_POST1": {
+      "text": "2.0724e-04",
+      "gate": "POST-fix cross-polarized power fraction after ONE mirror",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_PRE2": {
+      "text": "7.0612e-07",
+      "gate": "PRE-fix cross-polarized power fraction after TWO mirrors",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SPSIGN_PROBE_POST2": {
+      "text": "7.0612e-07",
+      "gate": "POST-fix cross-polarized power fraction after TWO mirrors -- bit-identical to the pre-fix value",
+      "command": "MACOS_resources/mmacos/tools/pol_sp_sign_probe/probe_sp_sign.m (model 256)",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_SUITES_CAPTURED": {
+      "text": "2026-07-28",
+      "gate": "date the three cross-checking suites were last re-run together",
+      "command": "run_mmacos_tests.sh; pymacos pytest; pymacos run_proper_tests.sh",
+      "captured": "2026-07-28",
+      "note": "a hand-typed date in the prose is the same hazard as a hand-typed number",
+      "source": "external"
+    },
+    "X_POLELT_TWOCHAIN_RAY": {
+      "text": "3.6e-33",
+      "gate": "ray-level power at the detector with crossed polarizers, engine wired into tracesub.F ONLY",
+      "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
+      "captured": "2026-07-27",
+      "note": "model 128, Rx_PolElt.in; the companion grid number is X_POLELT_TWOCHAIN_GRID",
+      "source": "external"
+    },
+    "X_POLELT_TWOCHAIN_GRID": {
+      "text": "9.69e-01",
+      "gate": "detector-PLANE integrated intensity for the same crossed-polarizer state -- the full incident power, i.e. the grid saw no polarization at all",
+      "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
+      "captured": "2026-07-27",
+      "note": "model 128, Rx_PolElt.in; equals the analyzer-aligned value, which is the point",
+      "source": "external"
+    },
+    "X_KORGER": {
+      "text": "J. Korger, T. Kolb, P. Banzer, A. Aiello, C. Wittmann, C. Marquardt and G. Leuchs, \"The polarization properties of a tilted polarizer,\" Opt. Express 21(22), 27032-27042 (2013)",
+      "gate": "EXTERNAL ANCHOR for the off-normal axis convention -- the published experiment that decides between the two candidate constructions",
+      "command": "doi:10.1364/OE.21.027032 (arXiv:1308.4309); read sections 3 and Fig. 2",
+      "captured": "2026-07-27",
+      "note": "Mueller matrices of a commercial nano-particle polarizer tilted about an in-plane axis, phi = 94.5 deg, theta swept to near grazing. Their Eq. (5)-(6) is the ABSORBING (material-axis) model: ahat = unit(P_A - (P_A.zhat)zhat), E_out = E_in - (E_in.ahat)ahat, i.e. T_A = 1 - ahat ahat^T = that that^T with that = zhat x ahat -- algebraically the rule PolElt now implements. The rejected alternative is Fainman and Shamir's transmitting-axis projection (Appl. Opt. 23, 3188 (1984)), which is what PolElt did before. The two 'coincide only for normal incidence'; the measurement (their Fig. 2c) is that 'only the absorbing model explains the drastic change of the transmitted state of polarization observed when the polarizer is tilted'.",
+      "source": "external"
+    },
+    "X_MATAXIS_PREFIX_ANGLE": {
+      "text": "3.5616",
+      "units": "degrees",
+      "gate": "non-vacuity -- the PRE-flip engine's transmitted axis misses the material-axis rule by the full ambiguity (and sits exactly on the pass-axis construction, residual 0)",
+      "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k offnormal; then restore and rebuild",
+      "captured": "2026-07-27",
+      "note": "HISTORICAL. model 128, Rx_PolElt_Tilt.in, 20 deg AOI / 45 deg azimuth, all 12453 unvignetted rays. Same run: the DEGENERATE-azimuth gate passes on BOTH engines, which is what makes it a vacuity guard rather than a gate.",
+      "source": "external"
+    },
+    "X_MATAXIS_PREFIX_NULL": {
+      "text": "1.526e-02",
+      "gate": "non-vacuity, grid side -- PRE-flip detector power at the material-rule crossed setting, relative to the aligned analyzer (post-flip: 9.06e-33)",
+      "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k crossed_null; then restore and rebuild",
+      "captured": "2026-07-27",
+      "note": "HISTORICAL. The pre-flip engine instead extinguishes at the PASS-axis crossed setting, 1.86e-32 -- the null moves, it does not blur, so the two rules are separated by ~30 orders of magnitude on the detector plane.",
+      "source": "external"
+    },
+    "X_MATAXIS_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "capture date of the pre-flip material-axis A/B above",
+      "command": "restore PolElt's pass-axis basis (make both EltType.EQ.TrPolarizerElt basis branches unreachable), makems.sh release gfortran, relink the mex, run tPolElement -k offnormal and -k crossed_null; then restore and rebuild",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_NORMAL": {
+      "text": "0.8164965809",
+      "gate": "non-vacuity -- PRE-fix coated/uncoated transmitted amplitude at normal incidence, index-matched layer",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state (drops the RADIOMETRIC NORMALIZATION block in the coated Refractor branch), makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. model 128, Rx_Refract.in. Exactly 1/sqrt(1.5) -- the index half of the missing factor, with both cosines equal to 1.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_P": {
+      "text": "0.7311104457",
+      "gate": "non-vacuity -- PRE-fix coated/uncoated transmitted amplitude, p at 45 deg",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. model 128, Rx_Refract45.in. = 1/sqrt(1.5*cos(28.1255deg)/cos(45deg)), i.e. both halves of the factor.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_S": {
+      "text": "0.7311104457",
+      "gate": "non-vacuity -- PRE-fix coated/uncoated transmitted amplitude, s at 45 deg",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. Bit-identical to the p value, which is the tell: a Fresnel error would separate s from p, a missing COMMON scalar cannot.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_GRID": {
+      "text": "0.6666666667",
+      "gate": "non-vacuity, grid side -- PRE-fix coated/uncoated integrated detector-plane INTENSITY",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric -k detector_plane; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. model 128, Rx_Refract.in elt 6. Exactly 1/1.5 = the square of the amplitude number: propsub's CPROPAGATE chain inherited the defect, so the image under-reported flux by a third.",
+      "source": "external"
+    },
+    "X_RAD_PREFIX_SUITE": {
+      "text": "6 pass, 7 fail",
+      "gate": "non-vacuity -- tPolRadiometric scored against the pre-fix engine",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "note": "HISTORICAL. The six that pass are the six that should: the two uncoated-convention gates, the 45-deg fixture's s/p purity check, the fully-coated-plate telescoping identity (invariant under the landing by construction), the polarization-state invariance, and the pol-off gate.",
+      "source": "external"
+    },
+    "X_RAD_CAPTURED": {
+      "text": "2026-07-28",
+      "gate": "capture date of the pre-fix radiometric A/B above",
+      "command": "copy macos_f90/elemsub.F aside, `git checkout` it to the pre-landing state, makems.sh release gfortran, relink the mex, run tPolRadiometric; then restore the copy and rebuild",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_POLELT_TWOCHAIN_CAPTURED": {
+      "text": "2026-07-27",
+      "gate": "capture date of the two-dispatch-chain A/B above",
+      "command": "revert the propsub.F CPROPAGATE dispatch for TrPolarizerElt/WavePlateElt (leave only the tracesub.F chain), makems.sh release gfortran, relink the mex, then trace Rx_PolElt.in with crossed polarizers and compare sum|RayE|^2 at the detector against sum(macos.intensity(7))",
+      "captured": "2026-07-27",
+      "source": "external"
+    },
+    "X_VANHARTEN": {
+      "text": "G. van Harten, F. Snik and C. U. Keller, \"Polarization properties of real aluminum mirrors I. Influence of the aluminum oxide layer,\" PASP 121(878), 377-383 (2009)",
+      "gate": "EXTERNAL ANCHOR for the thin-film polarization machinery on a DIELECTRIC-ON-METAL stack -- the configuration class a protected mirror belongs to, and the one no previous gate covered",
+      "command": "doi:10.1086/599043 (arXiv:0903.2740v1); Table 2 for the indices, Secs. 2-4 for the film thickness, measurement range and accuracy",
+      "captured": "2026-07-28",
+      "note": "Chosen because it states BOTH halves: a full Mueller matrix measured by ellipsometry at 14 incidence angles over 6-70 deg and lambda = 500/550/600/650 nm, AND every model input numerically. Their inputs: Al2O3 n_f = 1.61/1.61/1.60/1.60 (+-0.01, Eriksson et al. 1981); Al real index 0.769/0.958/1.200/1.470 (+-0.01, Lide 2008, interpolated); Al imaginary index 5.88/6.30/6.85/7.33 (their Fit 1, fitted WITH the oxide in the model); oxide 4.12 +- 0.08 nm; 220 +- 10 nm Al evaporated on glass. Their model (Eqs 1-6) is the Macleod/Born-and-Wolf characteristic-matrix form. Their index convention is N = n - ik with k >= 0, IDENTICAL to the MACOS convention, so no translation enters -- and it is load-bearing, since the paper reports that the opposite sign made their fitted oxide come out ~50 nm instead of ~4 nm. Driving the engine with THEIR indices is the point: aluminum index tables genuinely disagree (the paper says so and FITS k rather than adopting a table), and a disagreement traceable to index tables is not a machinery error.",
+      "source": "external"
+    },
+    "X_VH_DEV_D": {
+      "text": "2.828e-14",
+      "gate": "(a) MACHINERY -- worst engine-vs-publication deviation in the [1,2] normalized Mueller element (diattenuation), over their 4 wavelengths x 6 incidence angles inside their measured range",
+      "command": "cd MACOS_resources/mmacos && matlab -batch \"mmacos_setup; addpath('tools/pol_external_anchor'); vh_anchor\"",
+      "captured": "2026-07-28",
+      "note": "model 128, Bench fold rig per angle, the publication's own stack (4.12 nm Al2O3 / 220 nm Al). Compared per RAY at each ray's own incidence cosine, so no single-AOI approximation enters.",
+      "source": "external"
+    },
+    "X_VH_DEV_RET": {
+      "text": "4.937e-14",
+      "gate": "(a) MACHINERY -- worst engine-vs-publication retardance deviation, expressed in the SAME normalized Mueller units (the lower 2x2 block carries 2 sqrt(Rp Rs)/(Rp+Rs) times cos/sin of the retardance)",
+      "command": "cd MACOS_resources/mmacos && matlab -batch \"mmacos_setup; addpath('tools/pol_external_anchor'); vh_anchor\"",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_VH_ACC": {
+      "text": "0.01",
+      "gate": "the publication's OWN stated absolute accuracy, per normalized Mueller matrix element (their Sec. 2: \"an absolute accuracy of ~1% of element [1,1]\") -- the bar the gate tolerance is stated against",
+      "command": "arXiv:0903.2740v1 Sec. 2",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_VH_HEADROOM": {
+      "text": "2.0e11",
+      "gate": "how far inside the publication's measurement bar the engine sits (X_VH_ACC / max(X_VH_DEV_D, X_VH_DEV_RET))",
+      "command": "cd MACOS_resources/mmacos && matlab -batch \"mmacos_setup; addpath('tools/pol_external_anchor'); vh_anchor\"",
+      "captured": "2026-07-28",
+      "note": "Both sides implement the same thin-film theory, so agreement is expected at round-off; the publication's error bar is the reference for what the comparison would have had to beat to be meaningful, not the achieved figure.",
+      "source": "external"
+    },
+    "X_VH_NOOXIDE": {
+      "text": "exceeds 0.01",
+      "gate": "NON-VACUITY -- the engine WITH the 4.12 nm oxide, compared against an analytic WITHOUT it, disagrees by more than the publication's own accuracy",
+      "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh   (tPolExternal/test_omitting_the_oxide_exceeds_published_accuracy)",
+      "captured": "2026-07-28",
+      "note": "This independently reproduces the publication's central claim -- that a ~4 nm oxide must be modelled to describe the mirror's polarization properties. If the anchor could not separate a bare mirror from an oxidized one it would be measuring nothing.",
+      "source": "external"
+    },
+    "X_VH_50NM": {
+      "text": "exceeds 0.01",
+      "gate": "NON-VACUITY -- 4.12 nm vs the historical 50 nm oxide (which the paper attributes to a sign error on the imaginary index) is separable at their accuracy",
+      "command": "cd MACOS_resources/mmacos && ./run_mmacos_tests.sh   (tPolExternal/test_rejected_50nm_oxide_is_excluded)",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_VH_CAPTURED": {
+      "text": "2026-07-28",
+      "gate": "capture date of the external anchor above",
+      "command": "cd MACOS_resources/mmacos && matlab -batch \"mmacos_setup; addpath('tools/pol_external_anchor'); vh_anchor\"",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_2C_FIXTURE_LAMBDA": {
+      "text": "1.0E-06",
+      "units": "m",
+      "gate": "FINDING -- the wavelength Rx_Cass_FarField actually runs at, against which the Phase-2c coating constants are labelled \"Al at 632.8 nm\" and the MgF2 thickness \"~quarter wave at 632.8 nm\"",
+      "command": "grep -i 'Wavelen' MACOS_resources/pymacos/tests/Rx/Rx_Cass_FarField.in   (BaseUnits = m)",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_2C_QW_FRAC": {
+      "text": "0.607",
+      "gate": "FINDING -- the 110 nm MgF2 film expressed in quarter-waves AT THE FIXTURE'S OWN WAVELENGTH (a quarter wave at 1 um in MgF2 is 181.2 nm)",
+      "command": "110 / (1000/(4*1.38))",
+      "captured": "2026-07-28",
+      "note": "At 632.8 nm the same film is 0.960 quarter-waves, which is what the 2c constants' comments describe.",
+      "source": "external"
+    },
+    "X_2C_POWER_1000": {
+      "text": "6.35",
+      "gate": "FINDING -- cross-pol power ratio (MgF2/Al over bare Al) from the INDEPENDENT analytic at the fixture's actual 1 um, near-normal incidence (the ratio is flat over the whole plausible range -- see X_2C_RATIO_FLATNESS)",
+      "command": "MACOS_resources/mmacos/tools/pol_external_anchor/ -- vh_thinfilm at lambda = 1 um, d_MgF2 = 110 nm",
+      "captured": "2026-07-28",
+      "note": "To be compared with 6.4225 predicted from the engine's own Jones pupil and 5.4238 measured by macos.pol_contrast_floor: the 2c number is arithmetically CORRECT for the film as configured.",
+      "source": "external"
+    },
+    "X_2C_POWER_633": {
+      "text": "0.18",
+      "gate": "FINDING -- the SAME 110 nm film at 632.8 nm (0.96 quarter-waves) instead REDUCES cross-polarized power to 0.18x of bare aluminium",
+      "command": "MACOS_resources/mmacos/tools/pol_external_anchor/ -- vh_thinfilm at lambda = 632.8 nm, d_MgF2 = 110 nm",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_2C_POWER_TRUEQW": {
+      "text": "0.0157",
+      "gate": "FINDING -- a TRUE quarter-wave MgF2 overcoat (181.2 nm at 1 um) SUPPRESSES cross-polarized power to 0.0157x of bare aluminium, i.e. it buys ~1.8 decades rather than costing one",
+      "command": "MACOS_resources/mmacos/tools/pol_external_anchor/ -- vh_thinfilm, d_MgF2 = lambda/(4*1.38)",
+      "captured": "2026-07-28",
+      "note": "Identical at 632.8 nm and 1 um, as a quarter-wave condition should be. This is the number that reverses the sign of the 2c design-rules sentence.",
+      "source": "external"
+    },
+    "X_2C_PRED_JONES": {
+      "text": "6.4225",
+      "gate": "FINDING -- cross-pol power ratio predicted from the ENGINE'S OWN Jones pupil on Rx_Cass_FarField via eps_tot = (A-B)/(A+B), A = prod(r_s), B = prod(r_p)",
+      "command": "cd MACOS_resources/mmacos && matlab -batch \"mmacos_setup; addpath('tools/pol_external_anchor'); vh_cass_probe\"",
+      "captured": "2026-07-28",
+      "note": "model 256. Agrees with the independent analytic's 6.35 and with pol_contrast_floor's measured 5.4238 (the residual is dark-zone annulus weighting versus a pupil mean), which is what establishes that the 2c pipeline is self-consistent and the issue is the CONFIGURATION's description.",
+      "source": "external"
+    },
+    "X_2C_MEAS_FLOOR": {
+      "text": "5.4238",
+      "gate": "FINDING -- the same ratio as macos.pol_contrast_floor actually reports (151.3112 / 27.8977)",
+      "command": "cd MACOS_resources/mmacos && matlab -batch \"mmacos_setup; addpath('tools/pol_external_anchor'); vh_cass_probe\"",
+      "captured": "2026-07-28",
+      "source": "external"
+    },
+    "X_2C_RATIO_FLATNESS": {
+      "text": "6.34 .. 6.36",
+      "gate": "FINDING -- the MgF2/bare-Al cross-power ratio from the independent analytic across the whole plausible near-normal incidence range (1.3 - 5.1 deg), showing the conclusion does not depend on pinning an exact AOI",
+      "command": "MACOS_resources/mmacos/tools/pol_external_anchor/ -- vh_thinfilm at lambda = 1 um, d_MgF2 = 110 nm, swept in AOI",
+      "captured": "2026-07-28",
+      "note": "A per-element AOI was NOT measured: ray_field's .nx/.ny/.nz is the element AXIS normal broadcast to the grid (not the local surface normal on a curved mirror), and the successive-element deviation route returns exactly 90 deg, so neither is usable through this binding. The flatness above is why nothing in the finding depends on it. See vh_cass_probe.m section 1.",
+      "source": "external"
+    }
+  }
+}

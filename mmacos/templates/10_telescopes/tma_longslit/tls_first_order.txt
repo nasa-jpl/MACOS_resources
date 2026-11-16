@@ -1,0 +1,34 @@
+tma_longslit first_order -- the paraxial zig-zag TMA (2026-10-07 17:21)
+SPEC: f 330.0 mm, D 183.0 mm (F/1.80), strip +-4.70 deg (image +-27.13 mm; slit 54.0 mm), telecentric, cone F/1.70..1.80
+SEED: legs [270 257 313] mm at f 345 -> [258.3 245.8 299.4] mm at f 330; chief AOI [30 37 15] deg; turn [1 -1 1]
+MODEL: unfolded thin mirrors along the chief; the same legs in the fold (t) and strip (s) sections -> one power per mirror;
+  a tilted mirror gives phi_t = 2/(R_t cos i), phi_s = 2 cos i/R_s, so each section must carry R_t/R_s = 1/cos^2 i at the chief.
+
+STOP M2  (the record)
+           f (mm)      R unf        R_t        R_s       beam    foot x   foot y*
+  M1      +1012.5    +2025.0    +2338.3    +1753.7      183.0     239.9     211.3
+  M2       -452.0     -904.1    -1132.0     -722.0      136.3     136.3     170.7
+  M3       +245.8     +491.7     +509.0     +474.9      166.0     220.2     171.9
+  EFL 330.00 mm, back focus 299.39 mm, F/1.803; chief exit slope 1.49e-16 per rad (0 = telecentric); intermediate focus: none (no real intermediate image)
+  entrance pupil +346.7 mm from M1 along the input chief (+ = downstream: virtual); field at M2 x1.342; image half 27.13 mm
+  (beam = on-axis width; foot x = across the strip at the edge field; foot y* = on the surface in the fold plane)
+
+STOP M1
+           f (mm)      R unf        R_t        R_s       beam    foot x   foot y*
+  M1       -567.7    -1135.3    -1311.0     -983.2      183.0     183.0     211.3
+  M2       +364.7     +729.4     +913.3     +582.5      266.3     308.6     333.4
+  M3      +1130.8    +2261.6    +2341.4    +2184.5      166.0     220.2     171.9
+  EFL 330.00 mm, back focus 299.39 mm, F/1.803; chief exit slope 5.55e-17 per rad (0 = telecentric); intermediate focus: none (no real intermediate image)
+  entrance pupil -0.0 mm from M1 along the input chief (+ = downstream: virtual); field at M2 x1.000; image half 27.13 mm
+  (beam = on-axis width; foot x = across the strip at the edge field; foot y* = on the surface in the fold plane)
+
+STOP 0.50 of M1->M2
+           f (mm)      R unf        R_t        R_s       beam    foot x   foot y*
+  M1      -3024.2    -6048.3    -6984.0    -5238.0      183.0     203.3     211.3
+  M2      +1028.4    +2056.9    +2575.5    +1642.7      198.6     218.9     248.7
+  M3       +393.5     +787.0     +814.8     +760.2      166.0     220.2     171.9
+  EFL 330.00 mm, back focus 299.39 mm, F/1.803; chief exit slope 1.06e-16 per rad (0 = telecentric); intermediate focus: none (no real intermediate image)
+  entrance pupil +123.8 mm from M1 along the input chief (+ = downstream: virtual); field at M2 x0.959; image half 27.13 mm
+  (beam = on-axis width; foot x = across the strip at the edge field; foot y* = on the surface in the fold plane)
+
+READING: with the stop at M2 the telecentric condition is f3 = M2->M3; the paraxial chief then exits M3 parallel.

@@ -1,0 +1,151 @@
+% ---------------------------------------------------------------------------------------
+% Rx_VecChain -- polarization-neutral TWO-LEG near-field chain.
+% PLAN_POLARIZATION Phase 3a Tranche 1 gate prescription.
+%
+% Why this exists.  It is the one geometry on which the vector diffraction
+% chain has an EXACT reference: the source is collimated and on-axis
+% (zSource=1e21 -> the UNIFORM engine launch frame, not the per-ray point-
+% source frame) and every element is a FLAT plane at NORMAL incidence with
+% no coating.  The ray E-field direction is therefore a CONSTANT unit vector
+% over the whole pupil and the whole train, so the field factorises as
+% E_k(x,y) = e_k * u(x,y) with e_k constant.  Propagating the three component
+% planes separately and summing |E_k|^2 must reproduce the SCALAR run's
+% intensity to round-off at every leg, for ANY input polarization state.
+% Any deviation is a Tranche-1 bug, not physics.
+%
+% Two things this layout is deliberate about:
+%
+%   1. TWO physical legs, not one.  MACOS merges consecutive elements that
+%      share a PropType into a single propagation, so the legs are bracketed
+%      NFPlane -> Geometric (the Rx_Coro.in idiom).  Two legs are what make
+%      the seed-once-then-update assembly fix (3a.1(2)) observable at all:
+%      with one leg the old reload-from-RayE assembly is indistinguishable.
+%
+%   2. The gate is run at 45-degree linear and circular input states, not
+%      only x-polarized.  With an x-only source all the energy sits in
+%      component plane 1, which the OLD single-plane propagator happened to
+%      carry correctly -- an x-pol-only gate passes vacuously.  A state that
+%      populates Ex AND Ey leaves plane 2 stale under the old code and is
+%      wrong by ~20%.
+%
+% Fresnel number per hop is (D/2)^2/(lambda*dz) = 25, so there is real
+% diffraction structure (plus a central obscuration shadow) to compare.
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -1.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  256
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  4
+
+
+             iElt=  1
+          EltName=  PupilStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  NFPlane
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  MidStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E+00
+           RptElt=  0.0E+00  0.0E+00  1.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  1
+          ObsType=  Circle
+           ObsVec=  1.0E-03  0.0E+00  0.0E+00
+           ApType=  Circular
+            ApVec=  6.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=1.0E+00
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Prop2Start
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E+00
+           RptElt=  0.0E+00  0.0E+00  1.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFPlane
+             zElt=1.0E+00
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  2.0E+00
+           RptElt=  0.0E+00  0.0E+00  2.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=2.0E+00
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

@@ -1,0 +1,84 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "loop_oap"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+  OAP fold solve (need lateral clearance 126.4 mm):
+  OAP1 (collimator F1=857): AOI  5 deg -> lateral  148.8 mm, margin  +22.4
+  OAP2 (focuser   F2=429): AOI  9 deg -> lateral  132.4 mm, margin   +6.0
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
+Stage B -- oap rig built (BS_AOI 7); emitted loop_oap_{test,ref}.in
+
+
+---- loop: closed-loop hold, DM 96x96, four-step reading ----
+loop: gain 0.50, 60 cycles (steady state = last 30), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the four frames with N photons split nph/4), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.7036 DM-mm/det-mm, det -114.5672, in-plane rotation -0.00 deg, dxd 1.9859e-02 mm
+  anchor: blob px (496.54,533.92) <-> DM (-3.500,-4.620) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 2.32 px)
+  lit actuators: 3324 of 9216
+  bootstrap (ray affine): 83.82% within 2 px, median 0.88 px (410 of 414 blobs caught)
+  fit residual: affine 0.17 px, deg-2 0.12 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 410 CoMs): fit residual 0.17 px
+  refined pass 2 (deg-1, 410 of 414 caught): fit residual 0.17 px, gate 96.62% within 2 px, median 0.13 px
+  D1 GATE: 96.62% of lit within 2 px (need >= 99.0%), median err 0.13 px
+  by radius (mm):           6.5   13.0   19.5   26.0   32.5 
+    within2px    1.00   1.00   1.00   0.92   0.99 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.01 
+  ray-affine SVD: DM-mm/det-mm 10.704 / 10.704, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 96.62% within 2 px vs affine 96.62% (same 414 poked); register_two_pokes centre anchor reads 0
+  flat-DM null: 13.0890 nm rms surface (13089.0 pm) -- the same-plane-fold arm difference
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 3324, J 64 states x 3324 columns, window 37 px, reg lambda 1.00e-03
+14 loop runs of 61 states each (854 traced states)
+
+step response (noiseless; a step of the given rms at cycle 1). rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2)/r(K) = residual (pm) at cycles 30 and 60 -- a residual that stops falling is the noiseless bias floor on this surface
+    step      rho      tau    k1e   r(K/2) pm     r(K) pm
+     1 nm      NaN      NaN      3     210.028     275.602
+    10 nm      NaN      NaN      3    2100.637    2754.199
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g)). ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+    N/cycle    ss pm  bias pm  sig_n pm    th pm
+    1.0e+12    17.60     8.85     22.20    12.82
+    1.0e+13     5.57     2.80      7.02     4.05
+    1.0e+14     1.76     0.88      2.22     1.28
+    1.0e+15     0.56     0.28      0.70     0.41
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- random walk, 2 pm per actuator per cycle. ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+    N/cycle    ss pm  bias pm  sig_n pm    th pm
+    1.0e+12    18.13     9.51     22.20    13.02
+    1.0e+13     6.95     4.33      7.02     4.66
+    1.0e+14     4.45     3.37      2.22     2.64
+    1.0e+15     4.11     3.25      0.70     2.34
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- thermal ramp, 5 pm rms per cycle (defocus + astigmatism). ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+    N/cycle    ss pm  bias pm  sig_n pm    th pm
+    1.0e+12    42.14    37.63     22.20    16.26
+    1.0e+13    39.21    37.21      7.02    10.79
+    1.0e+14    39.01    37.28      2.22    10.08
+    1.0e+15    39.03    37.32      0.70    10.01
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+  none     3.4e+13
+  walk     floor 4.1
+  thermal  floor 39.0
+
+spectrum of the held residual at 1e+15 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+  none       0.05   0.13   0.54
+  walk       0.35   0.98   3.97
+  thermal   14.87  14.30  33.13
+loop stage 69.6 min (854 traced states)
+
+wrote loop_oap_report.txt + loop_oap.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/loop_oap

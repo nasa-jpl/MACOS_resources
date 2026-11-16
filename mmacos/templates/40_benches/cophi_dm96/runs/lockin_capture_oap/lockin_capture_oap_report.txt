@@ -1,0 +1,57 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "lockin_capture_oap"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  56.6 -> separation  275.0 mm, margin +151.4 mm (spec >= 25)
+  1 of 5 node parts under the 25 mm margin; beam radius 59.0, mount +8
+  OAP fold solve (need lateral clearance 134.0 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +417.0
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +194.3
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_oap_tail.mat (null 73.856 nm at opt res; seed 73.856)
+Stage B -- oap rig built (BS_AOI 22.5); emitted lockin_capture_oap_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  L1             Reflector        882.1      56.6  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1139.3        --  flat mirror
+  Comptxfd       Refractor       1328.5        --  
+  Comptxbd       Refractor       1338.8        --  
+  TestOptic      Reflector       1578.8      48.0  flat mirror
+  Comptxfu       Refractor       1818.8        --  
+  Comptxbu       Refractor       1829.1        --  
+  BStxfo         Refractor       2018.3        --  
+  BStxbo         Refractor       2028.7        --  
+  Recomb         Reference       2178.7        --  
+  L2             Reflector       2303.7      56.6  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  MaskSubf       Refractor       2729.9        --  
+  MaskSubb       Refractor       2731.9        --  
+  FocalMask      Reference       2732.9        --  
+  FLpow          Refractor       2743.6        --  
+  FLflat         Refractor       2750.0        --  
+  Detector       FocalPlane      2785.7        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = protectedAl); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+
+wrote lockin_capture_oap_report.txt + lockin_capture_oap.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/cophi_dm96/runs/lockin_capture_oap

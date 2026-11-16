@@ -1,0 +1,98 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "loopfib_oap_plain"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  56.6 -> separation  275.0 mm, margin +151.4 mm (spec >= 25)
+  1 of 5 node parts under the 25 mm margin; beam radius 59.0, mount +8
+  OAP fold solve (need lateral clearance 134.0 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +417.0
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +194.3
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_oap_tail.mat (null 73.856 nm at opt res; seed 73.856)
+Stage B -- oap rig built (BS_AOI 22.5); emitted loopfib_oap_plain_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  L1             Reflector        881.8      56.6  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1138.9        --  flat mirror
+  Comptxfd       Refractor       1328.1        --  
+  Comptxbd       Refractor       1338.4        --  
+  TestOptic      Reflector       1578.4      48.0  flat mirror
+  Comptxfu       Refractor       1818.4        --  
+  Comptxbu       Refractor       1828.8        --  
+  BStxfo         Refractor       2018.0        --  
+  BStxbo         Refractor       2028.3        --  
+  Recomb         Reference       2178.3        --  
+  L2             Reflector       2303.3      56.6  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  MaskSubf       Refractor       2729.5        --  
+  MaskSubb       Refractor       2731.5        --  
+  FocalMask      Reference       2732.5        --  
+  FLpow          Refractor       2743.3        --  
+  FLflat         Refractor       2749.6        --  
+  Detector       FocalPlane      2785.3        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = protectedAl); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.5522 DM-mm/det-mm, det -111.3484, in-plane rotation -0.00 deg, dxd 2.8914e-02 mm -> 3.278 detector px per actuator
+  anchor: blob px (498.29,531.10) <-> DM (-4.620,-5.460) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 1.36 px)
+  lit actuators: 6948 of 9216
+camera: pupil image 11.06 mm across (383 modeled px at 28.9 um); sCMOS 2048x2048 at 6.50 um -> 1702 raw px across the pupil; binned 4 = 426, and binning 4 = 426 lands nearest the modeled 383
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 3207 px across the pupil, 1603 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+  bootstrap (ray affine): 94.25% within 2 px, median 0.95 px (852 of 852 blobs caught)
+  fit residual: affine 1.02 px, deg-2 0.16 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 852 CoMs): fit residual 1.02 px
+  refined pass 2 (deg-1, 852 of 852 caught): fit residual 1.02 px, gate 99.77% within 2 px, median 0.88 px
+  D1 GATE: 99.77% of lit within 2 px (need >= 99.0%), median err 0.88 px
+  by radius (mm):           9.4   18.7   28.1   37.5   46.8 
+    within2px    1.00   1.00   1.00   1.00   0.99 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.552 / 10.552, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 97.42% within 2 px vs affine 99.77% (same 852 poked); register_two_pokes centre anchor reads 0
+
+---- deck: rows on the 30 nm working surface, matrix ON it (four-step) ----
+  flat-DM null: 69.0896 nm rms surface (69089.6 pm)
+  matrix on 30 nm surface (seed 7): 64 states, 6948 lit columns
+  rows: hold-out actuator (62,62); grid = 112 sites (every 8, 4:8:96); g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+  row                          gain     err pm     flr pm      SNR
+  rand30/single10            0.9941        1.4          1  8098.82
+  rand30/grid@1nm            0.9949        1.6          1   681.71
+  rand30/rand10              0.9951      117.6          -        -
+
+---- loop: the hold servo on the H reading (g 0.50, K 60, seed 77; drifts per CYCLE as the record) ----
+  camera baseline: 120 readings per cycle -> a cycle every 16.00 s (480 frames at 30 fps)
+  baseline    fiber1   onestep   ss    5.58 pm  bias   1.03 pm  sig_n    9.51 pm | piston-free: ss    4.12  bias   0.94  sig_n    6.97 pm
+  baseline    fiber1   converged ss    5.61 pm  bias   1.03 pm  sig_n    9.60 pm | piston-free: ss    4.17  bias   0.94  sig_n    7.09 pm
+  baseline    fiber3   onestep   ss   14.94 pm  bias   2.02 pm  sig_n   25.43 pm | piston-free: ss    9.79  bias   1.56  sig_n   16.44 pm
+  baseline    fiber3   converged ss   15.00 pm  bias   2.02 pm  sig_n   25.57 pm | piston-free: ss    9.87  bias   1.56  sig_n   16.65 pm
+
+  capture range (aging: matrix once on 30 nm; gain vs base rms, 112-site grid | single site):
+  base rms    g(grid)     flr pm      SNR | g(1site)     flr pm      SNR
+      30 nm   0.9948         14   693.09 |   0.9941          1  8098.82
+  capture range to 10%: 112-site grid 30 nm + (holds at the last rung) ; single site 30 nm + (holds at the last rung)
+
+  capture range (re-measured: matrix rebuilt on each surface, 1 nm grid row; wrapped-difference):
+  surface        gain     flr pm      SNR     corr states
+deck stage 34.6 min
+
+wrote loopfib_oap_plain_report.txt + loopfib_oap_plain.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/cophi_dm96/runs/loopfib_oap_plain

@@ -1,0 +1,40 @@
+==== run_met: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/../e2e6m/s2_segmented.in ====
+[0] r3: 19 segments (Hex tiling), 24 elements; 983/985 rays pass
+
+[1] as-built truss: 114 beams (6 launchers/segment), 6 fiducials at r=0.3168 on elt 20
+    trace parity: 983/985 rays pass (bare 983/985), rmsWFE 2.487e-09 (bare 2.487e-09)
+
+[2] dedx 252x120 (SI);  dldx 114x120 engine-FD vs analytic: 7.90e-08 max rel  PASS
+
+[3] dwdx: 120 columns for bodies [1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20] from the sensitivities .mat
+    post-control wavefront residual (fraction of prior; nm at the
+    configured scenario: prior 1e-06 rad / 1e-06 m, noise 1e-09 / 1e-09 m):
+      prior (no sensing)       1.0000   (2142 nm)
+      edge sensors only        0.2786   (596.7 nm)
+      MET only                 0.1528   (327.4 nm)
+      edge + MET               0.0475   (101.7 nm)
+    as-built WEM (per unit gauge noise, suite ratios held;
+    prior split: 0.3157 nm tilt / 2142 nm non-tilt):
+      config        WEM_full  WEM_tilt WEM_ntilt  floor_ntilt
+      MET only        84.111     0.035    84.111       0.1477
+      edge+MET         0.864     0.000     0.864       0.0475
+    observability: H 366x120, sv(H*sqrt(X)) 1.089e-05 .. 9.640e-15 (cond 1.13e+09)
+    products: dxde 120x252, dxdl 120x114, dwde 170286x252, dwdl 170286x114
+
+[4] met_layout_opt (one pattern per shape class; MET-only, NON-TILT merit):
+    class 1 (19 members, cluster): angs [-5 5 35 45 -45 -35] deg
+    engine-FD validation (non-tilt merit): 102.2 nm (analytic 102.2, 0.00% off)
+
+[4b] configuration comparison (WEM per unit gauge noise):
+      config         | MET_full MET_tilt   MET_nt | e+M_full e+M_tilt   e+M_nt |    flr_nt  min_sep
+      as-built       |   84.111    0.035   84.111 |    0.864    0.000    0.864 |    0.0475 
+      optimized      |   10.580    0.003   10.580 |    0.981    0.000    0.981 |    0.0475 
+      corner_pairs   |   12.772    0.004   12.772 |    0.827    0.000    0.827 |    0.0475 0.009978
+
+[5] Monte-Carlo (200 draws): 104.278 nm rms  (analytic 101.666) [2.6%]
+
+[6] figures: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_met_layout.png, /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_metopt_layout.png, /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_met_view_rx.png, /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_met_metric.png
+preset saved: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r3_met_preset.mat (reusable as-built for future Hex builds)
+
+artifacts: r3_met.in, r3_metopt.in, r3_met.mat, this report + figures
+next stage: run_compare (linear model vs mmacos on x/z/grid states).

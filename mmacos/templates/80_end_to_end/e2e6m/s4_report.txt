@@ -1,0 +1,26 @@
+==================== e2e6m S4 -- sensitivities
+deck   /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_seg_prop.in
+metric OPD at the CORONAGRAPH exit pupil, per-field FEX reset;
+       field set = centre + 4 corners of the +-0.35' box, 500 nm
+optics 25 perturbed (19 segments + 6 rest); PM group = 19 members
+
+[runner] /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s4_sens_report.txt
+    segments: 19
+    dwdxall 201504 x 156 over 5 fields
+    + 6 group channel(s) appended after the per-element block
+    dwdzall 201504 x 152
+    dwdgall 201504 x 114 (influence basis saved in og.sgb)
+    [conditioning] finite rows only:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdx     segment-only: 201504x114  cond+ 2.162e+06
+    channel          size   rank     sv_max    sv_min+      cond+
+
+[group exhibit] appended to /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s4_sens_report.txt (members [1 2 8])
+    + 6 group channel(s) appended after the per-element block
+    [PM exhibit] the GROUP against its member elements
+    Grp[PM] (group)           2.7555e+00  2.7397e+00  2.7056e-01  7.1678e-02  7.0540e-02  1.4366e-02
+    group / Elt 1              19.3190     19.1686 111003.5995     19.2403     18.9956      0.0322
+    (a ratio BELOW 1 is intra-group COMPENSATION -- the members' responses
+    partly cancel when they move as one body.  A ratio at ~19, the member
+
+S4 DONE in 31.2 min

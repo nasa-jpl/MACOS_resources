@@ -1,0 +1,27 @@
+dyson5 round 3b -- throughput routes (2026-10-03 05:31); 130 mm silica block, 27 mm slit, R3 (no meniscus)
+CONVENTIONS: engine scores on the 7x7 grid; clearance as stage s3 runs it; throughput = uncoated Fresnel at 1 um
+  unless a coating is named.  Route 1: a cemented detector window is index-matched (the deposited slit is NOT -- the
+  beam enters glass at the slit in air regardless); the cold detector's dewar window is counted in the baseline.
+
+ROUTE 1 -- cement the detector window: 6 -> 4 air-glass crossings (depositing the slit removes none)
+  130 mm silica R3 (D)           CRF  1.026  EE  0.999  clear  +0.38 mm (image unchanged by the window)
+  uncoated, dewar window present (6x)      : throughput 0.814
+  cement the window to the block   (4x)    : throughput 0.872  (block-exit / window-in index-matched)
+  + AR the convex pair                     : throughput 0.911  (slit face and window vacuum face left bare)
+  -> depositing the slit removes NO crossing (air-glass at the slit regardless); the lever is cementing the window.
+
+ROUTE 3 -- working-distance scan: slit AND detector standoff equal, R3 re-solved at each (seed chained)
+  standoff       CRF      EE    clear   (block 130 mm silica, 27 mm slit)
+     0.5 mm   1.025   1.000   +0.43 mm
+     1.0 mm   1.027   1.000   +0.86 mm
+     1.5 mm   1.037   1.000   +1.32 mm
+     2.0 mm   1.065   0.905   +1.80 mm
+     2.5 mm   1.163   0.717   +2.25 mm
+     3.0 mm   1.355   0.484   +2.70 mm
+
+ROUTE 2 -- broadband AR 400-2500 nm (macos.design.thinfilm_rt, Abeles; normal incidence)
+  indices (refractiveindex.info, representative, dispersion over the band neglected -- stated): MgF2 1.384,
+  SiO2 1.46, Al2O3 1.63, Ta2O5 2.10; substrates silica 1.450, CaF2 1.429 at 1 um.
+  Silica  uncoated T/surf 0.966 (T^4 0.872); MgF2 1/4-wave 0.975 (0.903); 2-layer 0.976 (0.908); 4-layer 0.947 (0.805)
+  CaF2    uncoated T/surf 0.969 (T^4 0.881); MgF2 1/4-wave 0.975 (0.902); 2-layer 0.976 (0.906); 4-layer 0.945 (0.798)
+  (single-layer MgF2 helps little over a 6:1 band -- the index mismatch to a 1.45 substrate leaves R high at the ends.)

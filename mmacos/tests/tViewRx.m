@@ -1,0 +1,171 @@
+classdef tViewRx < matlab.unittest.TestCase
+%TVIEWRX  ray_hist / get_elt_info / view_rx solid rendering (model 256).
+%   Engine substrate for the layout visualizer: the per-trace ray-
+%   position history (RayPosHist via macos.ray_hist), element metadata
+%   (macos.get_elt_info), and the solid-body view_rx default.  Fixture:
+%   the manual's CassWithExitPupil.in (no GridFile, self-contained).
+
+    properties
+        man
+    end
+
+    methods (TestClassSetup)
+        function setup(tc)
+            here = fileparts(mfilename('fullpath'));            % mmacos/tests
+            res_root = fileparts(fileparts(here));              % MACOS_resources
+            tc.man = fullfile(fileparts(res_root), 'macos', ...
+                              'docs', 'macos-manual', 'examples');
+            tc.assumeTrue(isfile(fullfile(tc.man, 'CassWithExitPupil.in')), ...
+                'manual examples not present');
+            macos.init(256);
+            macos.load_rx(fullfile(tc.man, 'CassWithExitPupil.in'));
+        end
+    end
+
+    methods (Test)
+
+        function test_ray_hist_capture(tc)
+            macos.ray_hist('on');
+            t = macos.trace();
+            h = macos.ray_hist(t.nRays);
+            macos.ray_hist('off');
+            nE = macos.num_elt();
+            tc.verifySize(h.P, [3, t.nRays, nE+1]);
+            tc.verifySize(h.ok, [t.nRays, nE+1]);
+            tc.verifyGreaterThan(mean(h.ok(:)), 0.9, ...
+                'most rays must reach most elements on the Cass');
+            % every DRAW-fan crossing must sit within one source-grid
+            % spacing of a history ray at the same element (the fan
+            % resamples its own rays, so identity is to the grid pitch)
+            b = macos.draw_rays3d('YZ', 0, nE);
+            P0 = squeeze(h.P(:, :, 1));
+            dgrid = 2*max(vecnorm(P0 - mean(P0, 2))) / sqrt(t.nRays);
+            maxd = 0;
+            for r = 1:b.nray
+                for c = 1:b.nper(r)
+                    k = b.elt(c, r);
+                    if k < 1 || k > nE, continue; end
+                    d = squeeze(h.P(:, :, k+1)) - b.P(:, c, r);
+                    maxd = max(maxd, min(vecnorm(d)));
+                end
+            end
+            tc.verifyLessThan(maxd, 1.5*dgrid, ...
+                'fan crossings must be reproduced by the history rays');
+        end
+
+        function test_ray_hist_toggle_dirties_trace(tc)
+            % enabling AFTER a trace must still capture on the NEXT
+            % trace (the engine skips the retrace unless dirtied --
+            % same class as the grid-setter retrace rule)
+            macos.ray_hist('off');
+            t = macos.trace();
+            macos.ray_hist('on');
+            t = macos.trace();
+            h = macos.ray_hist(t.nRays);
+            macos.ray_hist('off');
+            tc.verifyGreaterThan(mean(h.ok(:)), 0.9);
+        end
+
+        function test_elt_info(tc)
+            i2 = macos.get_elt_info(2);
+            tc.verifyEqual(i2.type, 'Reflector');
+            tc.verifyEqual(i2.ap_type, 1);                 % Circular
+            tc.verifyEqual(i2.ap_vec(1), 2.1, 'AbsTol', 1e-12);
+            tc.verifyEmpty(i2.poly);
+            i1 = macos.get_elt_info(1);
+            tc.verifyEqual(i1.type, 'Obscuring');
+            i6 = macos.get_elt_info(macos.num_elt());
+            tc.verifyEqual(i6.type, 'FocalPlane');
+        end
+
+        function test_view_rx_solids(tc)
+            f = [tempname '.png'];
+            c = onCleanup(@() delete_if_(f)); %#ok<NASGU>
+            fig = macos.view_rx('visible', false, 'save', f);
+            cf = onCleanup(@() close(fig)); %#ok<NASGU>
+            tc.verifyClass(fig, 'matlab.ui.Figure');
+            % solid default: flat two-tone patches for the two mirrors
+            % (+ the Obscuring fill) and bundle polylines
+            pt = findobj(fig, 'Type', 'patch');
+            tc.verifyGreaterThanOrEqual(numel(pt), 2);
+            tc.verifyGreaterThan(numel(findobj(fig, 'Type', 'line')), 10);
+            d = dir(f);
+            tc.assertNotEmpty(d, 'PNG must be written');
+            tc.verifyGreaterThan(d.bytes, 1000);
+        end
+
+        function test_view_rx_hides_returns(tc)
+            % Return elements (exit-pupil / FP bookkeeping planes) are
+            % hidden by default -- their declared apertures dwarf the
+            % optics (Dave: no need to show the EP in layout views);
+            % 'returns', true restores them
+            nE = macos.num_elt();
+            kr = [];
+            for k = 1:nE
+                if strcmp(macos.get_elt_info(k).type, 'Return')
+                    kr(end+1) = k; %#ok<AGROW>
+                end
+            end
+            tc.assumeTrue(~isempty(kr), 'fixture must declare a Return');
+            fig = macos.view_rx('visible', false);
+            c1 = onCleanup(@() close(fig)); %#ok<NASGU>
+            lab = arrayfun(@(t) string(t.String), ...
+                           findobj(fig, 'Type', 'text'));
+            tc.verifyFalse(any(strtrim(lab) == sprintf('E%d', kr(1))), ...
+                'Return element must not draw by default');
+            fig2 = macos.view_rx('visible', false, 'returns', true);
+            c2 = onCleanup(@() close(fig2)); %#ok<NASGU>
+            lab2 = arrayfun(@(t) string(t.String), ...
+                            findobj(fig2, 'Type', 'text'));
+            tc.verifyTrue(any(strtrim(lab2) == sprintf('E%d', kr(1))), ...
+                'returns=true must restore the Return element');
+        end
+
+        function test_view_rx_glass_joins(tc)
+            % Glass fills a gap only where the MEDIUM is glass (the index
+            % measured from the trace, OPL step / path).  The small
+            % camera's corrector is a cemented doublet (three faces, two
+            % glasses), then an air gap, then a filter plate: three glass
+            % solids, and none over the air gap.  The old two-at-a-time
+            % pairing drew two (S1-S2 and the AIR gap S3-FLT1) and left the
+            % doublet's second glass and the filter empty (2026-11-02).
+            here = fileparts(mfilename('fullpath'));
+            deck = fullfile(fileparts(here), 'templates', '36_cameras', 'small_camera', 'small_camera.in');
+            c0 = onCleanup(@() macos.load_rx(fullfile(tc.man, 'CassWithExitPupil.in'))); %#ok<NASGU>
+            macos.load_rx(deck);  macos.stop(4);
+            gaps = [39.88054 41.38168; 41.38168 45.33138; 47.63008 51.63058];   % the deck's VptElt z
+            for style = {'solid', 'section'}
+                fig = macos.view_rx('visible', false, 'show', 'beam', 'labels', false, 'glass', style{1});
+                cf = onCleanup(@() close(fig)); %#ok<NASGU>
+                pt = findobj(fig, 'Type', 'patch');
+                isg = arrayfun(@(p) isnumeric(p.FaceColor) && isequal(round(p.FaceColor, 2), [0.55 0.75 0.95]), pt);
+                tc.verifyEqual(nnz(isg), 3, sprintf('%s: three glass solids', style{1}));
+                if strcmp(style{1}, 'section')
+                    g = pt(isg);  got = zeros(numel(g), 2);
+                    for i = 1:numel(g)
+                        V = g(i).Vertices;                     % face 1 (65 pts), then face 2 reversed
+                        got(i, :) = sort([V(33, 3) V(65 + 33, 3)]);
+                    end
+                    tc.verifyEqual(sortrows(got), gaps, 'AbsTol', 1e-2, 'the glass spans the deck''s glass gaps, on axis');
+                end
+                clear cf
+            end
+        end
+
+        function test_view_rx_legacy_modes(tc)
+            fig = macos.view_rx('visible', false, ...
+                'bodies', 'outline', 'bundle', 'rim', 'nrays', 10);
+            c1 = onCleanup(@() close(fig)); %#ok<NASGU>
+            tc.verifyClass(fig, 'matlab.ui.Figure');
+            fig2 = macos.view_rx('visible', false, ...
+                'bodies', 'patch', 'bundle', 'fans');
+            c2 = onCleanup(@() close(fig2)); %#ok<NASGU>
+            tc.verifyClass(fig2, 'matlab.ui.Figure');
+        end
+    end
+end
+
+% ---------------------------------------------------------------------------
+function delete_if_(f)
+if exist(f, 'file'), delete(f); end
+end

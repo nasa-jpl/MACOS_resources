@@ -1,0 +1,53 @@
+dyson5 t3 -- the telescope through the offset_imager ladder: ENVELOPE x OFFSET scan (addendum 20) (2026-10-02 06:27)
+CONVENTIONS: templates/10_telescopes/offset_imager (offset_imager ladder, stages [1 2 3]) called with EPD 70.0 mm, F/1.8 (EFL 126.0 mm an
+  identity), box 24.56 deg cross-track (the slit) x 0.30 deg along-track centred OFF deg along-track.  Envelope: t1 (M1 -> M2
+  = M1 -> stop) through telescope_seed (EFL 126 mm, Petzval 0, exit pupil 16.84 m behind the slit, y2 = 0.60), mapped to the
+  template as R1 = -|R1|, spacings [-t1 0 +t2], stop at M2; R2/R3 re-solved by the template from EFL + Petzval 0.
+  Metric = the template's: strict RMS WFE at 1.00 um, centroid reference, exit-pupil anchor, piston only; headline =
+  dense 11x11 map MAXIMUM (nm).  Clearance = oi_clear min over the nine beam-leg x mirror pairs (disk model: footprint
+  centre + 1.15x radius per field), WORST PAIR NAMED as "leg x obstacle"; packages = floor >= 5 mm (addendum 20).
+  walk = t1 tan(OFF) (addendum 20 asks >= 80 mm).  Size from the last stage's rays at the box centre + corners: mirror
+  diameter = max pairwise distance of the footprint points (no mount margin); envelope = bounding box of the M1, M2, M3
+  footprints and the focal-plane spot, mm (template frame: z = the entering beam).
+
+t1 300 mm  y2 0.60  OFF 15.0 deg  walk  80.4 mm  seed R [1500 137.9 151.8] t [300 76.3 146.4] mm
+   S1  map max     288.7 nm   clearance   -51.2 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S2  map max    9969.2 nm   clearance   -36.9 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S3  map max   24611.5 nm   clearance   -37.9 mm  worst M1->M2 x M3     exit err 0.386 deg
+   mirror diameters M1/M2/M3 246 / 67 / 146 mm (largest 246);  envelope 246 x 225 x 395 mm (x y z)
+
+t1 450 mm  y2 0.60  OFF 10.0 deg  walk  79.3 mm  seed R [2250 142.2 151.8] t [450 76.3 148.1] mm
+   FAILED: S3: neither start candidate traces the offset box (carry 1e+09 nm, fresh 1e+09 nm -- 1e9 = the no-rays sentinel).  The S1 design is likely deeper than the offset can carry (the S2 mechanism, PACKET): cap S1 with P.s1_target_nm (e.g. the reference class depth) or revise the envelope/offset.
+
+t1 600 mm  y2 0.60  OFF  8.0 deg  walk  84.3 mm  seed R [3000 144.5 151.9] t [600 76.3 149.0] mm
+   FAILED: S3: neither start candidate traces the offset box (carry 1e+09 nm, fresh 1e+09 nm -- 1e9 = the no-rays sentinel).  The S1 design is likely deeper than the offset can carry (the S2 mechanism, PACKET): cap S1 with P.s1_target_nm (e.g. the reference class depth) or revise the envelope/offset.
+
+t1 600 mm  y2 0.60  OFF 10.0 deg  walk 105.8 mm  seed R [3000 144.5 151.9] t [600 76.3 149.0] mm
+   S1  map max   23754.3 nm   clearance   -43.9 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S2  map max 1648346.5 nm   clearance   -33.1 mm  worst M1->M2 x M3     exit err 0.001 deg
+   mirror diameters M1/M2/M3 NaN / NaN / NaN mm (largest NaN);  envelope NaN x NaN x NaN mm (x y z)
+   S1 NOT CONVERGED (23754 nm > 1000): no verdict on image OR clearance (addendum 22)
+
+t1 140 mm  y2 0.40  OFF 14.0 deg  walk  34.9 mm  seed R [467 83.0 101.0] t [140 50.7 84.5] mm
+   S1  map max    9388.3 nm   clearance   -17.9 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S2  map max 36053534.1 nm   clearance   -48.8 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S3  map max 2057837.2 nm   clearance   +17.5 mm  worst M3->FP x M2     exit err 7.154 deg
+   mirror diameters M1/M2/M3 267 / 44 / 117 mm (largest 267);  envelope 269 x 202 x 166 mm (x y z)
+   S1 NOT CONVERGED (9388 nm > 1000): no verdict on image OR clearance (addendum 22)
+
+t1 140 mm  y2 0.40  OFF 15.0 deg  walk  37.5 mm  seed R [467 83.0 101.0] t [140 50.7 84.5] mm
+   S1  map max    9388.3 nm   clearance   -17.9 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S2  map max 43316869.4 nm   clearance   -75.4 mm  worst M1->M2 x M3     exit err 0.000 deg
+   S3  map max  338207.0 nm   clearance   +10.4 mm  worst M3->FP x M2     exit err 19.813 deg
+   mirror diameters M1/M2/M3 293 / 39 / 115 mm (largest 293);  envelope 295 x 197 x 175 mm (x y z)
+   S1 NOT CONVERGED (9388 nm > 1000): no verdict on image OR clearance (addendum 22)
+
+  t1 mm   y2   OFF   walk |   last nm    clr mm worst pair     |   max D   max dim | verdict (last stage reached)
+    300 0.60  15.0   80.4 | 2.461e+04     -37.9 M1->M2 x M3    |     246       395 | does not package
+    450 0.60  10.0   79.3 | FAILED -- NO VERDICT (the run ended before S3 scored)
+    600 0.60   8.0   84.3 | FAILED -- NO VERDICT (the run ended before S3 scored)
+    600 0.60  10.0  105.8 | 1.648e+06     -33.1 M1->M2 x M3    |     NaN       NaN | S3 not reached / INVALID -- NO VERDICT (S1 not converged)
+    140 0.40  14.0   34.9 | 2.058e+06     +17.5 M3->FP x M2    |     267       269 | packages, image > 250 nm -- NO VERDICT (S1 not converged)
+    140 0.40  15.0   37.5 | 3.382e+05     +10.4 M3->FP x M2    |     293       295 | packages, image > 250 nm -- NO VERDICT (S1 not converged)
+
+Per-case runs: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/t3/dyson5_t3_t<mm>_off<deg>_{REPORT,STORY}.md, decks, figures.

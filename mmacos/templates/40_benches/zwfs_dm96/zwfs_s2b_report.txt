@@ -1,0 +1,16 @@
+=== ZWFS S2b: phase-stepped masks (depths pi/2, pi, 3pi/2 + clear) ===
+rank-2 solve, cond 1.732; |Eb|^2 supplied by flat-state calibration
+G1 frame consistency (rank-2 model): max residual 6.273e-16 of peak (gate < 1e-9)
+G1 PASS
+G2 poke 20 nm, stepped retrieval: map gain 0.5190 (1-frame linear read 0.445)
+   sign check: gain must be +; flip S_CONV if not.  resid 0.204 nm
+G2 PASS
+G3 poke 150 nm (3.0 rad, linear reading folds): stepped gain 0.4712, resid 1.153 nm
+   (gate: within 25% of the 20 nm gain -- range extension demonstrated)
+G3 PASS
+G4 defocus 8 nm about the 30 nm base: gain 0.7431, resid 0.663 nm
+   (self-reference attenuation under EXACT retrieval -- the moving core;
+    frozen-reference linear read 0.986: complementary reconstructors)
+G4 PASS (property recorded)
+frames per measurement: 4 (3 depths + clear), vs 1 linear / 6 IFO traces
+S2b complete in 0.5 min

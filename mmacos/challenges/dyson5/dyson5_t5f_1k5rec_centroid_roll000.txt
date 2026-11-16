@@ -1,0 +1,14 @@
+dyson5 t5f -- end to end, the join placed from ENGINE traces (FreeForm decks) (2026-10-08 04:40)
+CONVENTIONS: telescope dyson5_tA_GM_1k5_bAs.in, Dyson size:D:130 (Slit + Dyson blocks from dyson5_t5e_tA_EP_pz_m30_B1_e2e.in); roll 0 deg; no chain: the bridge gate is replaced
+  LAUNCH: each field's CENTROID on the slit line
+  by the identity gate (this join on a conic deck == t5e's row).
+
+TELESCOPE (engine): plate local 327.5 mm, edge 344.7 mm (spec 126.0); strip +-37.07 mm at the image vs slit 27.0 mm; admitted +-2.339 of +-6.139 deg
+JOINED DECK dyson5_t5f_1k5rec_centroid_roll000_e2e.in: 3 telescope + 8 Slit/Dyson elements; grating = element 7, slit = element 4
+END TO END (engine join, 7 fields x 7 wavelengths over +-2.339 deg, the grating the stop):
+  smile 0.0823 px  keystone 0.0138 px  CRF 1.255 px  SRF 2.214 px  EE 0.385  grating admits 0.989
+  smile per lambda (px): 0.0678 0.0699 0.0723 0.0742 0.0776 0.0797 0.0823 
+  keystone per field (px): 0.0138 0.0078 0.0036 0.0000 0.0036 0.0078 0.0138 
+  pass fraction per field: 0.991 0.990 0.989 0.990 0.989 0.990 0.991 
+  SRF per field (max over lambda): 2.21 2.10 2.04 2.03 2.04 2.10 2.21 
+  CRF per field: 1.25 1.14 1.13 1.14 1.13 1.14 1.25 

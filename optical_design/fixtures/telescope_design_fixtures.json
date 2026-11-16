@@ -1,0 +1,135 @@
+{
+  "convention": "Schroeder (m, beta); beta = back-focal-dist / f1; radii magnitudes, R1>0 concave primary, Cassegrain secondary convex, Gregorian secondary concave (R2<0)",
+  "designs": [
+    {
+      "name": "HST-like RC",
+      "family": "ritchey_chretien",
+      "inputs": {
+        "D_m": 2.4,
+        "f_m": 57.6,
+        "m": 10.4,
+        "beta": 0.271
+      },
+      "first_order": {
+        "f1_m": 5.538462,
+        "R1_m": 11.076923,
+        "R2_m": 1.366361,
+        "M1_M2_sep_m": 4.920972,
+        "back_focal_dist_m": 1.500923,
+        "primary_fno": 2.3077,
+        "system_fno": 24.0,
+        "k_ratio": 0.111491,
+        "p_ratio": 0.123352
+      },
+      "conics": {
+        "K1": -1.0023203,
+        "K2": -1.4989863
+      },
+      "check_spherical_residual": "1.73e-17"
+    },
+    {
+      "name": "1 m f/8 Classical Cass",
+      "family": "classical_cassegrain",
+      "inputs": {
+        "D_m": 1.0,
+        "f_m": 8.0,
+        "m": 4.0,
+        "beta": 0.125
+      },
+      "first_order": {
+        "f1_m": 2.0,
+        "R1_m": 4.0,
+        "R2_m": 1.2,
+        "M1_M2_sep_m": 1.55,
+        "back_focal_dist_m": 0.25,
+        "primary_fno": 2.0,
+        "system_fno": 8.0,
+        "k_ratio": 0.225,
+        "p_ratio": 0.3
+      },
+      "conics": {
+        "K1": -1.0,
+        "K2": -2.7777778
+      },
+      "check_spherical_residual": "0.00e+00"
+    },
+    {
+      "name": "1 m f/8 Dall-Kirkham",
+      "family": "dall_kirkham",
+      "inputs": {
+        "D_m": 1.0,
+        "f_m": 8.0,
+        "m": 4.0,
+        "beta": 0.125
+      },
+      "first_order": {
+        "f1_m": 2.0,
+        "R1_m": 4.0,
+        "R2_m": 1.2,
+        "M1_M2_sep_m": 1.55,
+        "back_focal_dist_m": 0.25,
+        "primary_fno": 2.0,
+        "system_fno": 8.0,
+        "k_ratio": 0.225,
+        "p_ratio": 0.3
+      },
+      "conics": {
+        "K1": -0.7363281,
+        "K2": 0.0
+      },
+      "check_spherical_residual": "-5.55e-17"
+    },
+    {
+      "name": "0.5 m f/15 Cassegrain",
+      "family": "classical_cassegrain",
+      "inputs": {
+        "D_m": 0.5,
+        "f_m": 7.5,
+        "m": 5.0,
+        "beta": 0.2
+      },
+      "first_order": {
+        "f1_m": 1.5,
+        "R1_m": 3.0,
+        "R2_m": 0.75,
+        "M1_M2_sep_m": 1.2,
+        "back_focal_dist_m": 0.3,
+        "primary_fno": 3.0,
+        "system_fno": 15.0,
+        "k_ratio": 0.2,
+        "p_ratio": 0.25
+      },
+      "conics": {
+        "K1": -1.0,
+        "K2": -2.25
+      },
+      "check_spherical_residual": "0.00e+00"
+    },
+    {
+      "name": "1 m f/12 Gregorian",
+      "family": "classical_gregorian",
+      "inputs": {
+        "D_m": 1.0,
+        "f_m": 12.0,
+        "m": 4.0,
+        "beta": 0.15
+      },
+      "first_order": {
+        "f1_m": 3.0,
+        "R1_m": 6.0,
+        "R2_m": -1.84,
+        "M1_M2_sep_m": 4.15,
+        "back_focal_dist_m": 0.45,
+        "primary_fno": 3.0,
+        "system_fno": 12.0,
+        "k_ratio": 0.383333,
+        "p_ratio": -0.306667
+      },
+      "conics": {
+        "K1": -1.0,
+        "K2": -0.36
+      },
+      "check_spherical_residual": "n/a"
+    }
+  ]
+}

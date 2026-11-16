@@ -1,0 +1,50 @@
+=== OAP fold solve: the fold angles from the MEASURED clearance ===
+bench 22.5 deg node (BS_AOI 22.5), DM leg 450, beam radius 51.4 mm, mount +8, spec >= 25 mm
+physical bodies (radius before the mount, mm): Baffle 50  Detector 50  TestOptic 90  PZT 60  
+input polarizer: source leg
+model 512, 65 rays; 6 x 9 angles x 4 side pairs = 216 builds
+
+--- sides OAP1 +1 / OAP2 +1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+    26     -99     -93     -86     -77     -63     -40       2     52*     54*   Comp
+    30     -96     -90     -83     -74     -63     -40       2     50*     15*   Comp
+    34     -92     -86     -79     -70     -59     -40       2     48*    -54*   Comp
+    38     -88     -82     -75     -66     -54     -36       2     46*    -23*   Comp
+    42     -83     -77     -70     -61     -49     -31       6    -29*     26*   Baffle
+    46     -78     -72     -65     -56     -44     -26     -33    -37*     34*   Detector
+
+--- sides OAP1 +1 / OAP2 -1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+    26     -99     -92     -85     -77     -63     -40       1     54*     57*   Comp
+    30     -96     -90     -83     -74     -62     -40       1     53*     56*   Comp
+    34     -92     -86     -79     -70     -58     -39       1     51*     54*   Comp
+    38     -88     -81     -74     -66     -54     -35       2     49*     52*   Comp
+    42     -83     -77     -70     -61     -49     -30       7     47*     50*   Comp
+    46     -78     -72     -65     -56     -44     -25      12     50*     50*   Comp
+
+--- sides OAP1 -1 / OAP2 +1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+    26     -99     -92     -85     -77     -73     -69     -65    -60*    -57*   Comp
+    30     -96     -90     -83     -74     -62     -40       1     53*     56*   Comp
+    34     -92     -86     -79     -70     -58     -39       1     51*     54*   Comp
+    38     -88     -81     -74     -66     -54     -35       2     49*     52*   Comp
+    42     -90     -77     -70     -61     -49     -30       7     30*     31*   TestOptic
+    46     -78     -72     -65     -56     -54     -54     -54    -54*    -54*   TestOptic
+
+--- sides OAP1 -1 / OAP2 -1 ---
+ A1\A2       5      10      15      20      25      30      35      40      45   binding part at the best A2
+    26     -99     -92     -86     -77     -72     -68     -63    -61*    -59*   Comp
+    30     -96     -90     -83     -74     -63     -40       2     50*     53*   Comp
+    34     -92     -86     -79     -70     -59     -40       2     48*     51*   Comp
+    38     -88     -82     -75     -66     -54     -36       2     46*     49*   Comp
+    42     -83     -77     -70     -61     -49     -31       6     30*     30*   TestOptic
+    46     -78     -72     -65     -56     -54     -54     -54    -54*    -54*   TestOptic
+
+216 builds in 13.6 min (3.8 s each)
+
+NO (A1,A2) IN THIS GRID CLEARS 25 mm.  Worst-case best: OAP1 26 / OAP2 45, sides +1/-1 -> +56.9 mm (Comp)
+  the parts still negative there:
+* = the trace loses rays at that fold (vignetting / surface miss); such
+  a point is never SOLVED however well it clears.
+
+wrote fold3_fold.{txt,mat,png} in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/fold3

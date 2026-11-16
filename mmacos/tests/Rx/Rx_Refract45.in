@@ -1,0 +1,153 @@
+% ---------------------------------------------------------------------------------------
+% Rx_Refract45 -- OBLIQUE (45 deg) coated-Refractor radiometry gate prescription.
+% PLAN_POLARIZATION; REVIEW_POL_RADIOMETRIC_2026-07-28.md.
+%
+% Why a second fixture.  The radiometric factor being landed is
+% sqrt(Re(n_sub)*cos_sub/(na*cos_inc)).  At normal incidence both cosines are 1
+% and the factor collapses to sqrt(n_sub/na) -- so a normal-incidence-only suite
+% gates the INDEX half of the factor and is completely blind to the COSINE half,
+% which is the part that differs between s and p and the part that has to
+% telescope correctly across a plate.  Here cos_inc = cos45 = 0.70711 and
+% cos_sub = cos(28.1255 deg) = 0.88192, so the two halves are separately
+% observable, and s and p transmittances differ (T_s = 0.8996, T_p = 0.9955 for
+% a bare 1 -> 1.5 interface) instead of coinciding.
+%
+% THE ELEMENT IS TILTED, NOT THE BEAM -- the opposite choice from
+% Rx_PolElt_Tilt.in, and for a reason that is specific to what is being gated.
+% A polarizer is a straight-through element, so tilting IT leaves the ray
+% directions (hence the transverse plane) untouched and the off-normal question
+% degenerate; only tilting the beam exercises it.  A refractor's Fresnel physics
+% depends on the RAY-TO-NORMAL angle, which element tilt changes directly.  The
+% payoff is that the source frame stays global, so the s/p decomposition is
+% exact and assumption-free:
+%
+%    ray i^ = z^,  normal ~ psi = (sin45, 0, -cos45)  ->  plane of incidence
+%    is x-z, so  s^ = unit(i^ x N^) = y^  and  p_i^ = s^ x i^ = x^.
+%
+% An x-polarized source is therefore PURE p and a y-polarized source PURE s, at
+% every ray, with no projection or fitting in the test.  (The tests still read
+% the ray directions and the surface normal back out of rayfield_get and rebuild
+% s^/p^ from them, so nothing depends on the numbers written below.)
+%
+% Elements: 1 PupilStop (Obscuring), 2 PreFace (Reference -- the measured
+% incident field, see Rx_Refract.in's header for why that probe exists), 3
+% Face45 (Refractor, air -> glass n=1.5, the element under test), 4 Detector
+% (FocalPlane, sitting on the REFRACTED chief ray at 28.1255 deg from z, inside
+% the glass, so the trace closes cleanly).  Ray-level only: this fixture carries
+% no physical-optics leg, because the oblique gates are Fresnel-coefficient
+% claims and Rx_Refract.in already carries the both-dispatch-chains duty.
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  1.0E+00
+        ChfRayPos=  0.0E+00  0.0E+00  -1.0E+00
+          zSource=1.0E+21
+
+        BaseUnits=  m
+        WaveUnits=  m
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.0E-06
+             Flux=1.0E+00
+
+         Aperture=1.0E-02
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  128
+            xGrid=  1.0E+00  0.0E+00  0.0E+00
+            yGrid=  0.0E+00  1.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  4
+
+
+             iElt=  1
+          EltName=  PupilStop
+          Element=  Obscuring
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             xObs=  1.0E+00  0.0E+00  0.0E+00
+             nObs=  0
+           ApType=  Circular
+            ApVec=  5.0E-03  0.0E+00  0.0E+00
+         PropType=  Geometric
+             zElt=0.0E+00
+          nECoord= -6
+
+             iElt=  2
+          EltName=  PreFace
+          Element=  Reference
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  1.0E-01
+           RptElt=  0.0E+00  0.0E+00  1.0E-01
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E-01
+          nECoord= -6
+
+             iElt=  3
+          EltName=  Face45
+          Element=  Refractor
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  7.0710678118654757E-01  0.0E+00 -7.0710678118654757E-01
+           VptElt=  0.0E+00  0.0E+00  2.0E-01
+           RptElt=  0.0E+00  0.0E+00  2.0E-01
+           IndRef=1.5E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=2.0E-01
+          nECoord= -6
+
+             iElt=  4
+          EltName=  Detector
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+20
+            KcElt=0.0E+00
+           psiElt=  2.9027623112899037E-01  0.0E+00 -9.5694289779565689E-01
+           VptElt= -1.4513811556449519E-01  0.0E+00  6.7847144889782851E-01
+           RptElt= -1.4513811556449519E-01  0.0E+00  6.7847144889782851E-01
+           IndRef=1.5E+00
+           Extinc=0.0E+00
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=6.7847144889782851E-01
+          nECoord= -6
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

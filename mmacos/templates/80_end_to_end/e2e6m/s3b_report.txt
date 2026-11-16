@@ -1,0 +1,84 @@
+==================== e2e6m S3b -- apodizers for the segmented pupil
+metric: dark-zone contrast, Strehl-normalised to the BARE
+        on-axis peak of the SAME train; annulus 3-15 lambda/D
+        at 500 nm, coronagraph exit pupil; occulter 2.8 lambda/D,
+        Lyot 0.9 of the geometric pupil, model 1024
+throughput: Phi^2-weighted fill over the geometric pupil
+        (ctb_aplc's definition), quoted with every contrast
+
+[0] pupil taken from the ENGINE at the Apodizer plane of s3_seg_prop.in
+    40356 lit px, beam radius 127.1 px, gap fraction 0.1422 inside 0.95R
+    y-symmetry 6.51e-08 (fold usable) | x-symmetry 2.84e-02 (fold NOT usable)
+    the x-asymmetry is the tilted-fold relay's own anamorphism: it is
+    in the traced pupil and would NOT be in a redrawn hexagon.
+    pupil PHASE at that plane: 0.108 rad rms -- small, and not zero,
+    which is why the operator is built on the complex field.
+
+[1] LP ladder: solve, then score EVERY rung in the engine
+    variables are block-constant tiles; the OPERATOR keeps the pupil
+    at full resolution -- the 25 mm gaps are 1.06 px wide at model 1024
+    and vanish on ANY coarser pupil grid, so the brief's "coarse
+    optimization grid" had to be applied to the variables, not the pupil.
+    target  1.0e-05 | thru 0.3350 | model 1.126e-06 | ENGINE 5.367e-06 | divergence   4.8x | 57 s
+    target  3.0e-06 | thru 0.2404 | model 1.916e-07 | ENGINE 2.608e-06 | divergence  13.6x | 75 s
+    target  1.0e-06 | thru 0.1747 | model 3.767e-08 | ENGINE 1.505e-06 | divergence  40.0x | 112 s
+    THE DIVERGENCE GROWS WITH THE TARGET (4.8x -> 40.0x): that is
+    the optimizer finding more of the model's error the harder it
+    is pushed.  It is the signature to look for whenever a design
+    model and a propagation engine are not the same code.
+    LP size: 2364 variables (block 3 px, y-folded), 5524 rows, 1381 DZ samples
+    operator build 1.6 s; solve 57-112 s per target
+    self-tests: MFT round-trip 7.13e-08 | Lyot kernel 4.13e-03
+    bound form: Re,Im each |.| <= 2.236e-03 * Re(E00) (square inscribed in the |E| <= 3.162e-03 disc)
+    origin measured at [512.45 512.50] px: 0.746 from floor(N/2)+1,
+    0.054 from (N+1)/2 -- the even-grid half-pixel question, measured.
+
+[2] aperture-specific APLC apodizer (Soummer 2005 Eq. 3 over the
+    TRACED aperture instead of a disc; N'Diaye et al. 2016 Paper V)
+    Lambda0 = 0.5376 (converged=1 in 1301 iterations, support=supplied)
+    the CIRCULAR prolate on this train reports Lambda0 = 1.0000 --
+    at the eigenvalue's physical ceiling, i.e. saturated; the
+    segmented aperture's 0.5376 is a genuine interior eigenvalue.
+
+[3] engine scoring on s3_seg_prop.in (the S3 train, unchanged)
+    aperture-specific prolate : DZ mean 7.909e-07  median 8.081e-08  suppr 9.89e+03
+                                throughput 0.0897 apodizer / 0.0726 net
+    best LP mask (target 1e-06) : DZ mean 1.505e-06  median 2.052e-07  suppr 2.32e+02
+                                throughput 0.2157 apodizer / 0.1747 net
+
+[4] the rows the brief asks for
+    configuration                          DZ mean     DZ median   throughput
+    bare segmented APLC (S3 record)        8.700e-07   4.567e-08   0.1000
+    aperture-specific prolate              7.909e-07   8.081e-08   0.0726
+    best LP mask (target 1e-06)            1.505e-06   2.052e-07   0.1747
+    clear-pupil reference (S3 mono)        3.640e-10   5.327e-12   0.1000
+    RECOVERY, aperture-specific prolate vs the S3 baseline:
+      1.10x in DZ mean, 0.57x in DZ median, at 0.73x the throughput
+      -> essentially NO recovery, and no LP rung beat the incumbent
+      either (best engine result 1.505e-06 at throughput 0.175 against
+      the incumbent 8.700e-07 at 0.100).  Redesigning the apodizer alone,
+      against a fixed 2.8 lambda/D occulter and a 0.90 Lyot, does not
+      buy back what the gaps cost.  The literature agrees: the
+      segmented-aperture APLC result is a CO-optimization of
+      apodizer x FPM x Lyot, which this brief deferred.
+
+[5] gate 1 -- design model vs ENGINE, same mask, same chain
+    mask                               model        engine       factor
+    aperture-specific prolate          3.574e-06    7.909e-07    4.52x
+    LP mask (target 1e-05)             1.126e-06    5.367e-06    4.77x
+    LP mask (target 3e-06)             1.916e-07    2.608e-06    13.61x
+    LP mask (target 1e-06)             3.767e-08    1.505e-06    39.96x
+    worst 39.96x against a 3x bar  [FAIL]
+    THE DISAGREEMENT IS THE FINDING.  Localised by five experiments
+    (all in the LOG): the bare PSF agrees to 1.2%; the engine applies
+    the mask to the field EXACTLY (residual 0.0); the Lyot radius and
+    the lambda/D scale are confirmed (every ring lines up in radius);
+    the Babinet term is worth 1% here; and feeding the ENGINE'S OWN
+    post-apodizer field through the model still lands at 4.2e-06.
+    So the model has a FLOOR near 4e-06 whatever it is handed --
+    5x above the contrast the incumbent already achieves.
+
+[6] figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3b_apodizer.png
+    workspace: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3b_run.mat
+
+S3b DONE in 6.6 min

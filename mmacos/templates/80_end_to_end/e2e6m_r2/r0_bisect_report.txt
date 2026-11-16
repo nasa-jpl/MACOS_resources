@@ -1,0 +1,15 @@
+==================== e2e6m R0.1b -- context bisect, elt 19 Ry
+  a: s5-exact (chief ref, fwd 1e-9)      |dW| 9.257e-10 /nrad   corr(piston) +1.0000   corr(S4 col) -0.0181
+  b: no chief ref (fwd 1e-9)             |dW| 9.257e-10 /nrad   corr(piston) +1.0000   corr(S4 col) -0.0181
+  c: fex first (fwd 1e-9)                |dW| 9.257e-10 /nrad   corr(piston) +1.0000   corr(S4 col) -0.0181
+  d: fex + central 1e-8 (harvest-like)   |dW| 9.258e-10 /nrad   corr(piston) +1.0000   corr(S4 col) -0.0181
+  e: central 1e-8, no fex                |dW| 9.258e-10 /nrad   corr(piston) +1.0000   corr(S4 col) -0.0181
+  f: chief ref + central 1e-8            |dW| 9.258e-10 /nrad   corr(piston) +1.0000   corr(S4 col) -0.0181
+  h: channel object, fwd 1e-9 (ctx b)    |dW| 9.257e-10 /nrad
+
+  linearity of the s5-context Ry response (forward pokes):
+    theta 1e-09 rad : |dW| 9.257e-10   (/theta: 0.9257 m/rad)
+    theta 1e-08 rad : |dW| 9.256e-09   (/theta: 0.9256 m/rad)
+    theta 1e-07 rad : |dW| 9.236e-08   (/theta: 0.9236 m/rad)
+
+R0.1b DONE in 0.5 min

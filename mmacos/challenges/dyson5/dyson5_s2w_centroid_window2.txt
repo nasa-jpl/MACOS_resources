@@ -1,0 +1,11 @@
+dyson5 centroid probe on R4 + meniscus corrector, all variables (compact variant), variant window2: model 1024, 255-pt grid (2026-10-01 07:20)
+offsets in px from the chief (grid index 2 = dispersion v, 1 = slit u); pupil predictions from the field on the
+reference sphere: centroid = L lambda/(2pi) <grad phi>, weighted by |a|^2 (PSF) or unweighted (rays)
+grid axes: index 1 = -xGrid, index 2 = -yGrid of the SOURCE frame (the FFT inverts the pupil grid); sign map printed
+  x mm      nm |    ray_dv    ray_du | pup_unw_v pup_unw_u |    psf_dv  psf99_dv psf1px_dv    psf_du |   pup_w_v   pup_w_u | E99 px  dx um | sign
+   0.0     380 |   -0.0069   +0.0000 |   -0.0068   +0.0000 |   -0.0068   -0.0066   +0.0060   +0.0000 |   -0.0068   +0.0000 |   1.98   0.17 | -1 -1
+   0.0    1440 |   -0.0288   +0.0000 |   -0.0280   +0.0000 |   -0.0279   -0.0274   -0.0238   +0.0001 |   -0.0280   +0.0000 |   5.25   0.63 | -1 -1
+   0.0    2500 |   -0.0524   -0.0000 |   -0.0509   +0.0000 |   -0.0508   -0.0499   -0.0379   +0.0002 |   -0.0509   +0.0000 |   9.12   1.10 | -1 -1
+  27.0     380 |   -0.0084   -0.0008 |   -0.0082   -0.0007 |   -0.0082   -0.0080   -0.0011   -0.0007 |   -0.0082   -0.0007 |   1.93   0.17 | -1 -1
+  27.0    1440 |   -0.0344   -0.0036 |   -0.0335   -0.0036 |   -0.0334   -0.0328   -0.0284   -0.0035 |   -0.0335   -0.0036 |   5.25   0.63 | -1 -1
+  27.0    2500 |   -0.0619   -0.0079 |   -0.0603   -0.0078 |   -0.0602   -0.0590   -0.0275   -0.0077 |   -0.0603   -0.0078 |   9.12   1.10 | -1 -1

@@ -1,0 +1,474 @@
+function P = tg96_params()
+%TG96_PARAMS  Parameterized knobs for the 96x96 Twyman-Green DM gauge, in the
+%   ONE-runner form (edit this + rerun tg96_run, no AI).  Every knob is at its
+%   value of record from tg_psi_dm96/tg96.m; the ONLY additions are the
+%   reflective ('optics') knobs.  Edit fields and call tg96_run(tg96_params()),
+%   or override on the fly: tg96_run('bench.optics','oap','tag','oap').
+%
+%   The refractive record lives (untouched) in ../tg_psi_dm96/.  This runner
+%   drives BOTH the lens rig (equivalence gate vs that record) and the OAP rig
+%   (the reflective variant) through the SAME code path -- flip bench.optics.
+
+% ---- run control -----------------------------------------------------
+P.tag    = 'lens';                 % names runs/<tag>/<tag>_report.txt
+P.outdir = '';                     % '' => <this dir>/runs/<tag>
+P.stages = {'bench','battery','figs'};   % clearance | bench | battery | figs | loop | wrap
+                                   %  'clearance' prints dmg_bench_clearance's
+                                   %  part-by-part table into the report (it traces
+                                   %  both arms at P.MODEL before Stage B builds)
+
+% ---- engine + sampling (LOAD-BEARING; see tg96.m Stage A2) -----------
+P.MODEL  = 1024;                   % mGridMat caps grids at 256 on model 512;
+                                   %  the 384 DM grid needs 1024 (heap guard)
+P.NGRID  = 385;                    % pupil image ~385 px (Nyquist ~192 cyc/pup)
+P.LAM    = 6.328e-4;               % HeNe, mm
+P.param_file = '';                 % '' => engine macos_param.txt; else a trim
+                                   %  table copied into the run dir (memory)
+
+% ---- the DM + surface grid -------------------------------------------
+P.dm(1).nact = 96;  P.dm(1).pitch = 1.0;   % 96 mm aperture, 1 mm pitch
+P.dm(2).nact = 48;  P.dm(2).pitch = 2.0;   % DST-class twin, same 96 mm
+P.grid.N_G  = 384;                 % nGridMat (>= max DM grid; mGridMat guard)
+P.grid.DX_G = 0.28;                % GridSrfdx mm (3.57 px/actuator at 96x96)
+P.grid.flat_file = 'tg96_flat.txt';
+P.POKE = 50e-6;                    % mm (50 nm calibration commands)
+
+% ---- PSI ------------------------------------------------------------
+P.QWP    = 0.25;                   % quarter-wave retardance
+P.THETAS = [0 45 90 135];          % analyzer four-step
+
+% ---- phase-shift form (deck item 3): the four frames are the same in the
+%      model; the forms differ in what they get wrong.  The PZT four-step is
+%      SEQUENTIAL, so it carries a phase-step miscalibration and within-scan
+%      drift; the polarization snapshot takes all four at once (no within-scan
+%      drift) but carries polarization systematics.  step_err is TO's
+%      pdi.step_err pattern: a fractional error applied to the step sizes in
+%      the FRAMES only (the atan2 solve assumes the nominal pi/2 quadrature).
+%      Default 0 => frames at the nominal steps => byte-identical to the record.
+P.pzt.step_err = 0;                % fractional four-step phase-step error (0 | 0.02 | 0.05 ...)
+
+% ---- Stage-A clearance solve (folded layout re-solve for OAP) --------
+P.clear.beam_r  = 59;              % the beam UPSTREAM of the DM (the opened cone; 58.3 mm on the
+                                   % collimated lens rig -- SRC_AT_FOCUS moves the source 25 mm
+                                   % farther from L1, so the cone reaches 5% wider than the 55.5 mm
+                                   % of 2026-09-17 morning: measured by tg96_collimate).  It
+                                   % overfills the 48 mm DM by 1.21, so 68% of the ray grid gets
+                                   % through -- the price of making the DM the stop, paid in
+                                   % sampling (Stage A2 reports it).  [] => s*R_TO_AP, which is the
+                                   % beam only after the DM stop
+P.clear.HW_DM   = 90;   P.clear.HW_REF = 60;  P.clear.HW_CAM = 50;
+P.clear.MARGIN  = 25;   P.clear.LEG_CAP = 700;
+P.clear.MOUNT   = 8;               % mount ring beyond a part's aperture radius --
+                                   %  the same 8 mm dmg_bench_clearance uses, so the
+                                   %  Stage-A rule and the tool's table agree
+P.clear.node    = true;            % solve the splitter angle against the NODE parts
+                                   %  too (L1, input polarizer, compensator, output
+                                   %  QWP, analyzer, L2), not just the three end
+                                   %  bodies.  Dave 2026-09-15: at the record's 7 deg
+                                   %  eight of nine node parts sat in another beam --
+                                   %  "this is not buildable".
+P.clear.BODY = struct();           % the parts' PHYSICAL bodies (part stem ->
+                                   %  radius before the mount, mm) for the
+                                   %  measured clearance table.  EMPTY = the
+                                   %  record: apertures only, which omits the
+                                   %  SOURCE head entirely (its builder element
+                                   %  is an Obscuring baffle, not an optic) and
+                                   %  scores the camera at its pupil-image
+                                   %  size.  The reflective runs pass the
+                                   %  Stage-A rule's own half-widths --
+                                   %  struct('Baffle',50,'Detector',50,
+                                   %  'TestOptic',90,'PZT',60) -- so the screen
+                                   %  and the measurement describe the same
+                                   %  parts.  Left empty by default so the
+                                   %  lens rig's recorded table (REPORT_bench_
+                                   %  realism section 2) reproduces exactly.
+P.clear.plate_over = 5;            % a builder plate carries no aperture: its radius
+                                   %  is the beam + this (dmg_bench_clearance's rule)
+
+% ---- the bench (macos.design.twyman_green options; s = 96/56 applied
+%      in tg96_run so the whole rig scales uniformly off the 56 mm v1) --
+P.bench.polarizing = true;
+P.bench.BS_AOI     = 22.5;         % Dave 2026-09-15: pinned (the Stage-A solve's 7 deg cleared only the
+                                   % end bodies; the node parts need >= 22.5: dmg_bench_clearance)
+P.bench.D_RECOMB   = 150;          % physical mm (NOT scaled by s): the recomb plane and the output
+P.bench.D_RC_L2    = 55;           % optics 150 mm behind the splitter, L2 at 150 + 55 = 205 as before
+P.bench.F1 = 500;   P.bench.F2 = 250;      % *s in the runner
+% THE DM IS THE STOP (Dave 2026-09-17).  The record's beam was the SOURCE CONE,
+% which the builder sizes to the baffle (2 atan(R_BAFFLE/D_SB) x FILL): 77 mm
+% on the lens rig, 82 on the mirrors, on a 96 mm DM -- the outer actuator
+% rings were unlit and nothing clipped a ray (tg96_pupilsim).  Now the baffle
+% is opened (18: the cone reaches 55 mm at the DM on the lens rig, 50 on the
+% mirrors), the lenses are sized past the beam (66 -> 113 mm), and the DM
+% carries the aperture at its actuator footprint (R_TO_AP 28 -> 48 mm).  Runs
+% emitted before this date have the 77 / 82 mm beam.
+P.bench.D_LENS = 66;  P.bench.R_BAFFLE = 18;  P.bench.D_SB = 250;
+P.bench.BS_T = 5.8333;   P.bench.D_L1_BS = 150;    P.bench.D_BS_CMP = 200/(96/56);   % compensator at 200 mm physical (x s in the runner); BS_T 5.8333 x s = 10 mm splitter and compensator (DECIDED 2026-09-17; the record's 1.5 = 2.6 mm)
+P.bench.D_BS_TO = [];              % [] => Stage-A solved DM leg
+P.bench.R_TO_AP = 28;              % the DM's aperture = the 96 mm actuator footprint (was 30 = 103 mm, which nothing filled)
+P.bench.R_TO_STOP = [];            % [] => R_TO_AP.  A SMALLER value masks the DM's EDGE: it feeds only the
+                                   %   TestOptic element aperture; clearance / collimator / tail keep R_TO_AP as
+                                   %   the beam.  Fix A of the 2026-09-30 descent-stall 2x2: 26.25 (x s = 45 mm,
+                                   %   a 90 mm pupil) leaves the outer ~3 actuator rings unilluminated -- samp512
+                                   %   lit radius 49.0 of a 47.5 half-width, ring 1 = 95-98% of the residual.
+% The lens figures, RE-SOLVED on the collimated bench 2026-09-17
+% (tg96_collimate, runs/coll_lens; BRIEF_to_tg_redo package A item 1).  The
+% record's L1_Kr 236.866 is (n-1)*473.7 -- l2_trade matched the RADIUS to the
+% conjugate the source really sat at (F1 - zsource = 475), not to F1, so
+% feeding that lens from F1 leaves 5% of surplus focal length as residual
+% curvature and no conic can take it out.  With the radius right, the CONIC
+% barely moves (-0.5830 vs the record's -0.5829: a conic is a property of the
+% shape and the plano orientation, not of the conjugate) and the exit rays
+% leave with 6.3e-09 rad rms of angular spread -- 0.0 waves over the beam,
+% against 1.3e-03 rad rms = 47 waves on the bench as the sheet described it.
+% Ignored on the oap rig (a parabola fed at its focus is exact).
+P.bench.L1_Kr = 249.246312;  P.bench.L1_Kc = -0.583016;   % lens seeds (ignored oap)
+P.bench.L2_Kr = -124.076;    P.bench.L2_Kc = -0.581843;   % focal spot 0.17 um rms (lam F/D = 2.8 um)
+P.bench.qwp_ret = 0.25;  P.bench.pol_in_deg = 45;
+P.bench.qwp_test_deg = 0;  P.bench.qwp_ref_deg = 45;
+P.bench.out_qwp_deg = 0;   P.bench.analyzer_deg = 0;
+% ---- realism: real glass (BRIEF_ccmac_bench_realism item 3) ----------
+% PLATE_SUB = [n t]: the substrate every thin polarizing element is really
+% made on -- the input polarizer, both arm quarter-wave plates, the output
+% plate and the analyzer.  Two refracting faces around the ideal element,
+% which keeps its own station; stations DOWNSTREAM shift by t/2 per upstream
+% plate (measured: FocalMask +5.0 mm for five 2 mm plates), which the tail
+% retune absorbs.  ABSOLUTE mm, NOT scaled by s: a 2 mm fused-silica window
+% is 2 mm whatever the beam diameter.  [] = the record's ideal zero-thickness
+% elements.
+P.bench.PLATE_SUB   = [1.4585 2.0];   % DECIDED 2026-09-17 (Dave): 2 mm fused silica under every polarizing element ([] = the record's ideal elements)
+P.bench.MASK_SUB    = [1.4585 2.0];   % DECIDED 2026-09-17: the mask's 2 mm fused-silica plate ([] = none).  [n t]: the MASK's own plate, in the CONVERGING
+                                   % beam -- the one place a plane-parallel plate is not
+                                   % just path.  Its faces go ahead of the sandwich's
+                                   % entrance sphere and INSIDE the existing gap, so the
+                                   % mask does not move and the cost (W040 + a t*(1-1/n)
+                                   % focus shift) is measurable rather than mixed with a
+                                   % geometry change.  ABSOLUTE mm.
+P.bench.EDGE_MARGIN = 4.0;         % singlet edge thickness, ABSOLUTE mm (DECIDED 2026-09-17: 4 mm for the 113 mm singlets; the record's 2.0)
+                                   % (add_lens: centre = sag + this).  2.0 is
+                                   % the record; a 103 mm singlet wants 3-5.
+% ---- the pupil image (tg96_pupilsim / tg96_pupilq; Fang Shi 2026-09-16, Dave 2026-09-17) ----
+% Knobs read by tg96_pupil_batch and handed to tg96_pupilsim (see its header for each):
+P.pupil.band     = 3.2e-4;         % the actuator band as a tilt about the DM: lambda / (2 pitch), rad
+P.pupil.rings    = [0.5 1 2 3.2]*1e-4;  P.pupil.ring_out = 1e-3;  P.pupil.naz = 8;   % the 2-D tilt set (41 traces)
+P.pupil.dm_ap    = 48;             % the aperture put ON the DM (mm radius): the 96 mm actuator footprint; 0 = the deck's
+P.pupil.overfill = 1.06;           % the source cone is opened so the beam at the DM is this x dm_ap; 0 = the deck's cone
+P.pupil.patch    = 8;              % zone patch (mm) of the field model; dx 0.125 mm / N 1024 grid (the tool's defaults)
+P.pupil.poke_nm  = 100;  P.pupil.work_nm = 30;  P.pupil.seed = 7;   % test surfaces: pokes, the working surface (battery.base_rms / seed_base)
+P.pupil.fourier  = false;          % the standalone paraxial MATLAB chain (standby); the plane-to-plane check of record is tg96_pupil_engine
+P.bench.tail_arch = 'fieldlens';
+% l2_trade tail winner (scaled *s in the runner); re-tuned per optics from
+% tg96_tail.mat when present (the tail was fit to L2 -- MUST re-run for OAP)
+P.bench.FL_F = 25.02100857;  P.bench.FL_Kc = -2.11278288;
+P.bench.FL_D = 12;  P.bench.D_MASK_FL = 6.277463741;  P.bench.DET_TRIM = 1.085330067;
+
+% ---- the tail tuner (tg96_tail): what it optimizes, and what it may move ----
+% DAVE'S RULING 2026-09-17 (BRIEF_to_tg_redo section 6 item 1): the tail is
+% tuned for the best performance AS AN INTERFEROMETER.  The objective IS the
+% reading -- what the pupil stage (tg96_pupilsim) measures the camera
+% recovering off the DM -- and the flat-DM null is REPORTED beside it, never
+% optimized.  A null in the cost is what bought the record's tail: the
+% optimizer walked the field lens from the geometric seed station (10.8 mm
+% past the focus, which images the DM flat) to its own focal length (39.8 mm)
+% and bent it, because a common misplacement of the detector cancels in an
+% arm DIFFERENCE.  That tail nulls at 0.134 nm with the DM's image 2.6-6 mm
+% off the camera (Nyquist gain 0.954 worst, distortion 0.27 mm, the 30 nm
+% working surface read to 1.2 nm); the seed station nulls at 9 nm -- a FIXED
+% pattern the reference frame removes -- and reads 0.9992 / 0.003 mm / 0.06 nm.
+%   objective  '' = the record (lens -> 'null', oap -> 'sharpness');
+%              'reading' = the ruling above.
+%   free       which of FL_F / FL_Kc / D_MASK_FL / DET_TRIM the tuner may
+%              move.  Holding D_MASK_FL holds the field lens at the seed
+%              station; the winner gate (the single-actuator row through the
+%              ray affine) is unchanged and still has the last word.
+%   reading_stage  2 = the working-surface error itself (stage 2 of
+%              tg96_pupilsim, at the plane AS BUILT); 1 = its band-edge-phase
+%              proxy, ~4x cheaper, which tracked it on every case run.
+P.tail.objective = 'reading';
+P.tail.free      = {'FL_Kc','DET_TRIM'};
+P.tail.reading_stage = 1;
+P.tail.reading_ngrid = 65;
+
+% ---- reflective knobs (the ONLY additions vs the record) -------------
+%   'lens' reproduces the record; 'oap' is the all-reflective variant.
+%   The fold AOIs are re-solved by Stage A for the folded source->OAP1 and
+%   OAP2->detector legs (near-normal preferred; must clear the bodies inside
+%   LEG_CAP).  [] => the Stage-A solved value; a number pins it.
+P.bench.optics    = 'lens';        % 'lens' | 'oap'
+% Where the input polarizer lives.  'collimated' (the record) puts it D_POL
+% past the collimator.  That works for a LENS, whose conjugate leg is on-axis;
+% an OAP collimator's conjugate leg comes BACK along the collimated axis, and
+% at 10 mm past the pole the two legs are 10*tan(2*AOI) apart, so the
+% polarizer sits inside the incoming cone at EVERY fold angle -- measured
+% -102 mm of clearance at 5 deg and still -80 mm at 30 deg (oap_fold_solve,
+% runs/fold1).  'source' puts it in the diverging leg, D_POL past the baffle,
+% which is where a real reflective bench polarizes anyway.  Ignored for 'lens'.
+P.bench.POL_IN    = 'collimated';  % 'collimated' | 'source' (oap only)
+% Feed the collimator at its TRUE focus.  Bench emits zSource (25 mm) and the
+% engine puts the real point source at ChfRayPos + zSource*ChfRayDir, so the
+% source sits 25 mm inside the parabola's focus -- measured 926 urad rms of
+% residual convergence (a 28.8 m focus), which an OAP turns into coma LINEAR in
+% the fold angle: 0.13 / 0.37 / 0.65 / 1.08 lambda F/D of best-focus blur at
+% 1 / 5 / 9 / 15 deg, and a 6.46 mm mask-seat trim at EVERY angle -- CCMac's
+% 6.14 mm.  Corrected: 0.000 lambda F/D and 0.00 mm trim at every angle
+% (oap_conj_probe, runs/conj).  The LENS rig hides the same error in its tuned
+% L1 figures, so this is 'oap' only and default false = the record.
+% EXTENDED TO THE LENS RIG AND TURNED ON, 2026-09-17 (BRIEF_to_tg_redo
+% package A item 1).  The lens rig has the same 25 mm conjugate error; its
+% TUNED L1 hid it (l2_trade matched the radius to the conjugate the source
+% really sat at: L1_Kr 236.866 = (n-1)*475, not (n-1)*500), so it showed up
+% not as blur but as 5.8e-4 rad rms of angular spread in the "collimated"
+% space -- 41 waves of curvature over the beam, which walks the rays off the
+% propagation grid between the physical-optics chain's near-field legs.  With
+% the source at the conjugate the LENS has to be the lens F1 describes: L1_Kr
+% and L1_Kc below are re-solved there by tg96_collimate.
+P.bench.SRC_AT_FOCUS = true;       % the collimator is fed at its focus, both rigs
+P.bench.SRC_TRIM  = 0;             % additive trim on that conjugate (mm); 0 = the
+                                   % source AT it, which is what F1 has to mean
+P.bench.MASK_TRIM = 1.231759;      % the FocalMask seat (mm), on the RAY focus:
+                                   % solved by tg96_collimate.  The thin-lens seed
+                                   % puts the marker F2 from the powered vertex; the
+                                   % singlet's principal plane, the mask's own 2 mm
+                                   % plate and the residual spherical aberration all
+                                   % move the real focus off it (the zwfs sheet has
+                                   % carried -5.582 for the same optics since S1).
+P.bench.tail_from_mat = true;      % false => use the GEOMETRIC SEED tail even if
+                                   %  <tag>_tail.mat / <optics>_tail.mat exists.
+                                   %  The seed-vs-tuned A/B when a reading
+                                   %  misbehaves; without it the lookup falls
+                                   %  back to another bench's tail.
+% The mirror rig's own mask seat (mm), solved by
+% tg96_collimate('bench.optics','oap').  P.bench.MASK_TRIM is the LENS rig's --
+% its plano singlet seats the marker short of the ray focus -- and a parabola
+% has no such seed error, so the two rigs need different numbers and the one
+% sheet field cannot hold both.  Anything in P.oap with the name of a bench
+% knob overrides it when optics=='oap'.
+P.oap.SRC_TRIM    = -0.370629;     % the mirror rig's source station, solved (runs/coll_oap).  A parabola
+                                   % fed at its focus is exact, but POL_IN 'source' puts the
+                                   % input polarizer's 2 mm plate in the DIVERGING leg, and a
+                                   % plane-parallel plate displaces the apparent source
+                                   % t*(1-1/n) = 0.63 mm ALONG the light -- so the parabola is
+                                   % fed that far inside its focus (measured 1.71e-05 rad rms,
+                                   % 0.7 waves over the beam, before this knob; 1.36e-08 rad
+                                   % rms = 0.0 waves after it).
+P.oap.MASK_TRIM   = 0.631902;      % the mirror rig's seat, solved (tg96_collimate, runs/coll_oap):
+                                   % the parabola has no thin-lens seed error, so this is the
+                                   % mask plate's own focus shift -- and it IS, to three figures:
+                                   % t*(1-1/n) = 2*(1-1/1.4585) = 0.6285 mm.  (Before the source
+                                   % station was solved it read 0.5393: the 0.7 waves of defocus
+                                   % were being paid for at the seat.)  The lens rig's 1.2318 is
+                                   % 0.69 mm of somebody else's optics and would fail package
+                                   % A's own 0.5 mm gate here.
+P.oap.OAP1_AOI    = [];            % [] => Stage-A solved; deg
+P.oap.OAP2_AOI    = [];
+P.oap.OAP1_SIDE   = 1;   P.oap.OAP2_SIDE = 1;
+
+% ---- OAP coating (D5 / brief item B): the polarization-cost row ------
+%   'none'        ideal reflector (RS=-1, RP=+1, zero retardance) -- the D3
+%                 baseline; the lens/OAP comparison stays geometric.
+%   'bareAl'      a single opaque aluminium layer (n - i*kappa at HeNe
+%                 632.8 nm, Rakic 1998); the physical bare-metal reflection.
+%   'protectedAl' MgF2 half-wave overcoat over opaque Al (the realistic
+%                 mirror). Applied via macos.coating (= coat_set) to BOTH
+%                 OAPs (L1 collimator, L2 focuser) in BOTH arms -- shared
+%                 tail optics, so its retardance is a common-mode term.
+%   'qwAl'        the SAME stack at a QUARTER wave of the bench's own
+%                 632.8 nm (MgF2 n 1.38 -> 114.6 nm physical, half the
+%                 'protectedAl' thickness).  The engine's measured overcoat
+%                 rule (macos_f90/CLAUDE.md, "overcoat quarter-wave
+%                 reversal") is that the trade REVERSES across the
+%                 quarter-wave condition: at the true quarter wave of the
+%                 WORKING wavelength the coating's cross-polarization is
+%                 ~0.05x of bare, while off it the overcoat costs.  A film
+%                 is fixed glass and coat_set takes PHYSICAL thickness, so
+%                 the condition is a property of the pair (stack, lambda),
+%                 not of the stack alone.
+%   Thickness in mm (bench BaseUnits). Ignored when bench.optics ~= 'oap'.
+P.bench.coat_oap  = 'protectedAl'; % DECIDED 2026-09-17: protected aluminum by default ('none' only for the geometric equivalence gate); 'none' | 'bareAl' | 'protectedAl' | 'qwAl'
+P.bench.coat_bareAl      = struct('index',1.373, 'extinc',7.62, 'thickness',1.0e-4);
+P.bench.coat_protectedAl = struct('index',[1.38 1.373], 'extinc',[0 7.62], ...
+                                  'thickness',[2.293e-4 1.0e-4]);  % [MgF2 lambda/2 ; Al opaque]
+P.bench.coat_qwAl        = struct('index',[1.38 1.373], 'extinc',[0 7.62], ...
+                                  'thickness',[1.1464e-4 1.0e-4]);  % [MgF2 lambda/4 at 632.8 ; Al opaque]
+
+% ---- the camera (BRIEF_ccmac_bench_realism item 4) -------------------
+% The model's NGRID pixels across the pupil image are a SAMPLING FLOOR, not a
+% camera.  A real camera is named here, and the runner prints what it gives on
+% the pupil image this bench actually forms: raw pixels across the pupil, and
+% the binning that lands on the modeled count.  Shrinking the image to fit a
+% small-pitch sensor 1:1 would need an F/0.7 field lens; the right answer is
+% to keep the image and bin, which also helps the well depth (smaller pixels
+% spread the same photons over more wells).
+P.cam.name        = 'sCMOS 2048x2048';
+P.cam.pitch_um    = 6.5;           % the four-step / scalar camera
+P.cam.bin         = 4;             % binning that lands near P.NGRID
+P.cam.pol_name    = 'polarization sCMOS (micro-polarizer array, 0/45/90/135)';
+P.cam.pol_pitch_um = 3.45;         % the SNAPSHOT analyzer (item 3b): four
+                                   % orientations interleaved on the pixels,
+                                   % so one orientation gets every 2nd pixel
+                                   % in each direction -- the four frames are
+                                   % simultaneous, which is the whole point.
+
+% ---- battery selection ----------------------------------------------
+P.battery.piston_nm  = 20;
+P.battery.single_nm  = 150;        % Stage-C single-actuator poke
+P.battery.reg_act    = [30 64];    % off-center poke for registration parity
+P.battery.transfer_PQ = [1 1; 2 2; 4 4; 8 8; 16 16; 24 24; 32 32; ...
+                         48 48; 64 64; 80 80; 96 96; 48 0];
+P.battery.rand_seed  = 11;         % held-out random command seed
+% Stage-E differential rows (the pm product the ZWFS comparison needs)
+P.battery.diff_single_nm = 10;     % single-act deviation
+P.battery.diff_rand_nm   = 10;     % dense-random deviation
+P.battery.diff_rand_seed = 23;
+P.battery.base_rand_nm   = 16;     % working-state random base (rms-ish)
+P.battery.base_rand_seed = 11;
+
+% ---- calibration mode (Dave 2026-09-10; the ZWFS S10 default) ---------
+%   'matrix' = the MEASURED response matrix dw/da: poke every matrix_step-th
+%     actuator on a sparse grid (no response overlap), step through the
+%     matrix_step^2 offsets so every lit actuator is poked once, cut each
+%     response from its OWN detector-pixel window placed by the ray affine
+%     (dmg_frame + tg96_place), assemble J (detector px x lit act) and
+%     estimate commands by regularized least squares.  Registration only
+%     PLACES the windows -- the columns carry the actual response, so the
+%     fold's flip/rotation/scale and a real DM's irregularities are in the
+%     calibration by construction.  Comparisons are in ACTUATOR units (pm).
+%   'kernel' = the record: register_two_pokes + one interpolated truth map,
+%     compared in detector-pixel space (Stage C-E as first shipped).
+P.battery.calib_mode  = 'matrix';  % 'matrix' (default) | 'kernel' (the record)
+P.battery.matrix_step = 8;         % sparse-poke grid step (no overlap at 8; hw < step/2 pitch)
+P.battery.matrix_lam  = 1e-3;      % Tikhonov weight, relative to median column energy of J
+P.battery.matrix_reg  = 'median';  % 'median' = ONE scalar lam*median(diag(JtJ)) (the record) | 'column' =
+                                   %   lam*diag(JtJ)_i, each column damped against its OWN energy.  Fix B of the
+                                   %   2x2: the median form damps a weak (edge / dark) column as hard as a strong
+                                   %   one -- samp512 ring 1 was corrected 176x less efficiently than the interior.
+P.battery.matrix_sign = 'same';    % 'same' | 'alternate' (zero-mean checkerboard; halos cancel)
+P.battery.matrix_states = inf;     % cap on J-build states (inf = all step^2 = every lit act once)
+P.battery.matrix_window = 'box';   % 'box' (+/-half-step window) | 'voronoi' (nearest-poke cells; item 3a)
+P.battery.matrix_lam_sweep = [1e-3 1e-4 1e-5];  % reg sweep on the dense-random row (bright vs dark; item 3b)
+P.battery.break_ladder = [30 60 120 240 480];   % base working-state rms (nm) for the break ladder
+% ---- deck rows (item 1) + capture range (item 2), the ZWFS convention -------
+%   Stage DECK reproduces the ZWFS currency on the SAME 30 nm working surface
+%   (base_rms, seed_base) with the matrix measured ON it: rows scored by
+%   gain / floor / SNR exactly as zwfs_run's score_, the 47-site grid row
+%   (dmg_lit + every-8th actuator), the capture-range-to-10% print, the
+%   re-measured ladder, and the S5 photons-for-1-pm fit.  Off by default; the
+%   deck runs turn it on ('battery.deck',true) at MODEL 1024.
+P.battery.deck        = false;                   % true => Stage DECK (rows + capture + photons)
+P.battery.dev_single  = 10e-6;                   % single-actuator differential, mm (10 nm at the hold-out site)
+P.battery.dev_rand    = 10e-6;                   % dense-random differential, mm rms (seed seed_dev)
+P.battery.grid_amp    = 1e-6;                    % grid-poke differential, mm (1 nm on the 47 sites)
+P.battery.grid_step   = 8;                       % grid pokes every N actuators (Afig(4:8:end,4:8:end))
+P.battery.seed_dev    = 23;                      % dense-random differential seed
+P.battery.cap_ladder  = [30 40 50 60 80 100 120 160 240 480]*1e-6;  % aging ladder (matrix once on 30 nm)
+P.battery.recap_surf  = [60 90 120 160]*1e-6;    % re-measured surfaces (matrix rebuilt on each; the 1 nm grid row)
+% ---- photons for 1 pm (item 2; the S5 noise-stage form) ---------------------
+%   sigma ~ c/sqrt(N) fit of the single-10-nm-on-the-surface estimate noise,
+%   matrix on the surface; N(1 pm) = c^2.  Run at each of noise_surf.  This is
+%   NOT the loop's sig_n (a single-shot estimate at one photon level) -- the
+%   report states both.
+P.battery.noise       = false;                   % true => append the S5 photon fit to Stage DECK
+P.battery.noise_nph   = [1e11 1e12 1e13 1e14 1e15];  % photons per measurement swept for the fit
+P.battery.noise_nreal = 24;                      % Monte-Carlo realizations per photon level
+P.battery.noise_seed  = 91;                      % noise realization seed
+P.battery.noise_surf  = [30 60 120 160]*1e-6;    % working-surface rms at which N(1 pm) is fit
+% ---- D4 alignment sensitivity (OAP rig): perturb OAP1/OAP2, re-read --------
+P.battery.d4 = false;              % true => Stage D4 (OAP1/OAP2 decenter + tilt sensitivity)
+P.battery.d4_dec_um   = 10;        % decenter perturbation (micron)
+P.battery.d4_tilt_urad = 10;       % tilt perturbation (microradian)
+P.battery.calib_surface = 'flat';  % 'flat' (the record) | 'base' (differential on a working state)
+P.battery.base_rms    = 30e-6;     % working-state rms (mm) for calib_surface 'base' (seed_base)
+P.battery.seed_base   = 7;
+
+% ---- window placement (the affine route; Dave 2026-09-11) ------------
+P.place.mode      = 'affine';      % 'affine' = ray-affine + resolved field parity (both rigs)
+P.place.gate_px   = 2;             % D1 gate: response CoM within gate_px of predicted (u,v)
+P.place.gate_frac = 0.99;          % ... for >= this fraction of lit actuators
+P.place.resolve   = true;          % resolve the field-array parity against a reference poke
+P.place.poly_deg  = 1;             % refit degree: 1=affine (both rigs; fit is robust to outliers)
+P.place.gate_max_states = inf;     % cap the D1-gate sweep states (dev: sample a few)
+P.place.boot_states = 8;           % states for the placement bootstrap/refit (few suffice)
+P.place.gate_assert = true;        % dev: false continues past a failed gate (saves .mat)
+P.place.lit_margin_mm = 1;         % DEFAULT 1 (Dave 2026-09-30): the control set is the actuators the TEST beam
+                                   %   reaches with a whole influence function, r <= DM aperture - margin (mm).
+                                   %   dmg_lit reads the interferogram support, which on this bench is the
+                                   %   REFERENCE arm's 59 mm cone, so without the cap the lit set reached 1 mm
+                                   %   OUTSIDE the 48 mm aperture (308 dark actuators + 284 half-clipped) and the
+                                   %   100 nm descent stalled at 97 pm.  With it: 2.96 pm from 100 nm, 2.95 pm
+                                   %   on the 30 nm control (runs/fix2x2_score.txt).  [] = the pre-fix behaviour
+                                   %   (runs before 2026-09-30 and the samp512 baseline).  Lit count 7540 -> 6948.
+P.place.lit_erode     = 0;         % diagnostic: erode the control set by N rings (runs/erode3); see tg96_place
+
+% ---- closed-loop hold metric (D7; Dave 2026-09-11, BRIEF_loop_metric) ----
+%   The on-orbit servo mode: the DM held at the working surface by a
+%   proportional loop closed through the four-step reading and its measured
+%   matrix (calibrated ON the working surface, S10). ONE reading here (the
+%   four-step PSI map), so no readings dimension -- the ZWFS runs L/I+/S/V.
+%   The loop code is shared: ../dm_gauge_lib/dmg_loop.m (gated by
+%   tests/tDmgLoop.m). Same knobs and seed as the ZWFS P.loop so the two
+%   instruments run the IDENTICAL drift realizations. Cost: K+1 traced
+%   states per (drift, photon level) -- an hour-class job at MODEL 1024.
+P.loop.surface  = 'base';          % set point: 'base' = the 30 nm working
+                                   %   surface with the matrix ON it (base_rms,
+                                   %   seed_base); 'flat' = the flat DM
+P.loop.g        = 0.5;             % loop gain
+P.loop.K        = 60;              % cycles (steady state = the last K/2)
+P.loop.nph      = [1e12 1e13 1e14 1e15];  % photons per MEASUREMENT, one per
+                                   %   cycle (the four frames share it, nph/4 each)
+P.loop.drifts   = {'walk', 'thermal'};    % drift models run at every photon level
+P.loop.walk_sigma   = 2e-9;        % mm per actuator per cycle (2 pm random walk)
+P.loop.thermal_rate = 5e-9;        % mm rms per cycle of a defocus + astigmatism ramp (5 pm)
+P.loop.steps    = [1e-6 10e-6];    % mm rms: NOISELESS step disturbances at cycle 1
+                                   %   (time constant + dynamic range)
+P.loop.floor    = true;            % also the noise-only loop at every photon level (G2)
+P.loop.ref      = 'noiseless';     % set-point frames: 'noiseless' (calibration-grade)
+                                   %   | 'noisy' (single-shot; a fixed bias)
+P.loop.seed     = 77;              % drift realization (SHARED with the ZWFS)
+P.loop.hold_spec = 3e-9;           % mm: the hold level priced in photons per cycle (3 pm)
+P.loop.rmax     = 1e-3;            % mm: a residual above this declares the run DIVERGED
+% ---- item 3: within-scan drifts of the PZT four-step (sequential form) ------
+%   The polarization snapshot takes the four frames at once and is immune; the
+%   PZT four-step steps them in time and is not.  Two drifts sit within a scan:
+%   the CAMERA 1/f offset (dmg_loop 'cam'; Dube 2024) and -- once TO lands
+%   loop.intra in dmg_loop -- the DM's own walk within the four frames.  A
+%   zero-sum four-step is exactly immune to a within-scan-CONSTANT offset
+%   (cam_intra 0); cam_intra > 0 develops the offset frame-to-frame and breaks
+%   the immunity.  Add 'cam' to P.loop.drifts to price it.  The PZT step error
+%   (P.pzt.step_err) is priced in the loop too when set.
+P.loop.cam_walk  = 0.13;           % CAMERA offset random-walk, per cycle (unit below)
+P.loop.cam_unit  = 'rel';          % 'e' = electrons per pixel per cycle | 'rel' = fraction of the
+                                   %   scan's mean photons per lit pixel per frame (a signal-scaled bias)
+P.loop.cam_intra = 0;              % fraction of each camera step that develops WITHIN a scan (0 = immune)
+% ---- item 3 within-scan DM drift + item 5 descent (TO's shared dmg_loop knobs,
+%      landed 2026-09-13; mirrored here verbatim into the loop stage) ----------
+P.loop.intra     = 0;              % fraction of the NEXT cycle's DM drift that develops WITHIN a scan
+                                   %   (the four-step steps its frames in time and pays for it; 0 = DM still)
+P.loop.ref_walk  = 0;              % rms (rad/cycle) of a reference-arm (PZT-flat) phase walk -- the IFO's
+                                   %   non-common-path term (default off; not asked for the deck)
+% ---- descent (item 5): capture the DM's initial figure, ~100-200 nm WFE -------
+P.loop.start_rms   = [];           % [] = no descent; else the loop STARTS from a surface of this rms
+                                   %   (**mm**, like every other rms knob here -- battery.base_rms
+                                   %   30e-6 IS 30 nm; a 100 nm start is 1e-4, NOT 100.  The runner
+                                   %   prints it as SR*1e6 nm.  Two queued scripts had it as bare
+                                   %   nanometres, which asks for a 100 MILLIMETRE starting surface;
+                                   %   neither had run, so nothing caught it.)
+                                   %   A vector runs the ladder; matrix measured AT the start
+P.loop.start_shape = [];           % [] = the set point's own field rescaled ("the same field, scaled")
+P.loop.calib_at    = 'start';       % which surface a DESCENT measures its matrix on:
+                                   %   'start'    the starting surface (every descent on
+                                   %              record; the default, nothing moves)
+                                   %   'setpoint' measure at the set point while starting
+                                   %              far -- the only arrangement that separates
+                                   %              "opens far from the set point" from "matrix
+                                   %              measured far from where it is used", which
+                                   %              ushape otherwise confounds exactly
+P.loop.recal_every = 0;            % cycles between on-surface re-calibrations (0 = never)
+P.loop.recal_list  = [];           % descent: recal_every values to compare ([] => [recal_every])
+P.loop.reach       = [10e-6 3e-9]; % descent columns: first cycle to 10 nm, to 3 pm (mm)
+P.loop.unwrap      = 'auto';       % 'auto' = battery.unwrap OR a descent (start_rms set); true/false force
+% ---- unwrap the wrapped four-step differential before the estimator (item 5) --
+P.battery.unwrap   = false;        % dm_gauge_lib/dmg_unwrap (2-D least squares on the lit mask); default OFF
+
+% ---- dev / smoke -----------------------------------------------------
+P.smoke = false;                   % true => Stage-A2 sampling asserts become warnings
+                                   %   (code-path checks at coarse MODEL/NGRID; NOT a result)
+end

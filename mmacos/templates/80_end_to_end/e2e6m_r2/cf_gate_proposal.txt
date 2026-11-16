@@ -1,0 +1,41 @@
+==== e2e6m coronagraph-family campaign -- OPERATING-POINT PROPOSAL ====
+     (the phase-2 gate before S4/S5; CC, 2026-08-27; all numbers are
+      committed measurements -- cf2/cf2r*/cf3a/cf3b/cf3c reports)
+
+PROPOSED OPERATING POINT (S4 physics layers + S5 drift series):
+  family   : apodized Lyot (the R1 prolate over the circularized,
+             gapped pupil; "apl")
+  Lyot     : 0.90  (the CF2 point)
+  spacing  : 0.15 m (the as-built baseline -- NO bench change)
+  contrast : 1.081e-7 closed-loop (relin), 9.5% throughput,
+             linear-optimal (la 1.0x, sym 0.96)
+
+RATIONALE, one paragraph.  The apl leg is the campaign floor and the
+only family that is simultaneously deep, linear-optimal, and better
+under the circular stop than without it (1.08e-7 vs 1.29e-7).  Both
+dials away from its CF2 point were measured and both lose: the LYOT
+dial is static-flat (CF3a) but closed-loop L=0.98 stalls (R3, and the
+R1-treatment wide ladder does not dig, R3b) at 1.58e-7 -- 1.46x the
+contrast for 1.19x the throughput, a net loss in a thru/contrast
+merit (7.1e5 vs 8.8e5); the SPACING dial has its KNEE AT the 0.15 m
+baseline (CF3b: floors 1.08e-7 / 4.98e-7 / 9.67e-7 / 9.01e-7 at
+0.15/0.40/0.70/1.10 m, v4 cross-checks the direction) because the
+STATIC degrades faster than the Talbot authority grows -- attributed
+by measurement (CF3c): the added light is the same amplitude-type
+gap-Fresnel family (symmetric fraction 0.986 at every spacing,
+broadband radial ratio), evolved over the longer DM1->DM2 near-field
+leg.  Packaging never discriminates (shroud 7.451 m at every
+spacing, measured).
+
+CONSEQUENCES / NOTES:
+  - No train-geometry change: Dave's bench decision is a confirmation,
+    not a change order.
+  - The Talbot story for the deck inverts honestly: wider spacing
+    RAISES the linear-achievable bound (6e-11 claimed at 1.10 m) and
+    the loop cannot take it -- bound optimism grows with spacing while
+    the measured floor worsens.  Authority is not the binding
+    constraint on this train; the static gap-Fresnel level is.
+  - Vortex stays the cross-family reference (gap-locked 5.4e-6 class),
+    not an operating point.  APLC remains DEFERRED (as-implemented).
+  - S5 runs the winner + the R1 hard baseline for continuity, drift
+    0.3 nm, per the brief.

@@ -1,0 +1,48 @@
+==== run_met: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1.in ====
+[0] zc_hex1: 7 segments (Hex tiling), 11 elements; 2488/2521 rays pass
+
+[1] as-built truss: 42 beams (6 launchers/segment), 6 fiducials at r=45 on elt 8
+    trace parity: 2488/2521 rays pass (bare 2488/2521), rmsWFE 6.23e-13 (bare 6.23e-13)
+
+[2] dedx 72x48 (SI);  dldx 42x48 engine-FD vs analytic: 1.28e-06 max rel  PASS
+
+[3] dwdx: 48 columns for bodies [1  2  3  4  5  6  7  8] from the sensitivities .mat
+    OPD reference chief (the harvest's), piston removed
+    post-control wavefront residual (fraction of prior; nm at the
+    configured scenario: prior 1e-06 rad / 1e-06 m, noise 1e-09 / 1e-09 m):
+      prior (no sensing)       1.0000   (1.852e+06 nm)
+      edge sensors only        0.1757   (3.254e+05 nm)
+      MET only                 0.1542   (2.856e+05 nm)
+      edge + MET               0.0306   (5.667e+04 nm)
+    as-built WEM (per unit gauge noise, suite ratios held;
+    prior split: 1.028e-08 nm tilt / 1.852e+06 nm non-tilt):
+      config        WEM_full  WEM_tilt WEM_ntilt  floor_ntilt
+      MET only      1935.502     0.000  1935.502       0.1542
+      edge+MET      1089.022     0.000  1089.022       0.0306
+    observability: H 114x48, sv(H*sqrt(X)) 6.374e-06 .. 1.272e-14 (cond 5.01e+08)
+    products: dxde 48x72, dxdl 48x42, dwde 12440x72, dwdl 12440x42
+
+[4] met_layout_opt (one pattern per shape class; MET-only, NON-TILT merit):
+    class 1 (1 members, spread): angs [20 80 150 -20 -80 -150] deg
+    class 2 (6 members, cluster): angs [175 185 75 85 -85 -75] deg
+    engine-FD validation (non-tilt merit): 5.672e+04 nm (analytic 5.672e+04, 0.00% off)
+
+[4b] configuration comparison (WEM per unit gauge noise):
+      config         | MET_full MET_tilt   MET_nt | e+M_full e+M_tilt   e+M_nt |    flr_nt  min_sep
+      as-built       | 1935.502    0.000 1935.502 | 1089.022    0.000 1089.022 |    0.0306 
+      optimized      | 2521.482    0.000 2521.482 | 1024.186    0.000 1024.186 |    0.0306 
+      corner_pairs   | 5101.686    0.000 5101.686 | 1036.495    0.000 1036.495 |    0.0306    5.406
+
+[5] Monte-Carlo (200 draws): 56170.703 nm rms  (analytic 56671.574) [0.9%]
+metric chart (w_post / w_prior):
+    prior         1
+    edge only     0.1757
+    MET only      0.1542
+    edge+MET      0.03061
+    edge+MET opt  0.03061
+
+[6] figures: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_met_layout.png, /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_metopt_layout.png, /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_met_view_rx.png, /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_met_metric.png
+preset saved: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_met_preset.mat (reusable as-built for future Hex builds)
+
+artifacts: zc_hex1_met.in, zc_hex1_metopt.in, zc_hex1_met.mat, this report + figures
+next stage: run_compare (linear model vs mmacos on x/z/grid states).

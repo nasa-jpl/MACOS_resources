@@ -1,0 +1,54 @@
+=== TG96 gauge (lens optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "capture_lens_plain"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  input polarizer             d  247.1, part r  64.0 -> separation  247.1 mm, margin +116.1 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  205.0, part r  56.6 -> separation  205.0 mm, margin  +81.4 mm (spec >= 25)
+  1 of 6 node parts under the 25 mm margin; beam radius 59.0, mount +8
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_lens_tail.mat (null 59.317 nm at opt res; seed 59.317)
+Stage B -- lens rig built (BS_AOI 22.5); emitted capture_lens_plain_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  L1flat         Refractor        874.4        --  
+  L1pow          Refractor        882.1        --  
+  BSrefl         Reflector       1139.3        --  flat mirror
+  Comptxfd       Refractor       1328.5        --  
+  Comptxbd       Refractor       1338.8        --  
+  TestOptic      Reflector       1578.8      48.0  flat mirror
+  Comptxfu       Refractor       1818.8        --  
+  Comptxbu       Refractor       1829.1        --  
+  BStxfo         Refractor       2018.3        --  
+  BStxbo         Refractor       2028.7        --  
+  Recomb         Reference       2178.7        --  
+  L2pow          Refractor       2233.7        --  
+  L2flat         Refractor       2245.0        --  
+  MaskSubf       Refractor       2660.5        --  
+  MaskSubb       Refractor       2662.5        --  
+  FocalMask      Reference       2663.5        --  
+  FLpow          Refractor       2674.2        --  
+  FLflat         Refractor       2680.1        --  
+  Detector       FocalPlane      2716.9        --  camera (see the sampling budget for the pixel count)
+
+
+wrote capture_lens_plain_report.txt + capture_lens_plain.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/cophi_dm96/runs/capture_lens_plain

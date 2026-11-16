@@ -1,0 +1,20 @@
+dyson5 s0 -- classical concentric Dyson at the spec (2026-09-30 12:17)
+CONVENTIONS: block index n(Silica) at 1.00 um = 1.450417; F/# = air-equivalent image-space,
+  in-glass marginal half-angle u = asin(1/(2 n F)) = 11.041 deg; blur = transverse rms spot of a
+  full F/1.8 cone from a point on the flat face, imaged back to the flat face (1:1), grating
+  traced as a mirror (order 0); field height h measured from the Dyson axis on the flat face.
+SPEC: slit 54.0 mm (3000 px x 18 um), FPA 9.0 mm spectral (500 px), band 380-2500 nm -> 4.24 nm/px;
+  slit centre offset 8.0 mm -> slit CORNER at h_max = 28.16 mm; blur budget 0.25 px = 4.5 um rms.
+
+(1) DYSON CONDITION, r = 100 mm: R_g = n r/(n-1) = 322.016 mm, gap 222.016 mm, D_g(axial) = 123.3 mm
+    blur (um rms) vs R_g factor: 0.95:4.23  0.98:1.23  1.00:0.67  1.02:2.49  1.05:5.10  
+    blur (um rms) vs h (mm):     5:0.04  10:0.67  20:11.11  30:60.18    -> h-exponent 4.17 (fifth-order residual)
+    centroid shift image_y + h (um) vs h (mm): 5:-0.000  10:-0.002  20:-0.299  30:-5.854    (distortion, same order)
+
+(2) SCALING at the slit corner h_max = 28.16 mm:
+    r (mm):              50      75     100     150     200     250     300     400     500
+    blur (um rms):   602.42  123.09   47.41   13.25    5.48    2.78    1.60    0.67    0.34
+    fitted r-exponent -3.19 (law: blur ~ h^4 / r^3)
+    -> r_required = 213.4 mm  (R_g = 687.2 mm, gap 473.8 mm, grating clear diam >= 263.2 mm axial + field)
+VERDICT: the single-block concentric Dyson meets the corner blur only at r >= 213 mm -- report the law,
+  do not add elements yet (BRIEF_to_dyson5 build order, pre-registered null).

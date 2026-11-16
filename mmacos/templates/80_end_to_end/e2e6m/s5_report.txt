@@ -1,0 +1,44 @@
+==================== e2e6m S5 -- the drift time series
+deck /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s3_seg_prop.in
+MET NOT IN SCOPE: image-based control, no metrology loop --
+   the corrected leg is an OPTIMISTIC bound (see the header).
+WFE: rms OPD at the coronagraph exit pupil, piston removed, waves @ 500 nm
+contrast: dark-zone mean 3-15 lambda/D, normalised to the NOMINAL bare peak
+
+[0] control basis: centre-field block 40302 rows x 19 cols
+    19 segments x DOF 5 (0-based: 0-2 = Rx Ry Rz, 3-5 = Tx Ty Tz)
+    the DRIFT moves all six DOFs; CONTROL uses only the
+    columns the [1] check reproduces (see the header).
+
+[1] engine vs linear model, 6 sample DOFs at 1 nm / 1 nrad:
+    elt 19 dof 0: |engine| 2.482e-12  |model| 1.419e-10  rel.err 56.9
+    elt 19 dof 1: |engine| 9.257e-10  |model| 1.426e-10  rel.err 1.01
+    elt 19 dof 2: |engine| 7.95e-14  |model| 9.395e-15  rel.err 1.04
+    elt 19 dof 3: |engine| 2.389e-11  |model| 3.682e-12  rel.err 1.01
+    elt 19 dof 4: |engine| 6.64e-14  |model| 3.679e-12  rel.err 54.8
+    elt 19 dof 5: |engine| 4.466e-10  |model| 4.44e-10  rel.err 0.00614
+    worst over ALL six DOFs      56.9  [FAIL]
+    worst over CONTROLLED DOFs   0.00614  [PASS]
+    control is restricted to the DOFs that pass -- see the header.
+
+[2] history: 41 frames, dt 10 s, 114 states
+    random walk 0.3 nm / 0.3 nrad per step, correlated drift 6 nm / 6 nrad per 100 s
+
+[3] coronagraph setup (built ONCE: prolate + masks + scales)
+    lambda/D at the FPA 4.080 px | apodizer radius 125.5 px
+    nominal bare on-axis peak 2.4246e+01 (the series normalisation)
+
+[3] pass 1 of 2: UNCORRECTED
+    WFE 0.0046 -> 0.0243 waves; contrast 8.601e-07 -> 2.078e-06 (9 scored frames)
+
+    solving the image-based correction on frame 2
+    control Tz: rms 88.8 nm, max 90.6 nm
+
+[3] pass 2 of 2: CORRECTED (control held, history drifts on)
+    WFE 0.0035 -> 0.0231 waves; contrast 9.213e-07 -> 1.990e-06
+
+[4] payoff figure: /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m/s5_series.png
+    contrast scored every 5 frames (9 of 41) -- each point is a
+    full diffraction propagation plus the APLC mask chain.
+
+S5 DONE in 2.3 min

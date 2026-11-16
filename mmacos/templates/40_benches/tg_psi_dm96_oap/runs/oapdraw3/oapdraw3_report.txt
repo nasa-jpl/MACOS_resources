@@ -1,0 +1,60 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 512, grid 256x0.42 ===
+uniform scale s = 1.7143; tag "oapdraw3"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 22.39 deg (end bodies 6.88, node 22.39) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   235 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   193 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   179 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +176.8 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +206.8 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +216.8 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  51.4 -> separation  257.1 mm, margin +146.3 mm (spec >= 25)
+  compensator                 d  200.0, part r  56.4 -> separation  141.4 mm, margin  +25.6 mm (spec >= 25)
+  output QWP                  d  160.0, part r  56.4 -> separation  160.0 mm, margin  +44.1 mm (spec >= 25)
+  analyzer                    d  170.0, part r  56.4 -> separation  170.0 mm, margin  +54.1 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  51.4 -> separation  275.0 mm, margin +164.1 mm (spec >= 25)
+  0 of 5 node parts under the 25 mm margin; beam radius 51.4, mount +8
+  OAP fold solve (need lateral clearance 126.4 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +424.5
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +201.9
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist  96.5 cyc/pup  margin  2.0x (need >= 2)
+  DM surface grid 2.38 px/actuator             (need >= 3)
+  diffraction grid 512^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
+Stage B -- oap rig built (BS_AOI 22.5); emitted oapdraw3_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      21.4  
+  PolIn          TrPolarizer      438.6        --  
+  L1             Reflector        882.1      51.4  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1139.3        --  flat mirror
+  Comptxfd       Refractor       1336.5        --  
+  Comptxbd       Refractor       1339.2        --  
+  QWPtestIn      WavePlate       1561.6        --  
+  TestOptic      Reflector       1586.6      51.4  flat mirror
+  QWPtestOut     WavePlate       1611.6        --  
+  Comptxfu       Refractor       1834.0        --  
+  Comptxbu       Refractor       1836.7        --  
+  BStxfo         Refractor       2033.9        --  
+  BStxbo         Refractor       2036.6        --  
+  Recomb         Reference       2186.6        --  
+  OutQWP         WavePlate       2196.6        --  
+  Analyzer       TrPolarizer     2206.6        --  
+  L2             Reflector       2311.6      51.4  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  FocalMask      Reference       2740.1        --  
+  FLpow          Refractor       2750.9        --  
+  FLflat         Refractor       2755.2        --  
+  Detector       FocalPlane      2792.9        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = none); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+
+wrote oapdraw3_report.txt + oapdraw3.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oapdraw3

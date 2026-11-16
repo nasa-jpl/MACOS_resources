@@ -7,12 +7,12 @@ C***********************************************************************
 
 
 	Integer, parameter ::
-     &             numseg    =  6,   ! max # of segments
+     &             numseg    =  7,   ! max # of segments
      &             numacf    =  6,
      &             numSAF    =  0,   ! max # of sub-aperture flats (ACFs = SAFs)
-     &             mzern     = 12,
-!    &             mgrid     = 256,
-     &             mgrid     = 99,
+     &             mzern     = 45,   ! Zernikes/segment; sync param.mzern
+     &             mgrid     = 256,  ! match macos mGridMat for model 256
+!    &             mgrid     = 99,
      &             mgrid2    = mgrid*mgrid,
      &             mpzern    = numseg*mzern,
 !    &             mpdm      = numseg,

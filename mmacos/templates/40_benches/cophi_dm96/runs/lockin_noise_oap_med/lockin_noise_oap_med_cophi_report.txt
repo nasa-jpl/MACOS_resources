@@ -1,0 +1,17 @@
+
+=== COPHI noise (oap rig, the PLAIN splitter (no polarizing optics; Feng's layout)): 9.8 min ===
+  throughput source -> camera (flux 1 launched): test arm 0.3923, LO arm 0.4522
+  pm/read = ONE reading's noise per actuator (the unpoked-lit floor; contrast-gated); pm@hold = the hold-out check (+-30 % at 12 draws)
+  camera       name                                                             pm/read   pm@hold   reads/s   s per pm
+  lockin       heliCam C4 class lock-in: 512 sites, 500 ke, 1 kHz I/Q (survey rank 1, UNVERIFIED), read 0      57.9      42.3     1e+03       3.35
+  lockin_r     the same, read 100 e- per sample ASSUMED                            63.1      58.2     1e+03       3.99
+  electronics, ONE reading's error (pm at the hold-out / over lit):
+    jitter   0.001     1.15e-11   2.9e-12
+    jitter   0.01      9.21e-12  2.96e-12
+    jitter   0.03       8.9e-12  3.05e-12
+    ripple   0.0001           0         0
+    ripple   0.001            0         0
+    ripple   0.01             0         0
+    walk     0.01      1.21e-11  3.06e-12
+    walk     0.05      9.27e-12     3e-12
+wall 9.8 min

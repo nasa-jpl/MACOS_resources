@@ -1,0 +1,33 @@
+tma_longslit e2e -- rung R5 ffc joined to the spectrometer size:D:130 (template dyson5_t5e_tA_EP_pz_m30_B1_e2e.in) (2026-10-08 08:43)
+  rung: clears (+2.4 mm), no ray below F/1.7, worst telescope FWHM 1.02 px
+  TWO LAUNCHES: smile (slit-filled) = each field's CENTROID on the slit line (the spec's convention); the point-source
+  across-slit shift = the smile of the record's CHIEF-on-the-slit-line launch (the telescope's chief - centroid spread)
+  join deck /home/dcr/dev/MACOS_resources/mmacos/templates/10_telescopes/tma_longslit/../../../challenges/dyson5/tls_e2e_tls1k5_tel.in (header ApStop = the engine entrance pupil [0 0 346.7] mm, two-chief miss 1.6e-05 m)
+
+  ROLL 0 deg: e2e decks dyson5_t5f_tls1k5_centroid_roll000_e2e.in (centroid) / dyson5_t5f_tls1k5_chief_roll000_e2e.in (chief)
+                                             px        um |  Joe (px)  paper (um)
+    smile (slit-filled)                   0.009      0.17 |     < 0.1       < 1.8 (Joe PASS, paper PASS)
+    point-source across-slit shift        0.009      0.16 |   (stated beside the smile; not a requirement)
+    keystone                              0.009      0.17 |     < 0.1       < 1.8 (Joe PASS, paper PASS)
+    CRF (worst)                           1.029     18.52 |     < 1.5      < 50.4 (Joe PASS, paper PASS)
+    SRF (worst)                           2.024     36.44 |       < 2      < 64.8 (Joe fail, paper PASS)
+    ARF (telescope FWHM y)                1.018     18.33 |        --      < 50.4 (Joe --, paper PASS)
+    (SRF floor: rect(2-px slit) (x) rect(1 px) = 2.010 px for a PERFECT spectrometer -- Joe's 1.5-2.0 is a slit width)
+    energy in a pixel (min)               0.974     | > 0.75
+    grating admits (min)                  0.987
+    clearance, joined                      +0.6 mm  (M3 -> Slit vs BlockFace)  CLEAR
+    (chief launch, for the record: smile 0.009 / keystone 0.009 / CRF 1.029 / SRF 2.024 px)
+
+  ROLL 180 deg: e2e decks dyson5_t5f_tls1k5_centroid_roll180_e2e.in (centroid) / dyson5_t5f_tls1k5_chief_roll180_e2e.in (chief)
+                                             px        um |  Joe (px)  paper (um)
+    smile (slit-filled)                   0.011      0.20 |     < 0.1       < 1.8 (Joe PASS, paper PASS)
+    point-source across-slit shift        0.011      0.19 |   (stated beside the smile; not a requirement)
+    keystone                              0.012      0.22 |     < 0.1       < 1.8 (Joe PASS, paper PASS)
+    CRF (worst)                           1.028     18.51 |     < 1.5      < 50.4 (Joe PASS, paper PASS)
+    SRF (worst)                           2.024     36.44 |       < 2      < 64.8 (Joe fail, paper PASS)
+    ARF (telescope FWHM y)                1.018     18.33 |        --      < 50.4 (Joe --, paper PASS)
+    (SRF floor: rect(2-px slit) (x) rect(1 px) = 2.010 px for a PERFECT spectrometer -- Joe's 1.5-2.0 is a slit width)
+    energy in a pixel (min)               0.990     | > 0.75
+    grating admits (min)                  0.987
+    clearance, joined                      +0.6 mm  (M3 -> Slit vs BlockFace)  CLEAR
+    (chief launch, for the record: smile 0.011 / keystone 0.012 / CRF 1.028 / SRF 2.024 px)

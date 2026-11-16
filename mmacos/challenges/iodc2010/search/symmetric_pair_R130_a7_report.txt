@@ -1,0 +1,21 @@
+IODC 2010 "green lens" -- symmetric_pair_R130_a7
+
+METRIC (stated before the numbers; challenges/iodc2010/README.md):
+  RMS wavefront error in waves at 532 nm on the exit-pupil sphere centred on the chief
+  ray's image-plane point (chief-ray reference; tilt and focus not removed), piston
+  removed, 97 rays across the paraxial entrance pupil, every launched ray must pass;
+  distortion 100 (yR - yP)/yP at the image plane used; EFL paraxial (y-nu).
+  Semi-field = the largest field (to 0.01 deg) with RMS <= 0.070, |dist| <= 5.0 %, no ray lost.
+
+PRESCRIPTION: R = 78.277289 mm, signs [+1 +0 +0 -1 ], t = [0.3446 72.3565 2.6225 50.4857 ] mm, glass {N-BK7,air,N-BK7,air}, stop z = 36.5220 mm a = 4.2149 mm
+  clear semi-diameters [5.5530 5.5494 2.8767 2.8142 ] mm; image plane at z = 125.809338 mm (paraxial focus 126.009687)
+
+FIRST ORDER: EFL 100.000000 mm (engine near-axis 100.000000; within 0.01 mm of 100), D 11.1152 mm (f/8.997), EP at z = 48.0006, XP at z = 24.6789 mm
+RULES: edge thickness/air space per gap [0.1474 72.3565 2.5719 ] mm -> all positive
+
+FIELDS:
+  theta_deg  rms_waves  dist_pct  lost/launched  result
+     0.000    0.07369       NaN      0/7081      FAIL rms
+
+RESULT: semi-field 0.00 deg (limited by rms), D 11.115 mm, MERIT D*theta = 0.0
+Published 2010 winner: 81.30 mm x 43.50 deg = 3537 (Bates); 10th place 1094.

@@ -1,0 +1,3 @@
+# Walkthrough figures are reproducible from coro_walkthrough.m; copy the
+# ones the manual embeds into the manual's asset dir as needed.
+*.png

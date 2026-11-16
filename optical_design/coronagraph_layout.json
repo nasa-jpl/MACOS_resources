@@ -1,0 +1,118 @@
+{
+  "inputs": {
+    "D_beam_mm": 46.3,
+    "N_act": 48,
+    "lam_nm": 550.0,
+    "IWA_lod": 3.0,
+    "OWA_lod": 24.0,
+    "input_fnum": 20.0,
+    "fpm_fnum": 30.0,
+    "pixel_um": 13.0,
+    "talbot_design_lod": 24.0
+  },
+  "derived": {
+    "actuator_pitch_mm": 0.9646,
+    "OWA_supported_lod": 24.0,
+    "quarter_talbot_sep_mm": 3383.3,
+    "quarter_talbot_by_freq": {
+      "3 l/D": 216534.3,
+      "8.48528 l/D": 27066.8,
+      "24 l/D": 3383.3
+    },
+    "final_fnum": 48,
+    "final_fnum_min": 47.27,
+    "psf_core_pixels": 2.03,
+    "fpm_IWA_radius_mm": 0.0495,
+    "fpm_OWA_radius_mm": 0.396,
+    "f_OAP1_mm": 926.0,
+    "f_OAP4_mm": 1389.0,
+    "f_OAP5_mm": 1389.0,
+    "f_OAP6_mm": 2222.4
+  },
+  "planes": [
+    [
+      "0  telescope focus",
+      "focal",
+      "-",
+      "-",
+      "feed F/20"
+    ],
+    [
+      "1  OAP1 collimator",
+      "OAP",
+      "f=926.0",
+      "-",
+      "FP -> pupil"
+    ],
+    [
+      "2  apodizer",
+      "pupil",
+      "D=46.30",
+      "-",
+      "diffraction control"
+    ],
+    [
+      "3  OAP2+OAP3 relay",
+      "OAP x2",
+      "unit mag",
+      "-",
+      "pupil -> focus -> pupil (anti-symm pair)"
+    ],
+    [
+      "4  DM1",
+      "pupil",
+      "D=46.30",
+      "48 act, pitch 0.965",
+      "phase"
+    ],
+    [
+      "5  DM2",
+      "near-pupil",
+      "D=46.30",
+      "z=3383.3 mm from DM1",
+      "phase+amplitude"
+    ],
+    [
+      "6  OAP4",
+      "OAP",
+      "f=1389.0",
+      "F/30",
+      "pupil -> FPM focus"
+    ],
+    [
+      "7  FPM",
+      "focal",
+      "-",
+      "IWA r=0.0495 mm",
+      "reject starlight (reflective->LOWFS)"
+    ],
+    [
+      "8  OAP5",
+      "OAP",
+      "f=1389.0",
+      "-",
+      "FPM focus -> Lyot pupil"
+    ],
+    [
+      "9  Lyot stop",
+      "pupil",
+      "D=46.30",
+      "match aperture, undersized",
+      "block diffracted starlight"
+    ],
+    [
+      "10 OAP6",
+      "OAP",
+      "f=2222.4",
+      "F/48",
+      "Lyot pupil -> detector"
+    ],
+    [
+      "11 detector",
+      "focal",
+      "-",
+      "2.03 px per l/D",
+      "science / dark hole"
+    ]
+  ]
+}

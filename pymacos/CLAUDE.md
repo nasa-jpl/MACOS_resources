@@ -1,0 +1,739 @@
+# MACOS_resources/pymacos
+
+> **Post-compaction / post-upgrade — re-read the docs first.** After a
+> context compaction or a tooling upgrade, before resuming build/engine
+> work, re-read the doc set across ALL working dirs (the conversation
+> summary drops mechanical how-to): `macos/CLAUDE.md`; this file +
+> `MACOS_resources/{mmacos,GMI}/CLAUDE.md` + `README.md`s; and, IF PRESENT,
+> `macos/PLAN.md` and the agent `MEMORY.md` (esp. the build/test workflow
+> entries) -- the plans and the memory live on the `dev` branch only; a
+> release checkout has the `CLAUDE.md` set and the READMEs and no plans,
+> and a citation of a PLAN or BRIEF in this file is provenance, not a file
+> to look for.
+
+Python interface to MACOS / SMACOS via an f2py wrapper. Four layers
+since §5.2 of the dev plan:
+
+  user Python
+    → `src/pymacos/macos.py`           (typed API, ~75 fns + validation)
+    → `pymacosf90.*.so`                (f2py-built shared module)
+    → `src/cmake/source/pymacos_f2py.f90`
+        (`MODULE api` — thin forwarding wrappers carrying `!f2py`
+         annotations; one wrapper per Python-facing routine that
+         re-applies the f2py size-derivation hints and calls
+         `NAME_impl(...)` via `use macos_api_mod, only: NAME_impl =>
+         NAME`)
+    → `MODULE macos_api_mod` in `libsmacos.a`
+        (language-neutral SMACOS-call backbone — same module
+         `mmacos.mexa64` binds.  Lives at
+         `~/dev/macos/macos_f90/macos_api_mod.F90`.)
+    → smacos modules + static lib from the macos build tree.
+
+For the overall layout, build steps, and test suites see `README.md`.
+This file is the working-memory cheatsheet of gotchas and shortcuts
+not derivable from the code.
+
+## Build (fast path)
+
+After editing `pymacos_f2py.f90` or `macos.py`:
+
+```bash
+cd /home/dcr/dev/MACOS_resources/pymacos/src/cmake/build
+bash -c 'source /opt/intel/oneapi/setvars.sh intel64 >/dev/null 2>&1; make'
+```
+
+After editing `macos_api_mod.F90` (which now lives in the macos repo at
+`~/dev/macos/macos_f90/macos_api_mod.F90`), rebuild macos first so
+`libsmacos.a` carries the change:
+
+```bash
+cd ~/dev/macos && source ./makems.sh release
+cd /home/dcr/dev/MACOS_resources/pymacos/src/cmake/build && make
+```
+
+By default the pymacos cmake reads `MACOS_BUILD_DIR=$HOME/dev/macos/build_release`.
+Override with `cmake -DMACOS_BUILD_DIR=/path/to/build_release_gfortran` if
+you've built macos under gfortran or in a non-standard location.
+
+`macos.py` is pure Python — no rebuild needed for edits there.
+
+Smoke test: `pymacos/tests/sensitivities/run_dw_dz_zernike.sh --help`
+exercises the venv + oneAPI runtime setup without touching macos.
+
+### The f2py layer and `api_gen.py` are GENERATED (2026-10-16, BRIEF_to_bindings A.2)
+`src/cmake/source/pymacos_f2py.f90` and `src/pymacos/api_gen.py` are written by
+`MACOS_resources/mmacos/src/gen_mex_wrappers.py` from `macos_api_mod.F90` (the same
+parse that writes the mex's `mmacos_gen.F`).  **Never hand-edit them**: add the routine
+to `macos_api_mod.F90`, rebuild macos, run `python3 gen_mex_wrappers.py` in
+`mmacos/src` (all three targets), `make` here.  Per-routine `!f2py` hints and the few
+interface rewrites live in `mmacos/src/binding_overrides.py` (generator INPUT; the 139
+routines bound before the generator are listed in `F2PY_LEGACY` and keep their
+in-place `intent(inout)`).  A NEW routine needs no override: inputs = its
+intent(in)+(inout) args (sizes f2py derives from an input array are optional), outputs
+= intent(out)+(inout) with `ok` → `ApiError` — the mex's rule.  Behaviour (units,
+defaults, shapes) goes in `macos.py`, calling `api_gen.<routine>`.  Gate:
+`tests/test_api_coverage.py` (every api routine bound, read from the SOURCE; every stub
+matches f2py's own signature).
+
+### Side-tree build (a pre-fix / doctored `.so` for a red leg)
+The suite imports from `$PYMACOS_SRC` when set (`tests/context.py`), else this tree's
+`src/`.  A side tree is a copy of `src/` with its own build dir; the shared `.so` is
+never touched:
+```bash
+S=<scratch>/side; P=~/dev/MACOS_resources/pymacos
+mkdir -p $S/src/cmake/source $S/src/cmake/build $S/src/pymacos
+cp $P/src/cmake/CMakeLists.txt $S/src/cmake/
+cp $P/src/cmake/source/pymacos_f2py.f90 $S/src/cmake/source/   # or the doctored / generated one
+ln -s $P/src/macos $S/src/macos                                 # CMakeLists checks ../macos exists
+cp $P/src/pymacos/*.py $P/src/pymacos/macos_param.txt $S/src/pymacos/
+cd $S/src/cmake/build && bash -c "source /opt/intel/oneapi/setvars.sh intel64 >/dev/null 2>&1;
+  $P/.venv/bin/cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DCMAKE_Fortran_COMPILER=ifx \
+    -DPython_EXECUTABLE=$P/.venv/bin/python -DMACOS_BUILD_DIR=<macos build tree> -S .. && make"
+cd $P/tests && PYMACOS_SRC=$S/src $P/.venv/bin/python -m pytest -q <tests>
+```
+Use the venv's cmake (`.venv/bin/cmake`, 4.x): the system cmake is 3.28 and
+CMakeLists needs 3.31.  For a PRE-FIX ENGINE leg point `MACOS_BUILD_DIR` at a side
+macos build (e.g. one built in the clean worktree `~/dev/macos_cli_base`).  Used first
+2026-10-16: the generated layer built side-tree (all 139 legacy signatures identical to
+the hand-written `.so`), and a copy with `ray_status_get` removed turned
+`test_api_coverage.py` red naming it.
+
+### macOS: a fresh venv has ONLY the build dep (numpy) — tests need more
+The Mac-port venv (`~/.venv/pymacos`) was created with just `numpy` for
+the f2py build, so the test suites all fail on missing imports until you
+add them. On a fresh venv (e.g. after Friday's re-clone), install:
+```bash
+pip install "numpy>=2.2" scipy astropy matplotlib pytest   # scipy/astropy/mpl = proper_compare; pytest = all
+```
+plus **PyPROPER3** (Krist's JPL port; no modern wheel → manual copy, see
+`README.md` macOS quick path + `tests/proper_compare/README.md`). Run
+pytest directly (the `run_*_tests.sh` scripts hardcode Intel oneAPI +
+`./.venv`, neither of which applies on Mac): from `tests/`, with
+`MACOS_HOME=~/dev/macos/macos_f90` and `MPLBACKEND=Agg` exported. Validated
+2026-07-24: CodeV `test_api_rx_grating.py test_masks.py` → 6601/6601;
+`proper_compare/` phase list → 26/26.
+
+## Critical gotchas
+
+### MODIFY required after direct coefficient writes
+Direct writes to `ZernCoef`, `MonZernCoef`, or `FFZernCoef` (via the
+`setEltSrf{Zern,MonZern,FFZern}…` wrappers) do **not** invalidate
+macos's per-element ZerntoMon cache.  Without calling `m.modify()`
+before the next `trace_rays()`, ZerntoMon reuses the old `MonCoef` /
+`FFCoef` and the trace silently returns nominal results — i.e.
+zero sensitivity.
+
+Sensitivity channels (`sensitivities/channels.py`) call `m.modify()`
+inside `apply()` and `restore()` for this reason; any new channel
+class that mutates coefficient arrays must do the same.
+
+### Pre-existing broken wrappers in `macos.py`
+- **`getEltSrfZern(iElt)`** calls `lib.api.getEltSrfZern`, which is
+  not the actual f2py name (`elt_srf_zrn_get`).  Will raise
+  `AttributeError`.  Use **`getEltSrfZernMode(iElt, modes)`** instead
+  (added in dr-dev2; routes through `elt_srf_zrn_coef`).
+- **`setEltSrfZernMode(iElt, modes, coefs)`** has an f2py-side error
+  path that triggers on single-mode calls ("(len(zernmode)>0) failed
+  for hidden ok").  Use **`setEltSrfZernCoef(iElt, modes, coefs)`**
+  instead (also added in dr-dev2).
+
+These older wrappers are untouched on purpose — too much downstream
+code may already use them.  The new symmetric pair is the safe path
+for new sensitivity / control code.
+
+### `getEltSrfZern` *can* match SrfType 8 or 13
+`elt_srf_zrn_coef` (the underlying Fortran for the Zern get/set
+wrappers) was loosened in dr-dev2 to also accept SrfType=ZrnGrData
+(=13).  Both store their Zernike component in `ZernCoef`; the pure
+Zernike check (`SrfType==8` only) was too restrictive.
+
+### `init()` is one-shot per process
+`_SYSINIT` / `_isRx` are module-level globals.  Changing `model_size`
+requires a fresh interpreter.  pymacos tests work around this by
+spawning subprocess per model-size when needed (see e.g.
+`run_broadband_*.py`'s `_spawn` pattern).
+
+### SMACOS dispatch path (when adding new commands)
+SMACOS dispatches via `#include "macos_cmd_loop.inc"` from
+`smacos.F:210` -- the SAME command loop the interactive macos uses.
+`macos_ops.F:MACOS_OPS` is NOT the SMACOS top-level dispatcher; it's
+only called from the inner optimization loop in `smacos_compute.inc`.
+When wiring a new SMACOS-callable command:
+1. Add the branch to `macos_cmd_loop.inc` (so both interactive and
+   SMACOS reach it).
+2. Add a `LoadStack` entry in `smacosutil.F` -- pushes args onto the
+   STACK that `IACCEPT_S` reads in SMACOS mode.  (Without this entry
+   the command's first arg becomes the next-command's `command`
+   variable, and you get "** Unknown command = SXP" -- the failure
+   I hit when SXP first didn't dispatch.)
+3. Pymacos Fortran wrapper that sets `command='X'`, fills `IARG`/
+   `CARG`, calls `SMACOS(...)`.  No need to do anything in
+   `macos_ops.F` unless you also want it invokable from optimization
+   loops.
+
+### SXP vs FEX for FP-perturbation dw/dx
+`m.fex()` defines the EP as the optical conjugate of the Stop --
+upstream-only chief-ray geometry, INSENSITIVE to FP motion.  Use
+`m.sxp()` instead when you want the EP radius to track the FP
+position (FEX clone with EP radius = chief-ray distance EP-to-FP,
+added on macos joint-dev).  `FocalPlaneChannel` modes in
+`sensitivities/channels.py`:
+- `track` (default): DOF-aware EP follow per the "EP sphere
+  centered on FP" physics.  Internal SXP-with-vpt-restore refines
+  radius without undoing the lateral/rotational EP motion.
+  Rotations rotate EP rigidly about FP's RptElt, NOT EP's own
+  RptElt -- direct vpt/psi/rpt setter geometry (m.perturb always
+  rotates about the element's own RptElt).
+- `sxp`: simple FP-perturb-then-SXP.  Captures FP-Tz (focus); FP-
+  Tx/Ty come out 0.
+- `srs`: macos's SRS sphere<-plane case is "not implemented" --
+  no-op for now.
+- `fex`: diagnostic only; gives 0 by construction of FEX.
+
+`--update-ep {sxp,fex}` is an opt-in for upstream-perturbation EP
+shifts.  Conflicts with `--fp-mode=track` -- the wf-side SXP
+overwrites the EP vpt that track set.  Pair `--fp-mode=sxp` with
+`--update-ep=sxp` for consistent behavior.
+
+### Group sensitivities via macos GPERTURB
+
+`GroupedRigidBodyChannel` dispatches the rigid-body group
+perturbation through macos's `GPERTURB` (= `CPERTURB_GRP_DVR` in
+funcsub.F) rather than synthesizing it in Python.  The factory
+`grouped_rigid_body_channels(...)` builds one channel per
+(group, DOF) and the driver consumes them inline with the per-
+element channels.
+
+Why GPERTURB and not Python-side linear superposition:
+rigid camera motion produces an EP/FP coupling that cancels two
+individually-huge column contributions (e.g. perturbing the
+Return reference of the EP alone shifts the OPD reference sphere
+by a huge amount; in the rigid motion that shift is cancelled by
+the FP moving with the camera).  Linear superposition of per-
+element columns can't reach that cancellation within numerical
+precision, so Reference/Return members had to be silently
+dropped from the synthesis -- a workaround that bias the answer
+unless the group geometry is well behaved.  GPERTURB perturbs the
+coupled members at once, so the cancellation falls out naturally.
+
+How the channel manages EltGrp: macos's `EltGrp(0:N, iElt)` data
+structure allows only one group per element.  Each channel
+`apply()` snapshots `ref_elt`'s current EltGrp, writes the
+desired members via `m.elt_grp(ref_elt, members)`, runs
+`m.prb_grp(ref_elt, 6vec, glb_csys=False)` -> `SMACOS('GPERTURB',
+...)`, and the original EltGrp is restored on the matching
+`restore()`.  Overlapping groups (the same element in multiple
+Python-side groups) work because each channel installs and
+tears down its own EltGrp around the perturbation.
+
+Optional FP follow-up for groups whose members include a
+FocalPlane element (controlled by `fp_mode` -- propagated from
+`--fp-mode` with `track` mapped to `auto`, since `track` has no
+group analog):
+- `none`: GPERTURB only; OPD is referenced to the rigidly-
+  dragged EP element.  This is the "ground-based metrology"
+  view -- the customer asks "what does this DOF do to the
+  wavefront in a fixed coordinate frame?".  Reproduces the prior
+  Python-side direct vpt/psi/rpt-setter rigid-body math to ~3
+  significant figures on Rx_e5hex1.in's Grp[9-13] Rx.
+- `sxp` (default in `auto` when FP is in the group): GPERTURB
+  then `SXP` to recompute the EP pose+radius from the post-
+  perturbation chief-ray geometry.  This is the "what the
+  sensor measures" view -- a rigid camera tilt is correctly
+  recovered as a small residual (= optical aberration internal
+  to the assembly), not as a large EP-referenced tilt.
+- `fex`, `srs`: same as the FocalPlaneChannel modes.
+
+Rx_e5hex1.in Grp[9-13] Rx, delta=1e-8, model_size=128:
+- `--fp-mode none` -> 1.207 (rigid camera tilt, EP-fixed view)
+- `--fp-mode sxp`  -> 8.86e-4 (rigid camera tilt is internally
+  cancelled when EP is re-derived from chief ray)
+
+### Source perturbations
+
+`SourceChannel` wraps `pymacos.macos.perturb_src` -- the iElt=0
+branch of macos's `CPERTURB` (funcsub.F:41-92), routed through
+`SMACOS('PERTURB', IARG(1)=0, DARG=6vec)`.  macos rotates
+`ChfRayDir`, `xGrid`, `yGrid` (and `SegXGrid` if segmented) and
+rigidly rotates `ChfRayPos` around `StopPos` -- so the chief ray
+is automatically re-aimed through the stop after a source
+rotation, no follow-up needed.
+
+`--src-stop-mode {obj,elt,none}` (default `obj`) controls an
+optional secondary re-aim through the stop on top of CPERTURB's
+built-in one.  For Rx_e5hex1.in (`ApStop= 0 0 0`) it's a no-op
+because CPERTURB already aimed through (0,0,0).  Set `none` when
+cross-checking against group perturbations that do not include a
+stop re-aim, otherwise the boundary conditions differ.
+
+For a collimated source (zSource >= 1e10): Tx/Ty/Tz at the noise
+floor (no OPD response, by translational invariance); Rx/Ry give
+a pure wavefront tilt; Rz at the noise floor (rotation about the
+beam axis is invariant).
+
+### Cross-check: source vs all-optics-group
+
+By Newtonian relativity, rotating the source by +δ is equivalent
+to rotating every optical element rigidly by -δ.  The dw/dx
+columns must satisfy this.  To get `cos = -1.000000` exactly:
+
+- Group must include EVERY element 1..nElt (incl. FP, Refs,
+  Returns).  Dropping bookkeeping surfaces breaks the rigid-body
+  identity.
+- Both source and group perturbations expressed in the SAME frame.
+  `--group-coords global` (default) ensures the group rotation axes
+  are global, matching the source's global ChfRayDir frame.  With
+  `--group-coords local` the group rotates about `ref_elt`'s TElt
+  axes, which for Rx_e5hex1.in is reflected relative to global ->
+  cos collapses to -0.87 with a 2x2 reflection in the (Rx, Ry)
+  cross-correlation.
+- `--src-stop-mode none` so neither side double-re-aims the stop
+  (CPERTURB's built-in aim is already consistent with GPERTURB
+  pivoting at `RptElt(ref_elt) = StopPos`).
+- `--fp-mode none` so the EP element is rigidly dragged with the
+  group, not re-derived from chief ray.
+
+Observed (Rx_e5hex1.in, model_size=128, delta=1e-8):
+- Rx, Ry: cos = -1.000000, scale = -1.000000
+- Rz: -1.0 (both at noise)
+- Tx, Ty, Tz: uncorrelated noise (both ~1e-3, dominated by
+  numerical precision; the physics predicts exactly 0)
+
+### Stop re-enforcement: who needs it, who doesn't
+
+`SourceChannel.apply` re-enforces the stop via `--src-stop-mode`
+(default `obj` -> `m.stop_obj(0,0,0)`).  This is **redundant for
+the source side**: macos's CPERTURB iElt=0 branch already rotates
+`ChfRayPos` rigidly around `StopPos` (funcsub.F:73-86), so the
+chief ray is intrinsically re-aimed.  The flag survives only as
+"belt and suspenders" + escape hatch when the prescription has no
+ApStop and a downstream tool wants to inject one.
+
+`GroupedRigidBodyChannel.apply` re-enforces the stop via
+`--group-stop-mode` (default `obj`).  GPERTURB **does not touch
+ChfRayDir or ChfRayPos** -- it only changes element poses.  So for
+the standard apply-from-nominal / measure / restore pattern the
+re-aim is also a no-op (the source wasn't perturbed; chief ray is
+still nominal; stop still trivially hit).  Verified empirically on
+Rx_e5hex1.in by comparing `--group-stop-mode=obj` vs `=none` with
+a deliberately off-StopPos pivot (group members reordered so
+ref_elt=Elt 8, RptElt ~ (0, -5479, -21308)): both modes gave
+identical cos=-1.000000 with residual 9.7e-7.
+
+Where the re-aim DOES matter: stacked-channel workflows that
+apply more than one channel before measuring (e.g. SourceChannel
+followed by GroupedRigidBodyChannel as part of a larger custom
+perturbation), or any future channel kind that does modify the
+chief ray.  Keeping `obj` as the default makes the channel
+robust to those compositions at the cost of one cheap
+`stop_obj` call per apply().
+
+### Direct dw/dx-matrix testing via predict_global_rigid_response
+
+`channels.predict_global_rigid_response(macos, dwdx, col_map,
+members, prb_global, pivot_global)` takes a per-element dw/dx
+block + a global rigid-body 6-vector + a global pivot and
+synthesizes the predicted OPD response WITHOUT calling macos
+again.  Useful for:
+
+- regression-testing the saved .mat file ("does the matrix know
+  about this perturbation?");
+- predicting the response of an arbitrary rigid body whose member
+  list / pivot / 6-vector differ from what was measured;
+- diagnosing per-element column bugs (a mismatch with the
+  separately-measured GPERTURB column localizes the bad columns).
+
+Math: for each member m with local-to-global rotation R_m and
+RptElt offset p_m from the pivot P,
+  theta_m_loc = R_m^T @ theta_global
+  T_m_loc     = R_m^T @ (T_global + theta_global × (p_m - P))
+  dw_pred    += Σ_j theta_m_loc[j] * dwdx[:, (m, R_j)]
+              + Σ_j T_m_loc[j]      * dwdx[:, (m, T_j)]
+
+**Unit gotcha:** the per-element translation columns are measured
+with `perturb(translation_m=...)` -- SI metres.  But
+`elt_rpt(m)` returns RptElt in the prescription's BaseUnits
+(typically mm).  `predict_global_rigid_response` calls
+`base_unit_to_metres()` and multiplies the offset by CBM so the
+cross-product `θ × (p_m - P)` produces metres, matching the
+column unit.  Without this conversion the prediction overshoots
+by 1/CBM (~1000x for an mm-BaseUnits Rx).
+
+**Coverage requirement:** `col_map` must hold columns for every
+(member, dof_idx) the group touches.  By default
+`rigid_body_channels` excludes Reference/Return surfaces;
+`--include-non-optics` in dw_dx.py opts them in so the saved .mat
+has full coverage.
+
+Validation (Rx_e5hex1.in, model_size=128, delta=1e-8,
+group=1..13 including the 2 Returns + FP, predicted at pivot
+RptElt(Elt 1)=(0,0,0)):
+- Rx prediction vs measured GPERTURB: relative residual 1.1e-5
+- Ry prediction vs measured GPERTURB: relative residual 1.0e-5
+- Rz, Tx/Ty/Tz: both sides at noise floor; differences are
+  noise-vs-noise.
+
+### What's in `group_W`
+
+`group_W` is the **rigid-body kinematics matrix** that maps a unit
+global rigid-body perturbation to the per-member local-frame
+perturbations it induces.  Cell array in the saved .mat: one entry
+per group, parallel to `group_names`.
+
+**Shape**: `(N_members * n_dof, 6)`.  For a 13-member group with
+all 6 DOFs requested: `(78, 6)`.
+
+**Rows** are ordered **element-major, DOF-minor** -- same order as
+the per-element block of `dwdx`.  Row index `(member_i, local_dof_j)
+= i * n_dof + j`.  The companion `group_member_dof_idx{k}` gives
+the 1-based column indices into `dwdx` for the same (member,
+local_dof) order, so MATLAB can directly slice
+`dwdx(:, cols) * W`.
+
+**Columns** are the 6 global rigid-body DOFs in canonical order:
+`(Rx, Ry, Rz, Tx, Ty, Tz)`.  Always 6, regardless of `--dofs`.
+
+**Each entry** is the per-member local-frame perturbation
+experienced under a unit global rigid-body perturbation.  For a
+unit global rotation `θ̂_g` about global axis g, member m at offset
+`p_m` from the group pivot P, with local-to-global rotation `R_m`:
+
+  `W[(m, Rx_loc..Rz_loc), g] = R_m^T @ θ̂_g`       (rad/rad, unitless)
+  `W[(m, Tx_loc..Tz_loc), g] = R_m^T @ (θ̂_g × (p_m − P))`   (metres)
+
+For a unit global translation `T̂_g`:
+
+  `W[(m, Rx_loc..Rz_loc), g] = 0`                  (translation makes no rotation)
+  `W[(m, Tx_loc..Tz_loc), g] = R_m^T @ T̂_g`        (m/m, unitless)
+
+**Example** (Rx_e5hex1.in Grp[all]=[1..13], global Rx column):
+```
+member       Rx          Ry          Rz          Tx          Ty          Tz
+Elt 1   +8.66e-01   -5.00e-01   +0          +0          +0          +0
+Elt 2   +8.66e-01   -5.00e-01   -2.59e-02   +6.90e-02   +4.01e-05   +2.31e+00
+```
+Reading Elt 1: a unit global Rx rotation shows up as 0.866 local-Rx
++ −0.500 local-Ry (Elt 1's frame is rotated 30° about z relative to
+global → `cos(30°)/sin(30°)` mix), and zero local translation
+because Elt 1's RptElt sits at the pivot.  Reading Elt 2: same
+rotation mix (segments share local frame), plus 2.31 m of local-Tz
+translation because Elt 2 is offset from the pivot by ~70 mm and
+the rotation about global-x folds into local-z via R_m^T.
+
+**Units**: `group_W` is in SI -- rotation rows unitless,
+translation rows in metres.  Independent of the `--rot-output`
+choice for `dwdx`.
+
+  - In `--rot-output natural` (default): `dwdx` is in OPD-in-m per
+    SI perturbation, W matches it, identity holds exactly.
+  - In `--rot-output base-per-rad`: rotation columns of `dwdx` get
+    an extra `1/cbm` scaling that W doesn't know about.  The
+    identity holds for translation columns only; for rotation
+    columns the user must divide the saved column by `cbm` before
+    comparing.
+
+**Three uses** of W -- all from
+`dwdx_group[:, g] = dwdx_perelt[:, cols] @ W[:, g]`:
+
+1. **Consistency check** on a measured Jacobian.  Mismatch in one
+   row localizes the bad member's per-element column.  Validated
+   on Rx_e5hex1.in: `cos = +1.000000`, residual 1e-5 on Rx,Ry.
+2. **Predict the response of a different rigid-body group**
+   without re-running pymacos: build a new W with different
+   members or a different pivot, multiply against the same per-
+   element columns.
+3. **Decompose a group response** into per-member contributions:
+   each row of `W[:, g]` tells you which member-DOF carries how
+   much of the load for global DOF g.
+
+### `.mat` fields for group synthesis
+
+`dw_dx.py` writes three parallel cell arrays per group:
+
+- `group_W{k}`               -- (N_rows, 6) weight matrix per above
+- `group_member_dof_idx{k}`  -- (N_rows, 1) 1-based column indices
+                                 into `dwdx` for the corresponding
+                                 (member, local_dof) entries
+- `group_member_idx{k}`      -- (N_members, 1) member element IDs
+
+MATLAB usage:
+```matlab
+cols      = group_member_dof_idx{k};
+dwdx_pred = dwdx(:, cols) * group_W{k};        % (Nw, 6)
+dwdx_meas = dwdx(:, find_group_columns(k));    % from channel_names
+residual  = dwdx_pred - dwdx_meas;             % near machine noise on
+                                               % physically well-conditioned DOFs
+```
+
+The default pivot used to build each `group_W{k}` is
+`RptElt(first member)` -- i.e. the same pivot macos's GPERTURB
+uses when the channel's `ref_elt` is the first member.  If you
+re-build W in post-processing with a different pivot, you can
+predict the same group's response about that alternative pivot
+without re-running pymacos.
+
+### dwdx units: the "natural" output convention
+
+The saved `dwdx` matrix in `dwdx_<rx>.mat` is in **OPD-in-metres per
+SI perturbation** by default.  This is the universal numerical
+convention that gives the SAME numbers whether you think in (m, rad)
+or (mm, mrad) -- the OPD numerator and the perturbation denominator
+both rescale by the same factor and cancel.  Concretely:
+
+- Translation columns:  `OPD_m / dx_m`   = dimensionless ratio
+                         (= `OPD_mm / dx_mm` for a mm Rx, etc.)
+- Rotation columns:     `OPD_m / dx_rad` = metres per radian
+                         (= `OPD_mm / dx_mrad` for a mm Rx)
+
+Internally the channels stay SI: `RigidBodyChannel`, `SourceChannel`,
+`GroupedRigidBodyChannel` all take rotations in rad and translations
+in metres via the `m.perturb()` / `m.perturb_src()` wrappers.  The
+unit rescaling is a per-column post-multiply applied inside the
+measurement loop in `dw_dx.py` so the printed `[dwdx]` RMS lines
+already reflect the saved values.
+
+`dw_dx.py` ERRORS OUT if the loaded Rx hasn't declared `BaseUnits=`,
+because the OPD-in-BaseUnits → OPD-in-metres rescaling needs the CBM
+factor.  The error message tells the user to add a `BaseUnits=` line
+to the Rx header.
+
+`--rot-output base-per-rad` opt-in: post-multiplies rotation columns
+by `1/cbm` so they read OPD-in-BaseUnits per rad (e.g. mm/rad for a
+mm Rx).  Translation columns are unchanged.  Useful when you want
+rotation sensitivities displayed in the Rx's native length unit per
+radian.  group_W is computed in the SI/natural convention; the
+synthesis identity still holds for translation columns but not for
+the rescaled rotation columns (user divides by cbm to compare).
+
+`.mat` metadata fields:
+- `rot_output`: 'natural' or 'base-per-rad'
+- `base_units`: 'm', 'mm', 'cm', 'in' (the Rx's BaseUnits string)
+- `cbm`: BaseUnits→m conversion factor (e.g. 1e-3 for mm)
+
+The Zernike driver `dw_dz_zernike.py` stamps the same three metadata
+fields, but its dwdz is naturally a dimensionless ratio
+(OPD-in-BaseUnits per coef-in-BaseUnits, both fed through macos in
+BaseUnits) so no rescaling is applied -- `rot_output` is always
+`'natural'` there.  The BaseUnits requirement still holds (the
+driver errors out if `BaseUnits=` is missing from the Rx) so the
+.mat carries the unit context consistently with the dw_dx .mat.
+
+### dw/dx noise floor: where it comes from (and what doesn't help)
+
+For a collimated source on Rx_e5hex1.in at delta=1e-8, the
+noise-floor "signal" on a DOF that should be physically zero
+(Src Tx/Ty/Tz, Grp[all] Tx/Ty/Tz) sits around **~1e-3 OPD/m**
+(equivalently ~1 nm OPD response per 1 mm rigid-body translation).
+Sufficient for HWO at typical perturbation deltas; this section
+documents what governs it so it's not relitigated.
+
+**Tightening Brent solver TOL in surfsub.F won't help.**  The
+Brent convergence test uses
+    `TOL1 = 2*EPS*ABS(B) + 0.5*TOL`
+where `EPS = εmach ≈ 2.22e-16` and B is the ray path length being
+solved for.  For typical optics with B ~ 1000 mm, the
+`2*EPS*|B| ~ 4e-13 mm` floor dominates.  SFFZPSolve already
+passes TOL=2e-15 (line 2089), AZPSolve at one call site uses
+1e-14 (line 918) and at the other 1e-16 (line 1184, the latter
+Dave-tightened in 2016) -- but the 0.5*TOL contribution is
+~1e-15 or less, so the EPS floor pins TOL1 the same way regardless.
+Every ray-surface intersection in a typical macos trace is
+already solved to ~4 femtometers of L precision.
+
+GSZPSolve and UDSZPSolve (legacy ZrnGridData / User-Defined
+surfaces, surfsub.F:1309 + 2949) DO use looser `tol=1d-10`, but
+neither shows up in Rx_e5hex1.in's trace -- FreeForm uses
+SFFZPSolve, not GSZPSolve.
+
+**The actual noise floor is in the OPD assembly downstream of
+the trace** -- the differential between chief-ray and grid-ray
+cumulative path lengths (each ~1e5 mm), or the reference-sphere
+fit at the EP, or central-difference `(w_+ - w_-)/(2*delta)`
+where each `w_±` is itself a sum of these subtractions.  Each
+w vector is precise to ~1e-13 mm in absolute terms; dividing
+by 2*delta = 2e-8 gives ~5e-6 OPD/m as a back-of-envelope
+floor, which is within an order of magnitude of what we see.
+
+Options if a future task needs to push below this:
+1. **Richardson extrapolation** in `dw_dx.py` -- measure at
+   ±d and ±d/2 to subtract out the leading numerical-error
+   term.  ~2× measurement cost.
+2. **Analytic differential** instead of finite-difference --
+   compute path-length sensitivities once per element via
+   adjoint methods.  Major refactor.
+3. **Rewrite the macos OPD assembly** with Kahan summation or
+   analytic differential at the cancellation hotspot.  Needs
+   a profiling pass first to identify the lossy site.
+
+None of these are needed for HWO at the current delta scale.
+
+### New wrappers 2026-10-03 (engine detail in macos_f90/CLAUDE.md)
+- `calib_set_beam(kind, srf, target, on)`, `calib_set_beam_pos_fov(pos)`,
+  `calib_set_beam_wt(wt, centroid)`: CALIB beam rows on ANY target, per-field
+  position targets, the ray centroid.  CALIB's field 1 is the source as
+  CURRENTLY set; the optimizer grid defaults to `nGridpts/2-1` (`OptRayGrid=`).
+- `ffcut(on)` / `ffcut()` -> `(on, npix)`: the far-field evanescent cut
+  (|x| > dz zeroed on far-field legs).  Gate `tests/test_ffcut.py`.
+- f2py shims live in `src/cmake/source/pymacos_f2py.f90` (the `_impl =>`
+  rename list + a pass-through subroutine each) -- GENERATED since 2026-10-16:
+  re-run `mmacos/src/gen_mex_wrappers.py`, then `make` in `src/cmake/build`.
+
+## Key files
+
+| File | Role |
+|------|------|
+| `src/cmake/source/pymacos_f2py.f90` | `MODULE api` — thin forwarding wrappers, GENERATED by `mmacos/src/gen_mex_wrappers.py` (hints from `mmacos/src/binding_overrides.py`).  Each routine carries the `!f2py` annotations needed to derive a clean Python signature and calls the corresponding `macos_api_mod` routine.  f2py parses ONLY this file. |
+| `src/pymacos/api_gen.py` | GENERATED: one stub per api routine (f2py args; ok → `ApiError`; outputs returned), `API_ROUTINES`, `F2PY_SIGNATURES`. |
+| `~/dev/macos/macos_f90/macos_api_mod.F90` | `MODULE macos_api_mod` — language-neutral SMACOS-call backbone (~4300 LOC), one wrapper per public entry; held in `libsmacos.a` since §5.2.  Shared with mmacos. |
+| `src/pymacos/macos.py` | typed Python API — input validation, state globals, raises Exception on Fortran-side failure. |
+| `src/pymacos/__init__.py` | Win DLL search-path shim; re-exports `macos`. |
+| `tests/sensitivities/channels.py` | `ZernikeCoefChannel` + Rx-parse helpers.  Calls `m.modify()` in `apply/restore`. |
+| `tests/sensitivities/jacobian.py` | `sensitivity_jacobian(channels, wf_func, delta)` — central/forward FD engine. |
+| `tests/sensitivities/dw_dz_zernike.py` | dw/dz driver (Zernike-coef perturbations); writes `.mat` in m2v.m convention. |
+| `tests/sensitivities/dw_dx.py` | dw/dx driver (rigid-body perturbations).  `RigidBodyChannel` + DOF-aware `FocalPlaneChannel` (track/sxp/srs/fex/none) + `GroupedRigidBodyChannel` (macos GPERTURB, global or local coords) + `SourceChannel` (macos `PERTURB` iElt=0); `--include-source`, `--include-non-optics`, `--group-coords`, `--update-ep` opt-ins. |
+| `tests/proper_compare/run_broadband_vortex.py` | Cycle 5 vortex coronagraph driver. |
+| `tests/Rx/e5hex1.in` | local copy of `~/dev/macos/ZGD_test_files/e5hex1.in` — sensitivity-matrix test Rx (7 hex segments + FreeForm lens).  Contains `ApStop= 0 0 0` (object-space stop) because the segmented primary is the natural stop but pymacos's `stop()` refuses Segment surfaces. |
+
+## .mat output convention (sensitivities)
+
+Modelled on `~/matlab/m2v.m`.  First call extracts non-zero pixels of
+the nominal OPD column-major; same mask reused for every column of
+the Jacobian, so a MATLAB workflow can take a fresh measurement and
+call `w = m2v(opd_meas, indx)` to line up row-for-row with `dwdz`.
+
+Variables in `dwdz_<rx_stem>.mat`:
+- `dwdz`           — `(Nw, Nz)` float64 Jacobian
+- `w_nom`          — `(Nw, 1)`  float64 nominal wavefront vector
+- `indx`           — struct `{i: float64 col, j: float64 col, size: 1×2 float64}`
+- `channel_names`  — `(Nz, 1)` cell array of strings
+                      ("Elt 4 MonZern15", etc.)
+- `nGridPts`       — float64 scalar (= mat_shape(1))
+- `mat_shape`, `model_size`, `wf_elt`, `delta`, `n_zcoef`,
+  `zmode_start` — float64 (MATLAB prefers loaded scalars as doubles;
+   `int64` surprises arithmetic downstream)
+- `rx`, `method`, `kinds` — strings / cellstr
+
+If you add fields, cast to `float64` for numeric values and `object`
+ndarray for cellstr.
+
+## Tests
+
+- **CodeV cross-validation**:  `pytest test_api_rx_grating.py test_masks.py`
+  (geometric paths; 6601 tests).
+- **PROPER cross-validation**: `pytest proper_compare/` or
+  `./run_proper_tests.sh` (physical-optics; subprocess-per-phase to
+  avoid model-size leak).
+- **Sensitivities**: not a pytest suite — run
+  `tests/sensitivities/run_dw_dz_zernike.sh` and then MATLAB's
+  `verify_dwdz.m` (in the same directory) against the loaded .mat.
+
+## Recent activity (May 2026)
+
+- **dr-dev2 branch**: sensitivity-matrix engine (this file, channels,
+  Jacobian, .mat output, MATLAB verify).  Two drivers:
+  - `dw_dz_zernike.py` -- Zernike-coef perturbations (Zern, MonZern,
+    FFZern).  Default Rx `e5hex1.in` at model_size=256, modes 4..45
+    → 378-channel Jacobian.
+  - `dw_dx.py` -- rigid-body perturbations (Rx,Ry,Rz,Tx,Ty,Tz per
+    actual optic).  `FocalPlaneChannel` with track/sxp/srs/fex modes;
+    `--update-ep {sxp,fex}` opt-in for upstream EP-shift capture.
+  Both drivers write `.mat` files in m2v.m convention and emit a
+  per-element panel figure.  Shell wrappers `run_dw_dz_zernike.sh` /
+  `run_dw_dx.sh` handle Intel oneAPI + venv setup.
+  Companion pymacos wrappers `sxp()`, `srs()`, `ors()` for the EP/FP
+  setup workflow (FEX → ORS → SRS).  `sxp()` requires the SXP
+  command on the macos side (joint-dev `ca2f82b`).
+- **dr-dev branch (merged via main?)**: Cycle 5 vortex coronagraph
+  + oversized-rays scheme.  `apodize_complex` wrapper, FreeForm
+  surface helpers (`findFreeFormElts`, the Mon/FFZern get/set pairs).
+
+## DM phase-imprint validation (Phase 6, May 2026)
+
+Two-part validation of how macos handles DM-like phase imprints,
+both in absolute (macos vs PROPER) and self-consistency (macos
+apodize_complex vs grid-surface) terms.
+
+### Phase 6b: post-trace phase imprint vs PROPER
+
+`tests/proper_compare/test_coro_dm_phase.py` runs three OPD shapes
+(defocus Z4, 5-cycle x-sinusoid, low-pass filtered noise at
+k_max=12 cycles/pupil-radius, all at lambda/20 RMS) through:
+
+  macos:  `m.apodize_complex(elt5, exp(i*2*pi*OPD/lambda))` + NF
+          propagation Elt 5 -> Elt 6
+  PROPER: same wavefront pre-imprint + `prop_add_phase(opd)` +
+          `prop_propagate` over the same 774 mm
+
+Result: **cos = +1.000000, sum-norm RMS residual 1.16e-9**, same
+Phase 3a numerical floor for all three OPD shapes.  The OPD shape
+doesn't matter at this floor -- both engines treat post-trace
+phase imprinting identically.
+
+### Phase 6c: macos self-consistency (post-trace vs grid-surface)
+
+`tests/proper_compare/test_coro_dm_grid_self.py` compares:
+
+  Method A: macos `m.apodize_complex` at Elt 5 -- post-trace
+  Method B: macos `m.elt_grid` at Elt 4 with `surface = OPD/2`
+            (reflector OPD = 2 * surface displacement) -- the
+            physically-correct ray-trace through the deformed
+            mirror
+
+Rx_Coro_DM.in is a copy of Rx_Coro_noLyot.in with Elt 4 changed to
+`Surface=FreeForm` carrying a grid surface.  Two detector planes
+(Elt 6 NF, Elt 21 focal) x three OPD shapes = six parameterised
+cases.
+
+**Key findings:**
+
+1. The post-trace method (A) and ray-trace method (B) **differ**.
+   The diff is NOT a numerical artifact -- bumping mGridMat from
+   128 to 1024 doesn't change defocus or sinusoid residuals.
+2. Smooth shapes (defocus, sinusoid): max residual at Elt 21 is
+   1.3e-3 (defocus) to 9.5e-3 (sinusoid) peak-normalised.  The
+   residual structure tracks the satellite-spot locations the
+   OPD's spatial frequency produces at the focal plane.
+3. High-freq content (filtered noise k_max=12): max residual
+   1.3e-2 at mGridMat=128, 8.7e-3 at mGridMat=1024 (the bump
+   helps).  The downstream grid spacing dx_at(21) also shifts
+   between methods (4% at 128, 2.5% at 1024).
+4. Therefore PROPER's `prop_add_phase` (and `prop_dm`, which uses
+   `prop_add_phase` internally) is a **post-trace approximation**
+   that systematically underestimates the diffractive coupling of
+   a deformed mirror by ~1e-4 at the focal plane.  For HWO ~1e-10
+   contrast targets this matters; for first-cut design at ~1e-6 it
+   doesn't.
+
+### elt_grid convention gotcha
+
+`m.elt_grid(srf, dx, grid_dz)` in `src/pymacos/macos.py` transposes
+its input array before handing to Fortran:
+
+    grid_dz = np.asarray_chkfinite(grid_dz.T, dtype=np.float64, order='F')
+
+while `m.apodize_complex(srf, mask)` does NOT transpose.  Result: an
+OPD array `arr[i, j]` is interpreted as `(y, x)` by apodize_complex
+and as `(x, y)` by elt_grid.  Symptom: focal-plane satellite spots
+appear 90 rotated between the two methods for asymmetric OPD shapes.
+
+Workaround in `test_coro_dm_grid_self.py`: pass `opd_surface.T` to
+`elt_grid()` so both methods see the same logical convention.  The
+"right" fix is to remove the transpose in `macos.py` so both
+wrappers agree (deferred -- callers that already rely on the
+current convention would break).
+
+### mGridMat=1024 for model 1024
+
+`src/pymacos/macos_param.txt` and `tests/macos_param.txt`: bumped
+`mGridMat` in the `&macos_param1024` block from 128 to 1024 so the
+grid-surface DM can match the WFElt sampling 1:1.  No source-code
+recompile needed -- `mGridMat` is a runtime allocation parameter.
+
+### Rx_Coro_DM.in
+
+Copy of Rx_Coro_noLyot.in with Elt 4 (the "DM" flat reflector)
+changed from `Surface=Flat` to `Surface=FreeForm` with
+`nGridMat=1024 GridSrfdx=0.33382 mm` and trivial pData/xData/yData/
+zData orienting the grid frame to the global frame.  The grid is
+zero-initialised; the test populates it at runtime via
+`m.elt_grid(4, dx, surface)`.

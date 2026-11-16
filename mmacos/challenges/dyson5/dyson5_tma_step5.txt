@@ -1,0 +1,23 @@
+dyson5 round 4 step 5 (CCMac) -- freeform on the outer field (2026-10-04 22:58)
+one bounded Zernike rung per module on the stage-B CONIC section: modes ANSI [4 5 6 7 8 9 10 13 25] on M[1 2 3], lMon = footprint radius,
+conic-base + Zernike departure over the FULL strip incl. edges; beam_pos_fov = 330 mm*tan(theta) at beam_wt 0.1 holds the plate scale.
+spot = best-focus rms radius (um) per field FROM THE TRACE (so the 3k edges are scored even where CALIB drops them).
+
+===== module 1k5: parent R=[0.36667 0.099815 0.16162] t=[0.14769 0.043507], bias -3 deg, decenter 160 mm, strip +-2.34 deg =====
+stage-B conics K = [-1.2036 -6.9055 -15.3708] (tA rung 4)
+  before (conics):  374.2 456.5 500.9 513.3 500.9 456.5 374.2                worst 28.5 px, ctr 28.52 px, plate 329.9 mm
+  after (freeform): 202.0 124.6  95.2  89.2  94.7 123.9 201.6                worst 11.2 px, ctr 4.96 px, plate 324.1 mm
+  WFE per CALIB field  before [613905 461780 542638 595523 595523 542638 461780]  after [6097 11715 6441 6514 6468 6425 11641] nm
+  lMon = [104.3 31.8 26.3] mm; clearance PASS (min clearance +7.2 mm at M3; 0 conflicts); len 147.7 mm, M2 59.2, M3 56.2, mass 0.79 kg
+  deck: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step5_1k5.in
+  layout: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step5_layout_1k5.png
+
+===== module 3k: parent R=[0.36667 0.099815 0.15868] t=[0.14769 0.042036], bias -4 deg, decenter 180 mm, strip +-4.69 deg =====
+stage-B conics K = [-1.2528 -8.8692 -14.8962] (tA rung 3)
+  before (conics):  568.1 628.1 935.51035.2 935.5 628.1 568.1                worst 57.5 px, ctr 57.51 px, plate 321.0 mm
+  after (freeform): 841.4 343.8 337.2 380.2 336.3 341.8 840.8                worst 46.7 px, ctr 21.12 px, plate 319.9 mm
+  WFE per CALIB field  before [1456564 514870 972431 1322894 1322894 972431 514870]  after [35703 70723 35363 33612 33618 35384 70764] nm
+  lMon = [109.8 41.0 39.1] mm; clearance PASS (min clearance +10.9 mm at M2; 0 conflicts); len 147.7 mm, M2 81.5, M3 85.0, mass 0.93 kg
+  deck: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step5_3k.in
+  layout: /Users/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step5_layout_3k.png
+

@@ -12,6 +12,31 @@ C***********************************************************************
 C  jwstG.F - MEXFUNCTION gateway function, f90 version of jwstG.f
 C***********************************************************************
 
+C***********************************************************************
+C Debug output (verbose MEX-gateway traces)
+C
+C   By default the verbose 'GMIG: M, N =', '**-->GMIG: Aft PLHS(N)',
+C   'After getting return pointers', etc. prints are silent.  To
+C   enable them at runtime, set the environment variable GMI_DEBUG to
+C   a non-empty value before calling the MEX:
+C
+C     >> setenv('GMI_DEBUG','1')        % from MATLAB, turn debug ON
+C     >> test_gmi_ff                    % verbose stream now appears
+C     >> setenv('GMI_DEBUG','')         % turn it back OFF
+C
+C   This file shares the toggle with GMI.F: the module-scope `Debug`
+C   logical lives in GMI_mod (declared in GMI.F) and is updated at
+C   mexfunction entry by `CALL ReadDebugEnv`, which re-reads the env
+C   var every call.  GMI_DVR re-reads it again on entry so toggling
+C   between MEX invocations takes effect immediately on both sides.
+C
+C   When adding new diagnostic prints here, gate them with
+C   `IF (Debug) print*,...` so they obey the same toggle.  Error-path
+C   messages (e.g. 'matlab Nprb =', 'mpgrid =') are kept unconditional
+C   because they only fire on bad input and lead straight to a
+C   mexErrMsgTxt abort — that's a real error, not noise.
+C***********************************************************************
+
 
 	SUBROUTINE mexfunction(NLHS, PLHS, NRHS, PRHS)
 
@@ -40,18 +65,20 @@ C  This is the SMACOS user COMMON
 	INCLUDE 'GMI.inc'
 
 	LOGICAL :: ifInitOptics,ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,
-     &	  	   ifprad,ifpimg,ifpflg,ifMetGMIG,ifPfGMIG
+     &	  	   ifprad,ifpimg,ifpflg,ifMetGMIG,ifPfGMIG,
+     &             ifpmonzern
 
 	INTEGER :: i,M,N,mxGetN,mxGetM,mxGetString,mxIsChar,
      &	  	   NLHS,NRHS,nPix,nPos,nProc,myProc,myPart,
      &	  Nprb,Npzern,Npgrid,Npdm,Npfa,Nprad,Npimg,Npflg,
-     &	  model_size_in,gsStatus,szUSER,m_err_jwstG,dim1
+     &	  model_size_in,gsStatus,szUSER,m_err_jwstG,dim1,
+     &    Npmonzern
 
 	MWPOINTER :: PLHS(*),PRHS(*),mxGetPr,mxCreateDoubleMatrix,
      &	  prbP,pzernP,pgridP,pdmP,pfaP,pradP,pimgP,pflgP,
      &	  InfFcnZernP,InfFcnGridP,PixArrayP,OPDP,spotP,metMeasP,
      &	  WFEP,CENTP,USERP,msp,dPosP,dAngleP,mxCreateDoubleScalar,
-     &    StrCmdP,RealEFdArrayP,ImagEFdArrayP,OPDMaskP
+     &    StrCmdP,RealEFdArrayP,ImagEFdArrayP,OPDMaskP,pmonzernP
 
 	REAL*8, dimension(:),   allocatable, save :: OPD,PIX,USER,
      &                          RealEFd,ImagEFd,OPDMask
@@ -59,8 +86,8 @@ C  This is the SMACOS user COMMON
 
 	REAL*8 prb(mprb),pzern(mpzern),pgrid(mpgrid),pdm(mpdm),
      &	  pfa(mpfa),prad(mprad),WFError,CENT(2),
-     &	  pimg(mpimg),pflg(mpflg),InfFcnZern(15),InfFcnGrid(mgrid,
-     &    mgrid),msbuf(1)
+     &	  pimg(mpimg),pflg(mpflg),InfFcnZern(mzern),InfFcnGrid(mgrid,
+     &    mgrid),msbuf(1),pmonzern(mpzern)
 
         REAL*8, dimension(:,:), allocatable, save :: dPos, dAngle
 
@@ -88,17 +115,23 @@ C        REAL*8 D_CEIL
 ! INTERFACE definition
 ! ------------------------------------------------------------------------------
 
- 	IF (NRHS .NE. 13)
-     &	  CALL mexErrMsgTxt('GMI requires 13 input arguments')
+ 	IF (NRHS .NE. 14)
+     &	  CALL mexErrMsgTxt('GMI requires 14 input arguments')
 	IF (NLHS .NE. 10)
      &	  CALL mexErrMsgTxt('GMI requires 10 output argument')
 
 
 ! ------------------------------------------------------------------------------
+! Re-read GMI_DEBUG env var so this call's prints obey the current setting.
+! See top-of-file comment in GMI.F for usage.
+! ------------------------------------------------------------------------------
+        CALL ReadDebugEnv
+
+! ------------------------------------------------------------------------------
 ! Check for process number argument
 ! ------------------------------------------------------------------------------
         M = mxGetM(PRHS(13)); N = mxGetN(PRHS(13))
-        print*,'GMIG: M, N =',M,N
+        IF (Debug) print*,'GMIG: M, N =',M,N
         if (M /= 1 .or. N /= 1) then
           CALL mexErrMsgTxt
      &      ('nProc argument must be a scalar value')
@@ -107,9 +140,9 @@ C        REAL*8 D_CEIL
         !Call mxCopyPtrToReal8(msp,msbuf,1)
         Call mxCopyPtrToReal8(msp,msbuf,mxGetNumberOfElements(PRHS(1)))
         nProc=msbuf(1)
-	print*,'---GMI: nProc = ',nProc
+	IF (Debug) print*,'---GMI: nProc = ',nProc
 
-        print*,'----GMI: **(elt_mod) mPolySide =', mPolySide 
+        IF (Debug) print*,'----GMI: **(elt_mod) mPolySide =', mPolySide
 
 ! ------------------------------------------------------------------------------
 ! Check for model size
@@ -122,7 +155,7 @@ C        REAL*8 D_CEIL
         msp = mxGetPr(PRHS(12))
         Call mxCopyPtrToReal8(msp, msbuf, mxGetNumberOfElements(PRHS(12)))
         model_size_in = msbuf(1)
-        print*,'---GMI: model_size_in = ', model_size_in
+        IF (Debug) print*,'---GMI: model_size_in = ', model_size_in
 
 
 	! Initialize or reset SMACOS model
@@ -186,7 +219,7 @@ C        REAL*8 D_CEIL
 	M    = mxGetM(PRHS(4))
 	N    = mxGetN(PRHS(4))
 	Npdm = MAX(M,N)
-	print*,'** prhs4: M,N,Npdm,mpdm = ',M,N,Npdm,mpdm
+	IF (Debug) print*,'** prhs4: M,N,Npdm,mpdm = ',M,N,Npdm,mpdm
 	IF ((Npdm.LE.mpdm).AND.(MIN(M,N).LE.1)) THEN
 	  ifpdm = .NOT.(Npdm.LE.1)
 	ELSE
@@ -271,8 +304,8 @@ C        REAL*8 D_CEIL
 	IF (ifpdm) THEN
 	  M = mxGetM(PRHS(9))
 	  N = mxGetN(PRHS(9))
-	  IF ((MAX(M,N).NE.15).OR.(MIN(M,N).NE.1)) THEN
-	    CALL mexErrMsgTxt('InfFcnZern must be 15x1')
+	  IF ((MAX(M,N).NE.mzern).OR.(MIN(M,N).NE.1)) THEN
+	    CALL mexErrMsgTxt('InfFcnZern size must match Fortran mzern')
 	  END IF
 
 	  M = mxGetM(PRHS(10))
@@ -286,6 +319,19 @@ C        REAL*8 D_CEIL
         if (gsStatus.ne.0) then
           call mexErrMsgTxt('prescription filename too long')
         endif
+
+        ! ----------------------------------------------------------------------
+        ! pmonzern (PRHS(14)) -- mirrors pzern, but for FreeForm Mon component
+        ! ----------------------------------------------------------------------
+        M         = mxGetM(PRHS(14))
+        N         = mxGetN(PRHS(14))
+        Npmonzern = MAX(M,N)
+        IF ((Npmonzern.LE.mpzern).AND.(MIN(M,N).LE.1)) THEN
+          ifpmonzern = .NOT.(Npmonzern.LE.1)
+        ELSE
+          CALL mexErrMsgTxt('pmonzern must be scalar, empty or a '//
+     &                      'mpzern x 1 matrix')
+        END IF
 
 ! ------------------------------------------------------------------------------
 ! Assign pointers to input arguments
@@ -303,6 +349,7 @@ C        REAL*8 D_CEIL
 	IF (ifprad) pradP = mxGetPr(PRHS(6))
 	IF (ifpimg) pimgP = mxGetPr(PRHS(7))
 	IF (ifpflg) pflgP = mxGetPr(PRHS(8))
+	IF (ifpmonzern) pmonzernP = mxGetPr(PRHS(14))
 
 ! ------------------------------------------------------------------------------
 ! Get values for input arguments
@@ -335,6 +382,8 @@ C        REAL*8 D_CEIL
         IF (ifprad) CALL mxCopyPtrToReal8(pradP, prad, mxGetNumberOfElements(PRHS(6)))
         IF (ifpimg) CALL mxCopyPtrToReal8(pimgP, pimg, mxGetNumberOfElements(PRHS(7)))
         IF (ifpflg) CALL mxCopyPtrToReal8(pflgP, pflg, mxGetNumberOfElements(PRHS(8)))
+        IF (ifpmonzern) CALL mxCopyPtrToReal8(pmonzernP, pmonzern,
+     &      mxGetNumberOfElements(PRHS(14)))
         
 
 	IF (ifpgrid.AND..NOT.ifprb) THEN
@@ -358,9 +407,10 @@ C        REAL*8 D_CEIL
      &          pfa,prad,pimg,pflg,
      &		ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,ifprad,ifpflg,
      &		ifInitOptics,nPix,Npimg,InfFcnZern,InfFcnGrid,
-     &          fname,curr_model_size,myProc,nProc)
+     &          fname,curr_model_size,myProc,nProc,
+     &          pmonzern,ifpmonzern)
 
-        print*,'************** -->GMIG: After GMI_DVR'
+        IF (Debug) print*,'************** -->GMIG: After GMI_DVR'
 
 
 ! ------------------------------------------------------------------------------
@@ -373,27 +423,27 @@ C        REAL*8 D_CEIL
 ! Create matrices for return arguments
 ! ------------------------------------------------------------------------------
 
-        print*,
+        IF (Debug) print*,
      &    '**-->GMIG: nPix, nGridPts, nMetMeas,mElt =',
      &    nPix,nGridPts,nMetMeas,mElt
         If (iSpot==0) iSpot = 1  ! make sure iSpot positive
-        print*,'iSpot =',iSpot
+        IF (Debug) print*,'iSpot =',iSpot
 	PLHS(1) = mxCreateDoubleMatrix(nPix,nPix,0)
 	PLHS(2) = mxCreateDoubleMatrix(nPix,nPix,0)
 	PLHS(3) = mxCreateDoubleMatrix(nPix,nPix,0)
 	PLHS(4) = mxCreateDoubleMatrix(nGridPts,nGridPts,0)
         PLHS(5) = mxCreateDoubleMatrix(nGridPts,nGridPts,0)
-        print*,'**-->GMIG: Aft PLHS(5)'
-#if 1 
+        IF (Debug) print*,'**-->GMIG: Aft PLHS(5)'
+#if 1
 	PLHS(6) = mxCreateDoubleMatrix(2,iSpot,0)
-        print*,'**-->GMIG: Aft PLHS(6)'
+        IF (Debug) print*,'**-->GMIG: Aft PLHS(6)'
 	PLHS(7) = mxCreateDoubleMatrix(1,1,0)
-        print*,'**-->GMIG: Aft PLHS(7)'
+        IF (Debug) print*,'**-->GMIG: Aft PLHS(7)'
 	PLHS(8) = mxCreateDoubleMatrix(2,1,0)
 	PLHS(9) = mxCreateDoubleMatrix(max(nMetMeas,1),1,0)
 	PLHS(10) = mxCreateDoubleMatrix(mElt,1,0)
 #endif
-        print*,'**-->GMIG: After return array memeory alloc'
+        IF (Debug) print*,'**-->GMIG: After return array memeory alloc'
 
 ! ------------------------------------------------------------------------------
 ! Assign pointers to return arguments
@@ -410,7 +460,7 @@ C        REAL*8 D_CEIL
 	metMeasP   = mxGetPr(PLHS(9))
 	USERP     = mxGetPr(PLHS(10))
 
-        print*,'After getting return pointers'
+        IF (Debug) print*,'After getting return pointers'
 ! ------------------------------------------------------------------------------
 ! Save return values
 ! ------------------------------------------------------------------------------
@@ -442,7 +492,7 @@ C        REAL*8 D_CEIL
 	CALL mxCopyReal8ToPtr(CENT,CENTP,2)
         CALL mxCopyReal8ToPtr(metMeasBuf,metMeasP,max(nMetMeas,1))
 	CALL mxCopyReal8ToPtr(USER,USERP, mElt)
-        print*,'After copying return pointers'
+        IF (Debug) print*,'After copying return pointers'
 
 	first_entry=.false.
 	RETURN

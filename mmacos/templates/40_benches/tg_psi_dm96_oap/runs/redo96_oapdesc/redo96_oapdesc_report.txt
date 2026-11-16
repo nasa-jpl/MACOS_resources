@@ -1,0 +1,109 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "redo96_oapdesc"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  56.6 -> separation  275.0 mm, margin +151.4 mm (spec >= 25)
+  1 of 5 node parts under the 25 mm margin; beam radius 59.0, mount +8
+  OAP fold solve (need lateral clearance 134.0 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +417.0
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +194.3
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_oapdesc_tail.mat (null 73.856 nm at opt res; seed 73.856)
+Stage B -- oap rig built (BS_AOI 22.5); emitted redo96_oapdesc_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  Sub1f          Refractor        437.6        --  
+  PolIn          TrPolarizer      438.6        --  
+  Sub1b          Refractor        439.6        --  
+  L1             Reflector        882.8      56.6  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1139.9        --  flat mirror
+  Comptxfd       Refractor       1329.1        --  
+  Comptxbd       Refractor       1339.4        --  
+  Sub2f          Refractor       1553.4        --  
+  QWPtestIn      WavePlate       1554.4        --  
+  Sub2b          Refractor       1555.4        --  
+  TestOptic      Reflector       1580.4      48.0  flat mirror
+  Sub3f          Refractor       1604.4        --  
+  QWPtestOut     WavePlate       1605.4        --  
+  Sub3b          Refractor       1606.4        --  
+  Comptxfu       Refractor       1821.4        --  
+  Comptxbu       Refractor       1831.8        --  
+  BStxfo         Refractor       2021.0        --  
+  BStxbo         Refractor       2031.3        --  
+  Recomb         Reference       2181.3        --  
+  Sub4f          Refractor       2190.3        --  
+  OutQWP         WavePlate       2191.3        --  
+  Sub4b          Refractor       2192.3        --  
+  Sub5f          Refractor       2201.3        --  
+  Analyzer       TrPolarizer     2202.3        --  
+  Sub5b          Refractor       2203.3        --  
+  L2             Reflector       2308.3      56.6  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  MaskSubf       Refractor       2734.5        --  
+  MaskSubb       Refractor       2736.5        --  
+  FocalMask      Reference       2737.5        --  
+  FLpow          Refractor       2748.3        --  
+  FLflat         Refractor       2754.6        --  
+  Detector       FocalPlane      2790.3        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = protectedAl); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+
+---- loop: closed-loop hold, DM 96x96, four-step reading ----
+loop: gain 0.50, 60 cycles (steady state = last 30), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the four frames with N photons split nph/4), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.5576 DM-mm/det-mm, det -111.4630, in-plane rotation -0.00 deg, dxd 2.8902e-02 mm -> 3.277 detector px per actuator
+  anchor: blob px (498.29,531.10) <-> DM (-4.620,-5.460) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 1.28 px)
+  lit actuators: 7548 of 9216
+camera: pupil image 11.10 mm across (384 modeled px at 28.9 um); sCMOS 2048x2048 at 6.50 um -> 1707 raw px across the pupil; binned 4 = 427, and binning 4 = 427 lands nearest the modeled 384
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 3217 px across the pupil, 1608 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+  bootstrap (ray affine): 88.46% within 2 px, median 1.04 px (936 of 936 blobs caught)
+  fit residual: affine 1.14 px, deg-2 0.18 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 936 CoMs): fit residual 1.14 px
+  refined pass 2 (deg-1, 936 of 936 caught): fit residual 1.14 px, gate 94.44% within 2 px, median 0.98 px
+  D1 GATE: 94.44% of lit within 2 px (need >= 99.0%), median err 0.98 px
+  by radius (mm):           9.8   19.6   29.5   39.3   49.1 
+    within2px    1.00   1.00   1.00   1.00   0.85 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.558 / 10.558, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 93.38% within 2 px vs affine 94.44% (same 936 poked); register_two_pokes centre anchor reads 0
+  flat-DM null: 26.5042 nm rms surface (26504.2 pm) -- the same-plane-fold arm difference
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 7548, J 64 states x 7548 columns, window 27 px, reg lambda 1.00e-03
+  UNWRAPPING the four-step differential (dmg_unwrap, lit mask): descent
+2 loop runs of 61 states each (122 traced states, + recals)
+  descent: matrix on the 100 nm start (64 states)
+  descent: matrix on the 200 nm start (64 states)
+
+step response (noiseless; a step of the given rms at cycle 1). rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2)/r(K) = residual (pm) at cycles 30 and 60 -- a residual that stops falling is the noiseless bias floor on this surface
+    step      rho      tau    k1e   r(K/2) pm     r(K) pm
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+
+spectrum of the held residual at 1e+13 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+
+DESCENT LADDER to the set point, matrix measured at each start, unwrapping ON. start = the DM's initial surface rms (WFE = 2x); r(1) = the residual the loop opens with (nm); k(10 nm) / k(3 pm) = first cycle at or below (- = never within 60); r(K) = residual at cycle 60 (pm); rho = fitted contraction; recals = on-surface recalibrations
+   start     N/cyc  recal |   r(1)nm  k(10nm)   k(3pm)      r(K)pm    rho recals
+    100   1.0e+13  never |     69.9        5        -     105.585  0.851      0
+    200   1.0e+13  never |    169.9       16        -     487.214  0.851      0
+loop stage 38.8 min (122 traced states)

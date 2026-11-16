@@ -1,0 +1,84 @@
+% regression_main.m -- top-level runner for the GMI regression suite.
+%
+% Adds the lib/ + tests/ dirs + the GMI mex location to the path,
+% invokes the six tests, prints a summary table, exits non-zero if
+% any test failed.  Invoked via:
+%
+%   ./run_regression.sh
+%
+% Reference .mat files in ./reference/ are committed snapshots of
+% the expected output.  Regenerate after intentional behavior
+% changes: ./run_regression.sh --bootstrap.
+
+here = fileparts(mfilename('fullpath'));
+
+% Path setup: tests/ + lib/ for the regression-internal code,
+% parent GMI/ for call_GMI.m + the mex, and Rx/ on the cwd so
+% SMACOS's OLD command can find the prescription file.
+addpath(fullfile(here, 'tests'));
+addpath(fullfile(here, 'lib'));
+addpath(fileparts(here));        % parent GMI/ holds call_GMI.m + GMI.mexa64
+
+% Hard absolute tolerance.  See lib/compare_within.m.
+opts.tol = 1.0e-12;
+
+% cd into Rx/ so SMACOS('OLD', 'Rx_e5hex1', ...) and
+% SMACOS('OLD', 'e2e_pie_met', ...) resolve.  The
+% e2e_pie Rx lives in the parent GMI/ dir; symlink or copy as needed.
+%
+% Quick belt-and-suspenders: copy/symlink the e2e_pie Rx into Rx/ on
+% first use.  (The e5hex1 Rx was already placed there by the harness
+% scaffolding.)
+e2e_pie_local = fullfile(here, 'Rx', 'e2e_pie_met.in');
+e2e_pie_canon = fullfile(fileparts(here), 'e2e_pie_met.in');
+if ~isfile(e2e_pie_local) && isfile(e2e_pie_canon)
+    copyfile(e2e_pie_canon, e2e_pie_local);
+end
+
+cd(fullfile(here, 'Rx'));
+
+% --- Run all tests ---
+tests = {
+    @test01_smoke_e2e_pie
+    @test02_nominal_repro_e2e_pie
+    @test03_zern_response_e2e_pie
+    @test04_smoke_e5hex1
+    @test05_nominal_repro_e5hex1
+    @test06_zern_response_e5hex1
+};
+
+n = length(tests);
+results = cell(n, 1);
+n_pass = 0;
+n_fail = 0;
+
+fprintf('\n=== GMI regression suite ===\n');
+fprintf('tolerance: %.3e (absolute |a-b|)\n\n', opts.tol);
+
+for k = 1:n
+    fprintf('--- %d/%d  %s\n', k, n, func2str(tests{k}));
+    try
+        r = tests{k}(opts);
+    catch ME
+        r.name = func2str(tests{k});
+        r.pass = false;
+        r.msg = sprintf('[%s] FAIL  harness exception: %s', r.name, ME.message);
+    end
+    results{k} = r;
+    fprintf('    %s\n', r.msg);
+    if r.pass
+        n_pass = n_pass + 1;
+    else
+        n_fail = n_fail + 1;
+    end
+    fprintf('\n');
+end
+
+fprintf('=== summary: %d passed, %d failed (of %d) ===\n', n_pass, n_fail, n);
+
+% quit (not exit) -- we want to propagate the failure count via
+% MATLAB's exit code so run_regression.sh can trust it.
+if n_fail > 0
+    quit(1);
+end
+quit;

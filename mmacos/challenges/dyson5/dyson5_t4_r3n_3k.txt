@@ -1,0 +1,23 @@
+dyson5 t4 -- the two-mirror modified Schwarzschild at Jim's numbers (addenda 29-30) (2026-10-03 07:29)
+CONVENTIONS: Mouroulis & Green 2018 sec. 5.1 TMS: CONVEX primary, CONCAVE secondary, equal |R| (Petzval zero: a FLAT field),
+  the stop VIRTUAL at M2's front focal point (TELECENTRIC output), represented by its object-space image (the entrance
+  pupil, a pass plane ahead of M1; every chief aimed through its centre).  Altitude 550 km, GSD 30 m -> f 330.0 mm, D 183.3 mm
+  at F/1.8; strips 3000 px x IFOV; spacing d 165 mm.  seed / R1 / R2 are COAXIAL (the convex M1 obscures the M2-to-image cone);
+  R3 holds a field bias + pupil decentre; R3w walks the bias with the decentre free and a clearance WALL.  Solve: lsqnonlin on the exact
+  chain, stacked per-ray residuals (positions about each field's centroid on the image plane, um) over the 3k strip's 7 fields
+  x a 11 x 11 pupil grid; the 1.5k strip is the SAME mirrors at half the field.  Engine score: rms spot about the centroid on the
+  image plane (normal to the chief, 41-ray grid), 9 fields per strip; px of 18 um.  Mass: footprint discs x 40 kg/m^2
+  (lightweighted, assumed) and solid Zerodur 2530 kg/m^3 at thickness D/6.
+
+PARAXIAL LAYOUT (tms_paraxial, d 165 mm): |R| 466.7 mm both; entrance pupil 96.7 mm ahead of M1; stop 233.3 mm before M2 (virtual);
+  back focus 563.3 mm; EP -> image 825.0 mm; EFL check 330.0000 mm; exit chief slope at the 3k edge -1.4e-17 (telecentric)
+
+R2 starts from dyson5_t4_r3s_3k.mat rung R3w30 (K [-15.13 -3.995], M2 asph [1.6 -0.742], dt2 +6.786 mm).
+
+rung  K1 K2 | M2 h^4 h^6 | dt2 mm          chain max | engine rms spot per field (px), each strip; chief identity
+R3n   0.0841 -0.2806 | -0.00209 -0.0209 | -137.237    25.095 |
+        R3 off-axis section: field bias 30.0 deg, pupil decentre +4 mm; clearance -376.6 +1002.6 +912.1 +5.2  mm (in x M2, in x IMG, M1->M2 x IMG, M2->img x M1), min -376.6 mm (in x M2) FAIL; rays lost 0
+        R2 first order: d 320.0 mm, |R| [181.8 644.3] mm (Petzval -7.899 /m), EP 2.2 mm ahead of M1, back focus 1354.7 mm; M1 asph [-16.3 -519]; solved on the 3000 px strip
+        3000 px (9.38 deg): 25.109 17.256 16.337 18.186 19.124 18.186 16.337 17.256 25.109   max 25.109 px; every ray engine vs chain 1.1e-11 m (stepwise trace)
+        size: length 1374 mm; footprints M1 189 x 227 mm, M2 810 x 955 mm (x along the slit, y); mass M1+M2 30.3 kg at 40 kg/m^2, 292.2 kg solid
+        solve: d R2 K1 K2 A14 A16 A4 A6 dt2 dep, lsqnonlin exitflag 0, 1001 iterations

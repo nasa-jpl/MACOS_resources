@@ -1,0 +1,15 @@
+==== e2e6m CF3h -- FEATHERED d=1.10 sweep arm (sigma 1.0 px) 2026-09-01 21:55:11
+chain seg_d110_f10_h280_L090_c098 | dz 2756 px | THRU 0.636 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 2.0 h
+[round 1 PUSH] no gain at targets [100 200 400] nm
+[round 1 BUMP] no gain
+[round 1] 9.184e-05 -> 8.808e-05 | alpha 1.0e-02 | stroke 6.2 nm | la(G) 1.456e-09 | laU 6.224e-11 @ 2035 nm | 12.4 min
+[round 2] NO ACCEPTED STEP (line search exhausted at 8.808e-05)
+[round 2 PUSH] no gain at targets [100 200 400] nm
+[round 2 BUMP] no gain
+[round 2] 8.808e-05 -> 8.808e-05 | alpha NaN | stroke 6.2 nm | la(G) 4.247e-09 | laU 8.358e-11 @ 2506 nm | 13.2 min
+[round 3] NO ACCEPTED STEP (line search exhausted at 8.808e-05)
+[round 3 PUSH] no gain at targets [100 200 400] nm
+[round 3 BUMP] no gain
+[round 3] 8.808e-05 -> 8.808e-05 | alpha NaN | stroke 6.2 nm | la(G) 4.247e-09 | laU 8.358e-11 @ 2506 nm | 13.2 min
+CONVERGED: <3% over two consecutive rounds -- floor 8.808e-05
+CF3h DONE in 0.6 h: 9.184e-05 -> 8.808e-05 over 3 rounds (lin-ach 4.247e-09; thru 0.636 vs apl 0.091 / bare 0.745)

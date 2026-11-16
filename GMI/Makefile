@@ -1,21 +1,30 @@
 
 ##--------------------------------------
-# Makefile for GMI (current: ifx + MATLAB R2025b)
+# Makefile for GMI (ifx or gfortran + auto-detected MATLAB)
 ##--------------------------------------
 
 #####################################
 # User Configurable Options         #
 #####################################
 
-# MACOS source directory (set by makealldcr.sh / makeGMIdcr.sh, or override here)
+# MACOS source directory (set by makeall.sh / makegmi.sh, or override here)
 MACOS_DIR := $(macossrc_dir)
 GMI_DIR    := $(shell pwd)
 
-# Fortran compiler
-FC := ifx
+# Fortran compiler.  gfortran is the default — produces a mex that
+# exits cleanly under MATLAB.  ifx still works but SIGSEGVs at
+# MATLAB process-exit teardown (cosmetic; results are correct).
+# Override on the command line: make FC=ifx
+FC ?= gfortran
 
-# MATLAB installation
-MATLAB_DIR := /usr/local/MATLAB/R2025b
+# MATLAB installation — pick the lexicographically latest R20XXx under /usr/local/MATLAB.
+# Override on the command line: make MATLAB_DIR=/usr/local/MATLAB/R2023a
+MATLAB_BASE := /usr/local/MATLAB
+MATLAB_DIR  := $(shell ls -1d $(MATLAB_BASE)/R[0-9]*[ab] 2>/dev/null | sort -V | tail -1)
+ifeq ($(MATLAB_DIR),)
+  $(error No MATLAB installation found under $(MATLAB_BASE). \
+    Install MATLAB or set MATLAB_DIR on the command line.)
+endif
 
 # Intel oneAPI paths
 INTEL_LIB  := /opt/intel/oneapi/compiler/latest/lib
@@ -29,8 +38,28 @@ ifeq ($(PLATFORM),x86_64)
     MEXTAG  := mexa64
 endif
 
-SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
-SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
+# Optional: path to a CMake build tree (build_release_giza, etc.).
+# When set, module files and smacos library are taken from there instead
+# of the legacy MACOS_OBJS/Linux-x86_64 layout.
+# Set via command line: make MACOS_BUILD_DIR=~/dev/macos/build_release_giza
+MACOS_BUILD_DIR :=
+
+ifneq ($(MACOS_BUILD_DIR),)
+  SMACOS_OBJS := $(MACOS_BUILD_DIR)/mod_smacos
+  SMACOS_LIBS := $(MACOS_BUILD_DIR)/lib/libsmacos.a
+  # NPSOL libraries are present in MACOS_BUILD_DIR/lib only when the
+  # macos tree was configured with -DUSE_NPSOL=ON (opt-dev path).
+  # Auto-detect their presence and link them when found; users on a
+  # NPSOL-free build see an empty list and the design_cons_optim
+  # paths inside libsmacos.a are #ifdef'd out at compile time.
+  NPSOL_LIBS := $(wildcard $(MACOS_BUILD_DIR)/lib/libnpsol.a) \
+                $(wildcard $(MACOS_BUILD_DIR)/lib/liblapacklib.a) \
+                $(wildcard $(MACOS_BUILD_DIR)/lib/libblaslib.a)
+else
+  SMACOS_OBJS := $(MACOS_DIR)/SMACOS_OBJS/$(ARCH)
+  SMACOS_LIBS := $(SMACOS_OBJS)/smacos_lib.a
+  NPSOL_LIBS  :=
+endif
 
 ######################################################
 # No user edits needed below here
@@ -41,41 +70,112 @@ GMI_DATE := $(shell date '+%Y-%m-%d')
 APP      := GMI
 MEX_NAME := $(APP)
 
-# Compiler flags (shared between GMI.F and GMIG.F)
-FFLAGS := -check all -traceback -fstack-protector \
-          -fPIC -fpp -132 -gen-interfaces -fp-model strict \
-          -fno-omit-frame-pointer -nologo \
-          -O2 -xHOST \
-          -DMX_COMPAT_32 \
-          -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
-          -module $(SMACOS_OBJS)
+# Per-compiler flags.  Both produce bit-identical numeric results
+# (verified by MACOS_resources/GMI/regression) and both exit MATLAB
+# cleanly with the flags below.
+#
+# -check all removed from FFLAGS/LDFLAGS: it pulls in ifx's
+# fsanitize=memory which SIGSEGVs in the mex cleanup path.
+# Re-enable when investigating specific runtime issues.
+#
+# ifx LDFLAGS use -reentrancy=none to link the single-threaded
+# Intel Fortran runtime (libifcore.so.5) instead of the default
+# multi-threaded one (libifcoremt.so.5).  libifcoremt keeps worker
+# threads parked in the host process; once MATLAB's `clear mex`
+# unloads the DSO that owned their wake-up callback, those threads
+# die at process exit by jumping to a now-unmapped function pointer.
+# The crash shows up as SIGSEGV with RIP=...e2c0 inside a
+# clone3/start_thread stack -- pure thread-spawn-to-freed-memory,
+# no module of our own on the stack.  GMI does not use the Intel
+# Fortran runtime's internal threading anyway, so linking libifcore
+# is a strict win; rebuild GMI with FC=gfortran (the default) to
+# sidestep the question entirely.
 
-# Linker flags — embed Intel RPATH so MATLAB can load without setvars.sh
-LDFLAGS := -check all -traceback -fstack-protector \
-           -O -shared-intel -shared \
-           -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
-           -Wl,--no-undefined \
-           -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
-           -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
-           -L$(INTEL_LIB) \
-           -Wl,-rpath,$(INTEL_LIB) \
-           -Wl,-rpath,$(MKL_LIB) \
-           -Wl,--disable-new-dtags \
-           -lirc -lm -lstdc++
+ifeq ($(FC),ifx)
+  FFLAGS := -traceback -fstack-protector \
+            -fPIC -fpp -132 -gen-interfaces -fp-model strict \
+            -fno-omit-frame-pointer -nologo \
+            -O2 -xHOST \
+            -DMX_COMPAT_32 \
+            -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
+            -module $(SMACOS_OBJS)
+
+  # Compiler-only link flags — placed before objects.
+  # -reentrancy=none: single-threaded libifcore (see notes above).
+  LDFLAGS := -traceback -fstack-protector \
+             -O -shared-intel -shared -reentrancy=none \
+             -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
+             -Wl,--no-undefined \
+             -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
+             -Wl,-rpath,$(INTEL_LIB) \
+             -Wl,-rpath,$(MKL_LIB) \
+             -Wl,--disable-new-dtags
+
+  # Trailing libs — placed after objects/archives so --no-undefined
+  # resolves correctly under both bundled and system ld.
+  POST_LIBS := -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
+               -L$(INTEL_LIB) -lirc -lm -lstdc++
+else ifeq ($(FC),gfortran)
+  FFLAGS := -fPIC -cpp -ffixed-line-length-132 \
+            -fno-omit-frame-pointer -O2 -march=native \
+            -fallow-argument-mismatch -std=legacy \
+            -DMX_COMPAT_32 \
+            -I$(MACOS_DIR) -I$(MATLAB_DIR)/extern/include \
+            -J$(SMACOS_OBJS)
+
+  LDFLAGS := -fPIC -O -shared \
+             -Wl,--version-script,$(MATLAB_DIR)/extern/lib/glnxa64/fexport.map \
+             -Wl,--no-undefined \
+             -Wl,-rpath-link,$(MATLAB_DIR)/bin/glnxa64 \
+             -Wl,--disable-new-dtags
+
+  POST_LIBS := -L$(MATLAB_DIR)/bin/glnxa64 -l:libmx.so -l:libmex.so -lmat \
+               -lm -lstdc++
+else
+  $(error Unsupported FC='$(FC)' — use ifx or gfortran)
+endif
+
+# Some macos cmake builds emit libfitslib.a as a separate archive;
+# link it when present so gfortran's --no-undefined is satisfied.
+FITS_LIB := $(wildcard $(MACOS_BUILD_DIR)/lib/libfitslib.a)
+
+# libsmacos.a references slsqp_ (design_slsqp_optim_mod) on sls-dev/opt-dev;
+# the SLSQP objects live in their own archive -- link it after libsmacos so
+# the reference resolves.  Wildcard-guarded for older trees without it.
+SLSQP_LIB := $(wildcard $(MACOS_BUILD_DIR)/lib/libslsqplib.a)
 
 default: $(MEX_NAME).$(MEXTAG)
 
 $(MEX_NAME).$(MEXTAG): GMI.o GMIG.o $(SMACOS_LIBS)
-	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS)
+	$(FC) $(LDFLAGS) -o $(MEX_NAME).$(MEXTAG) GMI.o GMIG.o $(SMACOS_LIBS) $(SLSQP_LIB) $(FITS_LIB) $(NPSOL_LIBS) $(POST_LIBS)
 
-GMI.o: GMI.F
+# --- Force objects to rebuild when the compiler (FC) changes -----------
+# GMI.o/GMIG.o live in this flat directory, shared between the gfortran
+# (makegmi.sh default) and ifx (makeall.sh) builds.  make keys recompiles
+# on source mtime only, so switching compilers silently reuses the other
+# compiler's objects and the link then fails with "undefined reference to
+# _gfortran_*" (ifx linking gfortran .o) or the Intel-runtime mirror image.
+# .fc_stamp records the FC of the last build and is rewritten -- bumping its
+# mtime -- only when FC actually changes, forcing a recompile with the new
+# compiler.  Re-running with the same FC leaves the stamp untouched, so
+# there is no spurious rebuild.
+.fc_stamp: FORCE
+	@if [ "x$$(cat $@ 2>/dev/null)" != "x$(FC)" ]; then \
+	   echo "GMI: compiler set to FC=$(FC); forcing object rebuild"; \
+	   echo "$(FC)" > $@; \
+	 fi
+
+FORCE: ;
+.PHONY: FORCE
+
+GMI.o: GMI.F .fc_stamp
 	$(FC) $(FFLAGS) -c GMI.F
 
-GMIG.o: GMIG.F
+GMIG.o: GMIG.F .fc_stamp
 	$(FC) $(FFLAGS) -c GMIG.F
 
 clean:
-	-rm -f *.o *.mod $(MEX_NAME).$(MEXTAG)
+	-rm -f *.o *.mod .fc_stamp $(MEX_NAME).$(MEXTAG)
 
 # begin fortran depends
 GMIG.o: GMIG.F

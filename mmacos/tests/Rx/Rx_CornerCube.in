@@ -1,0 +1,134 @@
+% CornerCube.in -- verbatim copy of macos docs/macos-manual/examples/CornerCube.in
+% (the manual's non-sequential examples), fixture for tNsFlowOfLight.
+
+% ---------------------------------------------------------------------------------------
+% Source Definition
+% ---------------------------------------------------------------------------------------
+
+        ChfRayDir=  0.0E+00  0.0E+00  -1.0E+00
+        ChfRayPos=  1.0E-05  1.0E-05  1.0E+01
+          zSource=1.0E+22
+
+        BaseUnits=  (default-unit)
+        WaveUnits=  none
+
+           IndRef=1.0E+00
+           Extinc=0.0E+00
+          Wavelen=1.059E-04
+             Flux=1.0E+00
+
+         Aperture=2.54E+00
+         Obscratn=0.0E+00
+
+         GridType=  Circular
+         nGridpts=  65
+            xGrid=  0.0E+00  1.0E+00  0.0E+00
+            yGrid=  -1.0E+00  0.0E+00  0.0E+00
+
+% ---------------------------------------------------------------------------------------
+% Element Definitions
+% ---------------------------------------------------------------------------------------
+
+             nElt=  5
+
+
+             iElt=  1
+          EltName=  Ref Srf
+          Element=  Reference
+          Surface=  Conic
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  3.5E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  NFP1surf
+             zElt=0.0E+00
+          nECoord=  0
+
+             iElt=  2
+          EltName=  CC1
+          Element=  NSReflector
+          Surface=  Conic
+            KrElt=1.0E+22
+            KcElt=0.0E+00
+           psiElt=  8.164994676790102E-01  0.0E+00  5.77346186685158E-01
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  3
+          EltName=  CC2
+          Element=  NSReflector
+          Surface=  Conic
+            KrElt=1.0E+22
+            KcElt=0.0E+00
+           psiElt=  -4.08249733799187E-01  7.071092811985918E-01  5.773461866988503E-01
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  4
+          EltName=  CC3
+          Element=  NSReflector
+          Surface=  Conic
+            KrElt=1.0E+22
+            KcElt=0.0E+00
+           psiElt=  -4.08249733799187E-01  -7.071092811985918E-01  5.773461866988503E-01
+           VptElt=  0.0E+00  0.0E+00  0.0E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+22
+          nECoord= -6
+
+             iElt=  5
+          EltName=  FP
+          Element=  FocalPlane
+          Surface=  Flat
+            KrElt=-1.0E+22
+            KcElt=0.0E+00
+           psiElt=  0.0E+00  0.0E+00  -1.0E+00
+           VptElt=  0.0E+00  0.0E+00  3.5E+00
+           RptElt=  0.0E+00  0.0E+00  0.0E+00
+           IndRef=1.0E+00
+           Extinc=1.0E+22
+            nCoat=  0
+             nObs=  0
+           ApType=  None
+         PropType=  Geometric
+             zElt=1.0E+03
+          nECoord=  0
+
+% ---------------------------------------------------------------------------------------
+% Output Coordinate System Definition
+% ---------------------------------------------------------------------------------------
+
+         nOutCord=  5
+             Tout=  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00  0.0E+00  0.0E+00
+                    0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  0.0E+00  1.0E+00

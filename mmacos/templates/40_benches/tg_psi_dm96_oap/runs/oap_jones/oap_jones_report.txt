@@ -1,0 +1,33 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "oap_jones"
+
+Stage A -- clearance solve (beam_r 51.4, margin 25, leg cap 700):
+  binding angle 6.88 deg -> BS_AOI = 7 deg
+  DM arm vs ref beam          need  166.4 mm sep -> leg >=   688 mm
+  ref arm vs DM beam          need  136.4 mm sep -> leg >=   564 mm
+  camera leg vs source beam   need  126.4 mm sep -> leg >=   523 mm
+  chosen DM leg 700 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  169.3 mm, margin  +27.9 mm (spec >= 25)
+  ref arm vs DM beam          separation  169.3 mm, margin  +57.9 mm (spec >= 25)
+  camera leg vs source beam   separation  169.3 mm, margin  +67.9 mm (spec >= 25)
+  OAP fold solve (need lateral clearance 126.4 mm):
+  OAP1 (collimator F1=857): AOI  5 deg -> lateral  148.8 mm, margin  +22.4
+  OAP2 (focuser   F2=429): AOI  9 deg -> lateral  132.4 mm, margin   +6.0
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/oap_tail.mat (null 12.887 nm at opt res; seed 12.901)
+Stage B -- oap rig built (BS_AOI 7); emitted oap_jones_{test,ref}.in
+
+
+---- Stage JONES (item B): OAP-fold retardance + fringe visibility ----
+L1 (collimating OAP fold) retardance via jones_pupil+pol_maps (double-pole, mrad; mean = a state, var = the aberration), and the four-step fringe visibility V=2*AC/DC (flat DM) in the central band vs the pupil edge, plus the lit fraction there
+  coating        ret mean    ret var    V band    V edge  lit band  lit edge
+  ideal           3141.59       0.00       NaN     0.999      0.00      0.55
+  bareAl          3139.65       0.55     0.999     1.000      0.04      0.55
+  protectedAl     3139.69       0.53     0.999     1.000      0.03      0.57
+
+wrote oap_jones_report.txt + oap_jones.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/oap_jones

@@ -1,0 +1,13 @@
+
+=== COPHI format: the lock-in class (lens rig; 512 sites across the pupil = 5.45 per actuator pitch; 1 kHz I/Q): 10.4 min ===
+  flux e-/s/elem      e-/sample      pm/read  +phasemeter      reads/s    pm in 1 s     s per pm
+
+=== COPHI format: the lock-in class (lens rig; 512 sites across the pupil = 5.45 per actuator pitch; 1 kHz I/Q): 10.5 min ===
+  flux e-/s/elem      e-/sample      pm/read  +phasemeter      reads/s    pm in 1 s     s per pm
+  1e+08                   1e+05           53           53         1000         1.68         2.81
+  1e+09                 2.5e+05         34.3         34.3         1000         1.08         1.17  well-capped (5e+05 e- well, 1e+06 e- would arrive per sample)
+  2e+09                 2.5e+05           34           34         1000         1.07         1.15  well-capped (5e+05 e- well, 2.5e+06 e- would arrive per sample)
+  1e+10                 2.5e+05         33.6         33.6         1000         1.06         1.13  well-capped (5e+05 e- well, 1e+07 e- would arrive per sample)
+  1e+11                 2.5e+05         33.8         33.8         1000         1.07         1.14  well-capped (5e+05 e- well, 1e+08 e- would arrive per sample)
+  (pm/read = the photon floor of one I/Q sample per actuator, piston-free robust floor; +phasemeter = with the sheet's phasemeter floor in quadrature when it has one -- it does not: the column equals pm/read)
+wall 10.5 min

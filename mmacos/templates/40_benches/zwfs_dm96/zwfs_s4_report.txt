@@ -1,0 +1,30 @@
+=== ZWFS S4: differential head-to-head rows + break scale (pm) ===
+
+---- DM 96x96, pitch 1.0 mm ----
+base      dev         |   g_lin   res_lin |   g_stp   res_stp
+flat      single10nm  |  1.1540     144 pm |  1.2159     125 pm
+flat      rand10nm    |  0.9683   16751 pm |  1.1046   10178 pm
+rand30nm  single10nm  |  0.6598     744 pm |  1.1304     773 pm
+rand30nm  rand10nm    |  0.6774   42215 pm |  0.8562   37605 pm
+break scale (single act 10 nm differential on a growing base):
+ base_rms |   g_lin   flr_lin    SNRl |   g_stp   flr_stp    SNRs
+    30 nm |  0.6598     715 pm     9.2 |  1.1296     755 pm    15.0
+    60 nm |  0.1920    1247 pm     1.5 |  0.6841     697 pm     9.8
+   120 nm |  0.8627     970 pm     8.9 | -0.2766     314 pm     8.8
+   240 nm |  1.0430    1324 pm     7.9 |  0.1843     271 pm     6.8
+   480 nm |  0.3436     713 pm     4.8 | -0.0069     124 pm     0.6
+
+---- DM 48x48, pitch 2.0 mm ----
+base      dev         |   g_lin   res_lin |   g_stp   res_stp
+flat      single10nm  |  0.9277     121 pm |  1.1137     131 pm
+flat      rand10nm    |  0.7579    5767 pm |  1.0764    3708 pm
+rand30nm  single10nm  |  0.7788     219 pm |  0.7695     148 pm
+rand30nm  rand10nm    |  0.1849   17005 pm |  0.8806    6340 pm
+break scale (single act 10 nm differential on a growing base):
+ base_rms |   g_lin   flr_lin    SNRl |   g_stp   flr_stp    SNRs
+    30 nm |  0.7878     201 pm    39.1 |  0.7813     124 pm    62.9
+    60 nm |  0.3485     387 pm     9.0 |  0.3079     179 pm    17.2
+   120 nm |  0.0280     674 pm     0.4 | -0.2570     330 pm     7.8
+   240 nm | -0.1306     446 pm     2.9 | -0.0291     159 pm     1.8
+   480 nm | -0.0792     339 pm     2.3 |  0.0136     112 pm     1.2
+S4 complete in 1.7 min

@@ -1,0 +1,230 @@
+================================================================
+ rodgers3 STAGE 0 -- .seq-truth reproduction of Mike Rodgers'
+ 5-rung WFE ladder (260802-WFOVimager_Offsetfield-jmr)
+ run 2026-08-19 12:51   engine: macos build_release_gfortran (dev-candidate
+ 8c172ff pinned worktree MACOS_res_r3); scripts: s0/build_r3.m,
+ s0/run_r3_s0.m; truth: s0/rodgers3_seq.m (machine-generated).
+ NOTHING IS TUNED TOWARD HIS NUMBERS -- the band is the
+ measurement (rodgers1 rule).
+================================================================
+
+GATE TABLE  (strict RMS WFE per field, nm @ 1000 nm; reference =
+sphere centred on the SPOT CENTROID on the deck-verbatim .seq FPA,
+anchored at the exit pupil, piston-only removal; fields tangent-
+composed; chief of every field aimed through the stop centre by
+real-ray iteration.  "map max" = ceiling of a dense map over the
+full 20x20-deg box -- WHAT HIS NUMBER IS (each pptx slide shows a
+20x20 field map and quotes its ceiling); "9pt" = his .seq
+optimization field points.)
+
+  rung | his nm  | map max  | 9pt max  | 9pt fRMS | map/his | verdict
+  -----+---------+----------+----------+----------+---------+--------
+   r1  |     159 |   157.74 |   157.74 |   119.04 |   0.992 | PASS
+   r2  |    8810 |  9664.11 |  9664.15 |  5603.30 |   1.097 | PASS
+   r3  |     168 |   166.32 |   166.32 |   104.70 |   0.990 | PASS
+   r4  |     117 |   124.29 |   124.29 |    92.92 |   1.062 | PASS
+   r5  |      53 |    54.66 |    30.89 |    27.33 |   1.031 | PASS
+
+  WHICH STATISTIC HIS NUMBER MATCHES: the MAXIMUM of CODE V's
+  "RMS WAVEFRONT ERROR vs FIELD ANGLE IN OBJECT SPACE" map over
+  the 20x20-deg box (the slide plots carry the exact metadata --
+  extracted from the embedded EMFs).  His full map statistics
+  (waves @ 1000 nm -> nm):
+
+    rung |    Min   |    Max   |   Avg   |   Std
+     r1  |    47.21 |   158.52 |   74.36 |   28.44
+     r2  |  1133.70 |  8809.60 | 2557.30 | 1639.90
+     r3  |    28.08 |   167.88 |   77.05 |   28.20
+     r4  |    19.86 |   116.72 |   59.07 |   19.94
+     r5  |    11.60 |    53.10 |   24.72 |    8.33
+
+  OUR dense-map moments (centroid ref, nm):
+
+    rung |    Min   |    Max   |   Avg   |   Std
+     r1  |    46.99 |   157.74 |   73.95 |   28.41
+     r2  |  1889.02 |  9664.11 | 3290.04 | 1745.13
+     r3  |    26.54 |   166.32 |   69.59 |   24.47
+     r4  |    28.86 |   124.29 |   62.65 |   20.45
+     r5  |    11.79 |    54.66 |   24.94 |    8.37
+
+  Chief-referenced numbers are stored alongside in r3_s0.mat.
+
+----------------------------------------------------------------
+PER-FIELD STRICT RMS WFE (nm, centroid reference)
+
+  r1 -- Coaxial.  On-axis FOV
+    XAN  +0.0  YAN -10.0 :     77.209 nm  (1184 rays)
+    XAN  +0.0  YAN  +0.0 :     64.522 nm  (1184 rays)
+    XAN  +0.0  YAN +10.0 :     77.209 nm  (1184 rays)
+    XAN +10.0  YAN -10.0 :    157.736 nm  (1184 rays)
+    XAN +10.0  YAN  +0.0 :     77.209 nm  (1184 rays)
+    XAN +10.0  YAN +10.0 :    157.736 nm  (1184 rays)
+    XAN -10.0  YAN -10.0 :    157.736 nm  (1184 rays)
+    XAN -10.0  YAN  +0.0 :     77.209 nm  (1184 rays)
+    XAN -10.0  YAN +10.0 :    157.736 nm  (1184 rays)
+    traced gates: centre-field chief lands 0.0000 mm from the SI
+    origin;  stop footprint centre [+0.000 +0.000] mm, max radius
+    43.561 mm vs paraxial stop semi-diam 43.664 mm.
+    dense 11x11 map: max 157.74 nm at XAN -10.0 YAN -10.0 (chief-ref max 157.73)
+
+  r2 -- Coaxial.  22 deg offset FOV
+    XAN  +0.0  YAN +12.0 :   2805.831 nm  (1184 rays)
+    XAN  +0.0  YAN +22.0 :   2559.942 nm  (1184 rays)
+    XAN  +0.0  YAN +32.0 :   7383.229 nm  (1184 rays)
+    XAN +10.0  YAN +12.0 :   2781.923 nm  (1184 rays)
+    XAN +10.0  YAN +22.0 :   2383.951 nm  (1184 rays)
+    XAN +10.0  YAN +32.0 :   9664.079 nm  (1184 rays)
+    XAN -10.0  YAN +12.0 :   2781.921 nm  (1184 rays)
+    XAN -10.0  YAN +22.0 :   2383.950 nm  (1184 rays)
+    XAN -10.0  YAN +32.0 :   9664.150 nm  (1184 rays)
+    traced gates: centre-field chief lands 0.0001 mm from the SI
+    origin;  stop footprint centre [+0.000 -57.065] mm, max radius
+    45.428 mm vs paraxial stop semi-diam 43.664 mm.
+    dense 11x11 map: max 9664.11 nm at XAN -10.0 YAN +32.0 (chief-ref max 9671.04)
+
+  r3 -- Coaxial.  22 deg offset FOV. New aspheres.
+    XAN  +0.0  YAN +12.0 :     86.141 nm  (1184 rays)
+    XAN  +0.0  YAN +22.0 :     81.285 nm  (1184 rays)
+    XAN  +0.0  YAN +32.0 :     83.048 nm  (1184 rays)
+    XAN +10.0  YAN +12.0 :     51.055 nm  (1184 rays)
+    XAN +10.0  YAN +22.0 :     92.720 nm  (1184 rays)
+    XAN +10.0  YAN +32.0 :    166.320 nm  (1184 rays)
+    XAN -10.0  YAN +12.0 :     51.055 nm  (1184 rays)
+    XAN -10.0  YAN +22.0 :     92.720 nm  (1184 rays)
+    XAN -10.0  YAN +32.0 :    166.320 nm  (1184 rays)
+    traced gates: centre-field chief lands 0.0000 mm from the SI
+    origin;  stop footprint centre [+0.000 -55.549] mm, max radius
+    45.574 mm vs paraxial stop semi-diam 43.664 mm.
+    dense 11x11 map: max 166.32 nm at XAN -10.0 YAN +32.0 (chief-ref max 176.33)
+
+  r4 -- Tilt/dec mirrors. 22 deg offset FOV. New ASP, Radii
+    XAN  +0.0  YAN +12.0 :     69.889 nm  (1184 rays)
+    XAN  +0.0  YAN +22.0 :     58.754 nm  (1184 rays)
+    XAN  +0.0  YAN +32.0 :     49.159 nm  (1184 rays)
+    XAN +10.0  YAN +12.0 :     89.984 nm  (1184 rays)
+    XAN +10.0  YAN +22.0 :     99.671 nm  (1184 rays)
+    XAN +10.0  YAN +32.0 :    124.291 nm  (1184 rays)
+    XAN -10.0  YAN +12.0 :     89.984 nm  (1184 rays)
+    XAN -10.0  YAN +22.0 :     99.671 nm  (1184 rays)
+    XAN -10.0  YAN +32.0 :    124.291 nm  (1184 rays)
+    traced gates: centre-field chief lands 0.0000 mm from the SI
+    origin;  stop footprint centre [+0.000 -55.322] mm, max radius
+    46.270 mm vs paraxial stop semi-diam 44.365 mm.
+    dense 11x11 map: max 124.29 nm at XAN -10.0 YAN +32.0 (chief-ref max 139.31)
+
+  r5 -- Tilt/dec mirrors. 22 deg offset FOV. New ZRN, Radii
+    XAN  +0.0  YAN +12.0 :     21.863 nm  (1184 rays)
+    XAN  +0.0  YAN +22.0 :     26.977 nm  (1184 rays)
+    XAN  +0.0  YAN +32.0 :     30.887 nm  (1184 rays)
+    XAN +10.0  YAN +12.0 :     26.858 nm  (1184 rays)
+    XAN +10.0  YAN +22.0 :     28.489 nm  (1184 rays)
+    XAN +10.0  YAN +32.0 :     27.373 nm  (1184 rays)
+    XAN -10.0  YAN +12.0 :     26.858 nm  (1184 rays)
+    XAN -10.0  YAN +22.0 :     28.489 nm  (1184 rays)
+    XAN -10.0  YAN +32.0 :     27.373 nm  (1184 rays)
+    traced gates: centre-field chief lands 0.0000 mm from the SI
+    origin;  stop footprint centre [+0.000 -55.810] mm, max radius
+    45.858 mm vs paraxial stop semi-diam 44.540 mm.
+    dense 11x11 map: max 54.66 nm at XAN +10.0 YAN +28.0 (chief-ref max 63.91)
+
+----------------------------------------------------------------
+CONVENTION DECISIONS TAKEN (all engine-truth-verified or gated)
+
+1. LAYOUT: one global frame, metres, beam enters +z; signed CODE V
+   thicknesses accumulated directly (m1 +0.664957, stop/m2 -0.057940,
+   m3 +0.682888 m).  KrElt = signed CODE V radius (m), KcElt = K
+   verbatim, psiElt (0,0,-1)-style (rodgers1 emission precedent).
+
+2. ASPHERES: engine truth read from surfsub.F AsphSrf BEFORE first
+   use: AsphCoef(i) multiplies h^(2i+2) of sag along +psiElt
+   (fh = sum coef(i)*h^(2i+2); zc = rho - fh*psi).  CODE V ASP
+   A,B,C multiply r^4,r^6,r^8 of sag along local +z = -psiElt,
+   so AsphCoef = -ASP * (1e9, 1e15, 1e21) [mm->m units].
+   Gated by r1 jointly with the geometry.
+
+3. FIELDS: CODE V XAN/YAN tangent-composed,
+   dir = [tand(XAN), tand(YAN), 1]/norm.  Gated by r1 (+/-10 deg
+   box) and r2-r5 (22 deg offset).
+
+4. SOURCE/PUPIL MODEL: collimated bundle, diameter = EPD 75 mm,
+   perpendicular to each field's chief; chief aimed through the
+   stop centre (on the m2 plane) by real-ray Newton iteration --
+   CODE V aims reference rays at the stop.  The deck carries NO
+   ApStop= line ON PURPOSE: the engine keyword triggers
+   STRAIGHT-LINE source aiming through StopPos (srcaim.inc), which
+   is wrong for a stop that sits after one reflection (it also
+   freezes ChfRayPos, discovered as a singular aiming Jacobian).
+
+5. YDE/ADE SIGN MAP -- MEASURED by an 8-configuration screen
+   (probe_cfg.m; acceptance = geometry, never WFE-tuning), and it
+   REFUTES the NOTES item-3 odd/even reflection-parity rule:
+     * ALL YDE VERBATIM (one global frame, no reflection parity,
+       stop plane included),
+     * ALL ADE sense-flipped uniformly: alpha_macos = -ADE_codev
+       in alpha = atan2d(psi_y, -psi_z)
+   == exactly the rodgers1 empirical decode (convention_decode.m:
+   YDE verbatim, ADE opposite sense, no parity).  Evidence chain:
+   (a) the notes map {stop -, rec -YDE/-ADE} misses the SI origin
+       by 219.6 mm = 2x recenter YDE (ladder_notesparity_FAIL.log);
+   (b) recenter-ADE sign pinned by an origin discriminant
+       (flipped sense ~0.0001 mm miss, verbatim ~7.1 mm);
+   (c) of 8 {stop, recY, recA} sign sets, TWO are origin-
+       admissible; the all-verbatim-YDE one reproduces his map's
+       shape (rows 12/22/32 = 2.81/2.56/7.38 waves vs his
+       min 1.13 / avg 2.56 / max 8.81) and a physical m3 patch
+       (~110-160 mm, inside r5's m3 NRADIUS 326.5); the other
+       ({stop flipped}) gives a FLAT map (3.1-4.0 waves) and an
+       m3 chief patch at +372 mm -- outside his own m3 aperture.
+   Rotations are about the decentered vertex (CODE V: decenter
+   first, then tilt).
+
+6. ZERNIKE (r5): engine truth from surfsub.F FreeFormSrf (line
+   ~2174): Mon/Zernike sag is applied along +zMon, NOT psi; the
+   polynomial (x,y) come from xMon/yMon/lMon.  The deck therefore
+   carries the CODE V local surface frame directly (zMon = local
+   +z, xMon = +x, yMon = local +y, all tilted with the mirror) and
+   the SCO coefficients go in VERBATIM (*1e-3 mm->m), no sign flip.
+   ZernType= BornWolf == CODE V standard Zernike TERM-FOR-TERM
+   (surfsub.F ZerntoMon2 table: 2 = R cos(theta) x-tilt, 5 = power,
+   13 = spherical); macos mode = deck zrn_C_idx - 1 (C1 = NRADIUS
+   slot); C2 -> mode 1 = PISTON, real content, CARRIED.
+   lMon = NRADIUS*1e-3.  Surface shape data do NOT get the parity
+   flip (radii signs do not alternate; neither do ASP/ZRN terms).
+
+7. WFE STATISTIC + REFERENCE: per-field strict RMS WFE = std of
+   exact OPL to a reference sphere centred on the spot centroid on
+   the frozen deck FPA (Dave 2026-07-31 centroid ruling), anchored
+   at the exit pupil (crossing of two aimed chiefs = stop image),
+   piston-only removal (design/src strict_refs kernel).  His
+   ladder number = ceiling of the 20x20-deg field MAP (dense max),
+   NOT the max over the 9 .seq optimization points.
+
+----------------------------------------------------------------
+CAVEATS / HONEST LIMITS
+* Pupil sampling: uniform circular grid (nGridpts=41, ~1184 rays)
+  perpendicular to the chief, diameter 75 mm at every field; CODE V
+  grids the STOP uniformly, so our off-axis pupil patch differs by
+  the footprint ellipticity (~cos 22 deg in y) and real-ray pupil
+  distortion.  r1 footprint check: traced max radius vs paraxial
+  stop semi-diameter agree to ~0.2%.
+* Object at 1.15e10 mm treated as collimated (focus-shift proxy
+  well below the solved image defocus, rodgers1 precedent).
+* Map MINIMA on r2 (ours 1889 vs his 1134 nm) and r4 (28.9 vs
+  19.9 nm) sit above his; maxima, averages and std track (r1/r3/r5
+  moments all within ~10%).  The low end is where the pupil-model
+  difference (uniform perpendicular-to-chief bundle vs CODE V's
+  stop-gridded rays) and the reference-sphere radius anchor matter
+  most relative to the small residual -- a known, bounded
+  approximation, NOT a convention error (the gated statistic is
+  the map maximum).
+* Band rule: PASS = dense-map max within [0.8, 1.25]x of his
+  number; the residual ratio is reported, never tuned.
+
+ARTIFACTS
+  s0/build_r3.m, s0/run_r3_s0.m, s0/write_report.m,
+  s0/probe_src.m (+probe_src: ApStop/srcaim discovery),
+  s0/probe_cfg.m + probe_cfg.log (the 8-config sign decode),
+  s0/r3_r1.in .. r3_r5.in, s0/r3_build.mat, s0/r3_s0.mat,
+  s0/ladder.log (final full run),
+  s0/ladder_notesparity_FAIL.log (the refuted notes-parity run),
+  s0/r3_s0_report.txt (this file)

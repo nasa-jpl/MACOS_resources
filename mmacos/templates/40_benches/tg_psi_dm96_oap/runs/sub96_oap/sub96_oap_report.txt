@@ -1,0 +1,120 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "sub96_oap"
+
+Stage A -- clearance solve (beam_r 56.0, margin 25, leg cap 700):
+  binding angle 24.30 deg (end bodies 7.07, node 24.30) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  171.0 mm sep -> leg >=   242 mm
+  ref arm vs DM beam          need  141.0 mm sep -> leg >=   199 mm
+  camera leg vs source beam   need  131.0 mm sep -> leg >=   185 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +172.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +202.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +212.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +136.6 mm (spec >= 25)
+  compensator                 d  200.0, part r  61.0 -> separation  141.4 mm, margin  +16.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  61.0 -> separation  160.0 mm, margin  +35.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  61.0 -> separation  170.0 mm, margin  +45.0 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  56.6 -> separation  275.0 mm, margin +154.4 mm (spec >= 25)
+  1 of 5 node parts under the 25 mm margin; beam radius 56.0, mount +8
+  OAP fold solve (need lateral clearance 131.0 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +420.0
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +197.3
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: geometrically-scaled seed (no sub96_oap_tail.mat / oap_tail.mat) -- RE-RUN tg96_tail for oap
+Stage B -- oap rig built (BS_AOI 22.5); emitted sub96_oap_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  Sub1f          Refractor        437.6        --  
+  PolIn          TrPolarizer      438.6        --  
+  Sub1b          Refractor        439.6        --  
+  L1             Reflector        883.1      56.6  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1140.3        --  flat mirror
+  Comptxfd       Refractor       1329.5        --  
+  Comptxbd       Refractor       1339.8        --  
+  Sub2f          Refractor       1553.8        --  
+  QWPtestIn      WavePlate       1554.8        --  
+  Sub2b          Refractor       1555.8        --  
+  TestOptic      Reflector       1580.8      48.0  flat mirror
+  Sub3f          Refractor       1604.8        --  
+  QWPtestOut     WavePlate       1605.8        --  
+  Sub3b          Refractor       1606.8        --  
+  Comptxfu       Refractor       1821.8        --  
+  Comptxbu       Refractor       1832.1        --  
+  BStxfo         Refractor       2021.3        --  
+  BStxbo         Refractor       2031.7        --  
+  Recomb         Reference       2181.7        --  
+  Sub4f          Refractor       2190.7        --  
+  OutQWP         WavePlate       2191.7        --  
+  Sub4b          Refractor       2192.7        --  
+  Sub5f          Refractor       2201.7        --  
+  Analyzer       TrPolarizer     2202.7        --  
+  Sub5b          Refractor       2203.7        --  
+  L2             Reflector       2308.7      56.6  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  MaskSubf       Refractor       2734.2        --  
+  MaskSubb       Refractor       2736.2        --  
+  FocalMask      Reference       2737.2        --  
+  FLpow          Refractor       2748.0        --  
+  FLflat         Refractor       2754.3        --  
+  Detector       FocalPlane      2789.9        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = protectedAl); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.5895 DM-mm/det-mm, det -112.1382, in-plane rotation -0.00 deg, dxd 2.8816e-02 mm -> 3.277 detector px per actuator
+  anchor: blob px (498.29,531.11) <-> DM (-4.620,-5.460) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 1.30 px)
+  lit actuators: 7548 of 9216
+camera: pupil image 11.07 mm across (384 modeled px at 28.8 um); sCMOS 2048x2048 at 6.50 um -> 1702 raw px across the pupil; binned 4 = 426, and binning 4 = 426 lands nearest the modeled 384
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 3207 px across the pupil, 1604 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+  bootstrap (ray affine): 86.86% within 2 px, median 1.05 px (936 of 936 blobs caught)
+  fit residual: affine 1.16 px, deg-2 0.19 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 936 CoMs): fit residual 1.16 px
+  refined pass 2 (deg-1, 936 of 936 caught): fit residual 1.16 px, gate 92.74% within 2 px, median 0.97 px
+  D1 GATE: 92.74% of lit within 2 px (need >= 99.0%), median err 0.97 px
+  by radius (mm):           9.8   19.6   29.5   39.3   49.1 
+    within2px    1.00   1.00   1.00   1.00   0.81 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.590 / 10.590, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 93.16% within 2 px vs affine 92.74% (same 936 poked); register_two_pokes centre anchor reads 0
+
+---- deck: rows on the 30 nm working surface, matrix ON it (four-step) ----
+  flat-DM null: 26.3006 nm rms surface (26300.6 pm)
+  matrix on 30 nm surface (seed 7): 64 states, 7548 lit columns
+  rows: hold-out actuator (63,63); grid = 120 sites (every 8, 4:8:96); g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+  row                          gain     err pm     flr pm      SNR
+  rand30/single10            0.9858        2.2          2  6472.22
+  rand30/grid@1nm            0.9805        4.5          3   308.66
+  rand30/rand10              0.9766      714.4          -        -
+
+  capture range (aging: matrix once on 30 nm; gain vs base rms, 120-site grid | single site):
+  base rms    g(grid)     flr pm      SNR | g(1site)     flr pm      SNR
+      30 nm   0.9823         31   319.42 |   0.9858          2  6472.22
+      40 nm   0.9844         32   312.26 |   0.9836          2  6302.48
+      50 nm   0.9866         34   294.34 |   0.9819          2  5956.85
+      60 nm   0.9886         36   273.16 |   0.9805          2  5482.00
+      80 nm   0.9917         42   234.51 |   0.9791          2  4406.15
+     100 nm   0.9932         48   206.62 |   0.9796          3  3491.48
+     120 nm   0.9937         52   190.03 |   0.9820          3  2868.80
+     160 nm   0.9941         58   171.45 |   0.9922          4  2351.80
+     240 nm   0.9951         76   131.21 |   1.0198          3  3581.94
+     480 nm   0.9989        137    73.11 |   0.9971          4  2523.26
+  capture range to 10%: 120-site grid 480 nm + (holds at the last rung) ; single site 480 nm + (holds at the last rung)
+
+  capture range (re-measured: matrix rebuilt on each surface, 1 nm grid row; wrapped-difference):
+  surface        gain     flr pm      SNR     corr states
+      60 nm   0.9848          3   315.84   0.9995     64
+      90 nm   0.9881          3   321.11   0.9995     64
+     120 nm   0.9896          3   324.32   0.9995     64
+     160 nm   0.9903          3   324.02   0.9995     64
+deck stage 45.1 min
+stations figure sub96_oap_stations.png: recovered minus the engine's field on msk 0.00 pm (flat), 471.89 pm (30 nm rms)
+
+wrote sub96_oap_report.txt + sub96_oap.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/sub96_oap

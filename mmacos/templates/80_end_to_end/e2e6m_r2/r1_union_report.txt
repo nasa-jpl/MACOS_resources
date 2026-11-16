@@ -1,0 +1,4 @@
+==================== e2e6m R1 -- two-instrument shroud union
+union: 7.451 m against the 8.0 m gate  [PASS]
+  /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/r1_seg_full.in D 7.451 m  (37 hardware elts)
+  /home/dcr/dev/MACOS_res_dev/mmacos/templates/80_end_to_end/e2e6m_r2/../e2e6m/s3_imager_full.in D 7.451 m  (26 hardware elts)

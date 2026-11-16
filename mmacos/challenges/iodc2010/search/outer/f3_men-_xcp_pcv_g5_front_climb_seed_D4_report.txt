@@ -1,0 +1,43 @@
+IODC 2010 "green lens" -- f3_men-_xcp_pcv_g5_front_climb_seed_D4
+
+METRIC (stated before the numbers; challenges/iodc2010/README.md):
+  RMS wavefront error in waves at 532 nm on the exit-pupil sphere centred on the chief
+  ray's image-plane point (chief-ray reference; tilt and focus not removed), piston
+  removed, 97 rays across the paraxial entrance pupil, every launched ray must pass;
+  distortion 100 (yR - yP)/yP at the image plane used; EFL paraxial (y-nu).
+  Semi-field = the largest field (to 0.01 deg) with RMS <= 0.070, |dist| <= 5.0 %, no ray lost.
+
+PRESCRIPTION: R = 19.003245 mm, signs [-1 -1 +0 -1 -1 +0 ], t = [0.5701 10.7629 4.4132 12.7937 0.5701 63.5254 ] mm, glass {N-BK7,air,N-BK7,air,N-BK7,air}, stop z = -2.3148 mm a = 2.0000 mm
+  clear semi-diameters [3.0570 3.2369 7.9414 8.5749 10.3657 11.5005 ] mm; image plane at z = 92.635365 mm (paraxial focus 93.821015)
+
+FIRST ORDER: EFL 100.000000 mm (engine near-axis 100.000000; within 0.01 mm of 100), D 4.0000 mm (f/25.000), EP at z = -2.3148, XP at z = 9.0630 mm
+RULES: edge thickness/air space per gap [0.5399 11.0406 2.3685 11.7623 3.6461 ] mm -> all positive
+
+FIELDS:
+  theta_deg  rms_waves  dist_pct  lost/launched  result
+     0.000    0.03654       NaN      0/7081      pass
+     0.500    0.03655    +0.001      0/7081      pass
+     1.000    0.03658    +0.003      0/7081      pass
+     2.000    0.03668    +0.013      0/7081      pass
+     3.000    0.03687    +0.029      0/7081      pass
+     4.000    0.03714    +0.052      0/7081      pass
+     5.000    0.03753    +0.082      0/7081      pass
+     7.500    0.03905    +0.186      0/7081      pass
+    10.000    0.04132    +0.335      0/7081      pass
+    12.500    0.04386    +0.535      0/7081      pass
+    15.000    0.04582    +0.790      0/7081      pass
+    17.500    0.04669    +1.109      0/7081      pass
+    20.000    0.04848    +1.502      0/7081      pass
+    22.500    0.06007    +1.985      0/7081      pass
+    23.125    0.06617    +2.122      0/7081      pass
+    23.438    0.06984    +2.193      0/7081      pass
+    23.447    0.06996    +2.195      0/7081      pass
+    23.457    0.07008    +2.197      0/7081      FAIL rms
+    23.477    0.07033    +2.202      0/7081      FAIL rms
+    23.516    0.07082    +2.211      0/7081      FAIL rms
+    23.594    0.07184    +2.229      0/7081      FAIL rms
+    23.750    0.07395    +2.266      0/7081      FAIL rms
+    25.000    0.09506    +2.577      0/7081      FAIL rms
+
+RESULT: semi-field 23.45 deg (limited by rms), D 4.000 mm, MERIT D*theta = 93.8
+Published 2010 winner: 81.30 mm x 43.50 deg = 3537 (Bates); 10th place 1094.

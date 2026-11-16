@@ -1,0 +1,16 @@
+# Digitized from Llop-Sayson et al., Proc. SPIE 13092, 130921Y (2024), Fig. 7
+# Method: pdfimages full-res bitmap, hand-read at markers/gridlines (S0 of
+# BRIEF_ctb_dst_defects). Estimated precision +-0.05 deg. Record Holder mask; markers every 10 nm; curve exits plot (<175 deg) below 577 and above ~700 nm.
+wavelength_nm,retardance_deg
+580,175.9
+590,177.3
+600,178.4
+610,179.1
+620,179.35
+630,179.42
+640,179.38
+650,179.2
+660,178.65
+670,178.0
+680,177.25
+690,176.35

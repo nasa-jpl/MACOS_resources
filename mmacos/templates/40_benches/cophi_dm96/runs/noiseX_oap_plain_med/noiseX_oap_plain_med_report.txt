@@ -1,0 +1,122 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "noiseX_oap_plain_med"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  56.6 -> separation  275.0 mm, margin +151.4 mm (spec >= 25)
+  1 of 5 node parts under the 25 mm margin; beam radius 59.0, mount +8
+  OAP fold solve (need lateral clearance 134.0 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +417.0
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +194.3
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_oap_tail.mat (null 73.856 nm at opt res; seed 73.856)
+Stage B -- oap rig built (BS_AOI 22.5); emitted noiseX_oap_plain_med_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  L1             Reflector        882.1      56.6  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1139.3        --  flat mirror
+  Comptxfd       Refractor       1328.5        --  
+  Comptxbd       Refractor       1338.8        --  
+  TestOptic      Reflector       1578.8      48.0  flat mirror
+  Comptxfu       Refractor       1818.8        --  
+  Comptxbu       Refractor       1829.1        --  
+  BStxfo         Refractor       2018.3        --  
+  BStxbo         Refractor       2028.7        --  
+  Recomb         Reference       2178.7        --  
+  L2             Reflector       2303.7      56.6  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  MaskSubf       Refractor       2729.9        --  
+  MaskSubb       Refractor       2731.9        --  
+  FocalMask      Reference       2732.9        --  
+  FLpow          Refractor       2743.6        --  
+  FLflat         Refractor       2750.0        --  
+  Detector       FocalPlane      2785.7        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = protectedAl); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+Stage PLACE -- affine window placement (oap rig):
+  ray affine: mag 10.5523 DM-mm/det-mm, det -111.3515, in-plane rotation +0.00 deg, dxd 2.8917e-02 mm -> 3.277 detector px per actuator
+  anchor: blob px (498.29,531.10) <-> DM (-4.620,-5.460) mm; field parity [t=1 su=+1 sv=+1] (ref-poke err 1.36 px)
+  lit actuators: 6948 of 9216
+camera: pupil image 11.06 mm across (383 modeled px at 28.9 um); sCMOS 2048x2048 at 6.50 um -> 1702 raw px across the pupil; binned 4 = 426, and binning 4 = 426 lands nearest the modeled 383
+  snapshot analyzer: polarization sCMOS (micro-polarizer array, 0/45/90/135) at 3.45 um -> 3207 px across the pupil, 1603 per orientation (every 2nd pixel in each direction on the 2x2 superpixel -- N/2 across a line, not N/4); four simultaneous frames, no rotating stage
+  bootstrap (ray affine): 94.01% within 2 px, median 0.96 px (852 of 852 blobs caught)
+  fit residual: affine 1.03 px, deg-2 0.16 px (the gap = fold distortion)
+  refined (deg-1 poly refit from 852 CoMs): fit residual 1.03 px
+  refined pass 2 (deg-1, 852 of 852 caught): fit residual 1.03 px, gate 99.77% within 2 px, median 0.88 px
+  D1 GATE: 99.77% of lit within 2 px (need >= 99.0%), median err 0.88 px
+  by radius (mm):           9.4   18.7   28.1   37.5   46.8 
+    within2px    1.00   1.00   1.00   1.00   0.99 
+    dark(NaN)    0.00   0.00   0.00   0.00   0.00 
+  ray-affine SVD: DM-mm/det-mm 10.552 / 10.552, anamorphism 0.00%, principal axis +0.00 deg off the DM axes
+  NON-VACUITY (axis-aligned map, OAP): 97.54% within 2 px vs affine 99.77% (same 852 poked); register_two_pokes centre anchor reads 0
+
+---- deck: rows on the 30 nm working surface, matrix ON it (four-step) ----
+  flat-DM null: 30.8686 nm rms surface (30868.6 pm)
+  matrix on 30 nm surface (seed 7): 64 states, 6948 lit columns
+  rows: hold-out actuator (62,62); grid = 112 sites (every 8, 4:8:96); g = gain, e = rms err over lit (pm), flr = rms of unpoked lit (pm), SNR = mean(poked)/flr
+  row                          gain     err pm     flr pm      SNR
+  rand30/single10            0.9941        1.4          1  8096.36
+  rand30/grid@1nm            0.9950        1.6          1   681.77
+  rand30/rand10              0.9951      117.6          -        -
+
+---- noise: the H reading on each camera (single 10 nm at (62,62), matrix on the surface; 12 realizations; model pupil 315 px across) ----
+  camera       px/pup     well  read e-    fps |   e-/frame   ph/read sigma_phi |   pm@hold  pm/read   reads/s   s per pm
+  baseline        973    6e+04        5     30 |      3e+04  8.87e+10   0.00147 |      54.4     53.2       7.5        377
+                 sigma_phi measured / formula = 0.999 (median pupil pixel, I0 2.85e+05 e- per model pixel per frame, g' 0.9003)
+                 floor: robust (1.48 MAD, median of draws) 53.2 pm; plain std 65.3 pm, range over draws 49.9-97.6 pm
+  photonfocus     973    2e+05      220    150 |      1e+05  2.96e+11  0.000985 |      35.2     36.7      37.5       35.9
+                 sigma_phi measured / formula = 1.001 (median pupil pixel, I0 9.49e+05 e- per model pixel per frame, g' 0.9003)
+                 floor: robust (1.48 MAD, median of draws) 36.7 pm; plain std 58.6 pm, range over draws 32.8-103 pm
+  pcoedge55      1946    3e+04      2.2     50 |    1.5e+04  1.77e+11   0.00104 |        51     38.3      12.5        118
+                 sigma_phi measured / formula = 1.000 (median pupil pixel, I0 5.69e+05 e- per model pixel per frame, g' 0.9003)
+                 floor: robust (1.48 MAD, median of draws) 38.3 pm; plain std 49 pm, range over draws 37.3-79.6 pm
+  cred2           608  1.4e+06       30    600 |      7e+05  8.08e+11  0.000488 |      14.6     18.6       150       2.31
+                 sigma_phi measured / formula = 0.999 (median pupil pixel, I0 2.59e+06 e- per model pixel per frame, g' 0.9003)
+                 floor: robust (1.48 MAD, median of draws) 18.6 pm; plain std 34.9 pm, range over draws 16.9-111 pm
+
+  electronics, EXACT expectation per reading (piston-free rms over unpoked lit, per UNIT term): jitter 1.921e+04 pm/rad, ripple 2.99e+04 pm per unit, walk 1.358e+04 pm per rad/frame
+    jitter budget (= the baseline camera's photon floor 53.2 pm per reading): 0.00277 rad per frame
+    ripple budget (= the baseline camera's photon floor 53.2 pm per reading): 0.00178 rms fraction per frame
+    walk   budget (= the baseline camera's photon floor 53.2 pm per reading): 0.00392 rad per frame
+
+  electronics (campaign sec. 9.1), each term ALONE, noise-free; the error of ONE reading (rms over 12 draws):
+  term                                pm @ (ic)  pm over lit
+  jitter 0.001 (rad/frame)                 29.3           18
+  jitter 0.01 (rad/frame)                   292          180
+  jitter 0.03 (rad/frame)                   876          540
+  ripple 0.0001 (rms fraction/frame)       2.18         2.72
+  ripple 0.001 (rms fraction/frame)        21.8         27.2
+  ripple 0.01 (rms fraction/frame)          217          272
+  walk 0.01 (rad/frame)                    75.4           37
+  walk 0.05 (rad/frame)                     371          190
+
+  capture range (aging: matrix once on 30 nm; gain vs base rms, 112-site grid | single site):
+  base rms    g(grid)     flr pm      SNR | g(1site)     flr pm      SNR
+      30 nm   0.9949         14   693.18 |   0.9941          1  8096.36
+  capture range to 10%: 112-site grid 30 nm + (holds at the last rung) ; single site 30 nm + (holds at the last rung)
+
+  capture range (re-measured: matrix rebuilt on each surface, 1 nm grid row; wrapped-difference):
+  surface        gain     flr pm      SNR     corr states
+deck stage 10.7 min
+
+wrote noiseX_oap_plain_med_report.txt + noiseX_oap_plain_med.mat + figures in /home/dcr/dev/MACOS_resources/mmacos/templates/40_benches/cophi_dm96/runs/noiseX_oap_plain_med

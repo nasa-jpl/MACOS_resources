@@ -1,0 +1,81 @@
+==================== DESIGN REPORT ====================
+ family TMA | D = 3.000 m | lambda = 0.5 um | 7 elements
+   M1         R =    7.4145 m  K =  -0.99317  Vpt=[  0.000   0.000   0.000]
+   M2         R =    1.3208 m  K =  -1.92955  Vpt=[  0.000   0.000  -3.161]
+   FM         Reflector  (flat)        Vpt=[  0.000   0.000   0.225]
+   M3         R =    1.6128 m  K =  -0.70439  Vpt=[  0.878   0.000   0.225]
+   FP_return  Return     (flat)        Vpt=[ -2.179  -0.227   0.225]
+   ExitPupil  R =    2.0988 m  K =  +0.00000  Vpt=[ -0.092  -0.000   0.225]
+   FP         FocalPlane (flat)        Vpt=[ -2.178  -0.227   0.225]
+ -- first order --
+   EFL 60.33 m | f/# at M1 1.24 | f/# at FP 20.11
+   plate scale 292.5 um/arcsec | lambda/D 34.38 mas
+ -- field performance (RMS WFE about the field center) --
+   bias +13.0' |    field       raw     -tilt
+          center     0.729     0.650
+      3.00' ring     0.843     0.790
+      6.00' ring     0.833     0.807
+     12.00' ring     0.815     0.801
+ -- focal plane --
+   FP tilt 6.140 deg wrt the arriving chief ray
+ -- exit pupil: not placed (run add_pupil) --
+ -- packaging / clearance --
+   shroud 1.46 x D | train length 3.48 m
+   clearance: body-in-beam at M2, FP
+   M1         AOI   0.2 deg (spread 11.4 deg across the beam)
+   M2         AOI   0.6 deg (spread 13.9 deg across the beam)
+   FM         AOI  45.0 deg (spread 7.9 deg across the beam)
+   M3         AOI   2.5 deg (spread 2.5 deg across the beam)
+=======================================================
+---------------- E2E2 FINAL -- PARAMETER PROVENANCE (delta vs the axial start) ----------------
+element     kind              Kr [m]           Kc             Vpt (x,y,z) [m] tilt[deg]   ap_r[m]  provenance
+M1          Reflector      -7.414512    -0.993168    0.0000   0.0000   0.0000    0.0000    1.6500  derived(tma+seidel)
+M2          Reflector      -1.320820    -1.929552    0.0000   0.0000  -3.1607    0.0000    1.5000  derived(tma+seidel)
+FM          Reflector           flat     0.000000    0.0000   0.0000   0.2250   -0.0000    0.0174  derived(fold)
+M3          Reflector      -1.612788    -0.704390    0.8784   0.0000   0.2250    0.0000    1.5000  derived(tma+seidel)
+FP_return   Return              flat     0.000000   -2.1788  -0.2273   0.2250   90.0000    1.6500  derived(add_pupil)
+ExitPupil   Return         -2.098798     0.000000   -0.0924  -0.0001   0.2250  -90.0028    1.6500  derived(fex)
+FP          FocalPlane          flat     0.000000   -2.1783  -0.2273   0.2250  -90.0000    0.0560  derived(tma)
+
+delta vs prev           dKc       dKr [m]            dVpt (x,y,z) [mm]  dtilt [deg]
+M1             -1.615e-04     0.000e+00    0.0000   0.0000   0.0000      0.00000
+M2             -2.019e-03     0.000e+00    0.0000   0.0000   0.0000      0.00000
+FM            (new this stage)
+M3              2.086e-03     0.000e+00  878.4120   0.0000 -878.4120      0.00000
+FP_return       0.000e+00     0.000e+00  -2178.8177 -227.3382 2178.8177    270.00000
+ExitPupil       0.000e+00    -1.016e-02  -92.3527  -0.1422  90.1699    -90.00276
+FP              0.000e+00     0.000e+00  -2178.3163 -227.3382 2178.6765    -90.00001
+
+focal plane: beam AOI 6.1402 deg (arriving CHIEF vs the detector normal -- FPA acceptance)
+             mechanical 90.0000 deg (detector normal vs the OPTICAL AXIS -- the mount)
+HELD this stage: R1,R2,R3 + spacings (first-order layout), field bias 13' (stage 2 clearance frontier), M1 hole 0.2331 m (measured, floored at the M2 shadow)
+------------------------------------------------------------------------
+==================== E2E2 FINAL ====================
+  D 3.000 m | f/20 | 500 nm | 0.4 x 0.4 deg used box | bias 13'
+  traced EFL 60.333 m (f/20.111) | M1 hole 0.2331 m (2.41% of the area)
+
+  LADDER on a uniform 13x13 grid (169 points), bar 35.71 nm / Strehl 0.80
+rung                109.000     97.000    120.0000         nm
+avg nm              109.000    105.000    110.0000     Strehl
+verdict          strict-chief         49.220     28.351      0.6794       FAIL
+strict-centroid      30.001     20.047      0.8665       PASS
++best focus          29.380     18.586      0.8717       PASS
++LS tip/tilt         20.380     12.091      0.9363       PASS
+
+  the four references spread 2.42x -- every number names its rung
+
+  coma  : centroid-chief 0.110 .. 5.328 um (mean 3.044)
+  distortion vs f.theta : 630.6 um rms held / 630.4 uniform-scaled / 521.7 nonlinear
+           local magnification -0.0075% of the traced EFL (parity +1)
+           reported alongside the wavefront, never inside it
+
+  HOW IT GOT HERE
+    S1 axial           4.140 nm  (conics + FPA, joint)
+    S2 folded         20.380 nm  (fold + 13' bias on the clearance frontier)
+    relay           parked as follow-on: the telescope does not need it
+                    (relay_followon/README.md -- two failed attempts recorded)
+
+  HANDOFF: this .in feeds the EXISTING pipeline unchanged --
+    run_segmentation -> run_sensitivities -> run_met -> run_compare -> run_simulator
+    (design/runners/; worked end-to-end in ../e2e/).  Not duplicated here.
+====================================================

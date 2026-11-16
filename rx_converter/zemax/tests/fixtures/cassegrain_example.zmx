@@ -1,0 +1,40 @@
+VERS 190128 693 123456
+MODE SEQ
+NAME Sample Cassegrain f/6 (synthetic smoke test)
+UNIT MM X W X CM MR CPMM
+ENPD 500
+WAVM 1 0.58756180000000004 1
+SURF 0
+  TYPE STANDARD
+  CURV 0.0 0 0 0 0 "" 0
+  DISZ INFINITY
+  DIAM 0.0 0 0 0 0 ""
+SURF 1
+  STOP
+  TYPE STANDARD
+  COMM Primary mirror (parabola)
+  CURV -0.001 0 0 0 0 "" 0
+  CONI -1.0
+  DISZ -400.0
+  GLAS MIRROR 0 0 1.5 40.0 0 0 0 0 0 0
+  DIAM 250.0 0 0 0 0 ""
+SURF 2
+  TYPE STANDARD
+  COMM Secondary mirror (hyperbola)
+  CURV -0.00416666666666667 0 0 0 0 "" 0
+  CONI -1.96
+  DISZ 600.0
+  GLAS MIRROR 0 0 1.5 40.0 0 0 0 0 0 0
+  DIAM 55.0 0 0 0 0 ""
+SURF 3
+  TYPE STANDARD
+  COMM Focal plane
+  CURV 0.0 0 0 0 0 "" 0
+  DISZ 0.0
+  DIAM 10.0 0 0 0 0 ""
+CONF 1
+WAVL 0.5876
+WWGT 1.0
+MNUM 1 1
+MOFF   0   1 "" 0 0 0 1 1 0 0.0 "" 0
+

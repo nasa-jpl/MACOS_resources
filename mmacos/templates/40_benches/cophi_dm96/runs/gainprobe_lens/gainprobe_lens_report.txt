@@ -1,0 +1,20 @@
+=== COPHI gain probe (lens rig), 11-Oct-2026 10:46:35 ===
+battery record battery_lens: H rows rand30/single10 0.9947, rand30/grid@1nm 0.9964, rand30/rand10 0.9967
+
+#1 SYNTHETIC (1.000 nm at (62,62), no estimator): H pixel surface vs the engine's own field change over the poke footprint (32 px):
+   slope h_H / h_engine = 1.000000 (peak ratio 1.000000); engine peak 0.9155 nm  [81 s]
+
+#2_lo_self: rows (gain / err pm / floor pm), lit 6948  [10.4 min]
+   rand30/single10     0.9947      1.7      2   (battery H 0.9947)
+   rand30/grid@1nm     0.9964      2.4      2   (battery H 0.9964)
+   rand30/rand10       0.9967    180.2    NaN   (battery H 0.9967)
+
+#3_scalar: rows (gain / err pm / floor pm), lit 6948  [8.5 min]
+   rand30/single10     0.9947      1.7      2   (battery H 0.9947)
+   rand30/grid@1nm     0.9964      2.4      2   (battery H 0.9964)
+   rand30/rand10       0.9967    180.2    NaN   (battery H 0.9967)
+
+#4_mask_test: rows (gain / err pm / floor pm), lit 6948  [10.4 min]
+   rand30/single10     0.9947      1.7      2   (battery H 0.9947)
+   rand30/grid@1nm     0.9962      2.4      2   (battery H 0.9964)
+   rand30/rand10       0.9967    180.0    NaN   (battery H 0.9967)

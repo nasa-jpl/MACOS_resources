@@ -1,0 +1,73 @@
+=== TG96 gauge (oap optics) : Xinetics 96x96, model 1024, grid 384x0.28 ===
+uniform scale s = 1.7143; tag "redo96_oapstn"
+
+Stage A -- clearance solve (beam_r 59.0, margin 25, leg cap 700):
+  binding angle 25.63 deg (end bodies 7.20, node 25.63) -> BS_AOI = 22.5 deg (pinned)
+  DM arm vs ref beam          need  174.0 mm sep -> leg >=   246 mm
+  ref arm vs DM beam          need  144.0 mm sep -> leg >=   204 mm
+  camera leg vs source beam   need  134.0 mm sep -> leg >=   190 mm
+  chosen DM leg 450 mm; achieved separations and margins:
+  DM arm vs ref beam          separation  318.2 mm, margin +169.2 mm (spec >= 25)
+  ref arm vs DM beam          separation  318.2 mm, margin +199.2 mm (spec >= 25)
+  camera leg vs source beam   separation  318.2 mm, margin +209.2 mm (spec >= 25)
+  node parts (d from the splitter; the separation in the part's own plane, d*tan(2*AOI), or d*sin(2*AOI) for a plate parallel to the splitter):
+  collimator L1               d  257.1, part r  56.6 -> separation  257.1 mm, margin +133.6 mm (spec >= 25)
+  compensator                 d  200.0, part r  64.0 -> separation  141.4 mm, margin  +10.4 mm (spec >= 25)
+  output QWP                  d  160.0, part r  64.0 -> separation  160.0 mm, margin  +29.0 mm (spec >= 25)
+  analyzer                    d  170.0, part r  64.0 -> separation  170.0 mm, margin  +39.0 mm (spec >= 25)
+  focuser L2                  d  275.0, part r  56.6 -> separation  275.0 mm, margin +151.4 mm (spec >= 25)
+  1 of 5 node parts under the 25 mm margin; beam radius 59.0, mount +8
+  OAP fold solve (need lateral clearance 134.0 mm):
+  OAP1 (collimator F1=857): AOI 20 deg -> lateral  551.0 mm, margin +417.0
+  OAP2 (focuser   F2=429): AOI 25 deg -> lateral  328.3 mm, margin +194.3
+
+Stage A2 -- sampling budget (actuator Nyquist 48 cyc/pupil):
+  detector Nyquist 192.5 cyc/pup  margin  4.0x (need >= 2)
+  DM surface grid 3.57 px/actuator             (need >= 3)
+  diffraction grid 1024^2 padding  2.7x
+
+Tail: RE-TUNED set from /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/redo96_oapstn_tail.mat (null 73.856 nm at opt res; seed 73.856)
+Stage B -- oap rig built (BS_AOI 22.5); emitted redo96_oapstn_{test,ref}.in
+
+Parts (test arm; station = distance along the chief from the source):
+  element        type           station   clear r  notes
+  Baffle         Obscuration      428.6      30.9  
+  Sub1f          Refractor        437.6        --  
+  PolIn          TrPolarizer      438.6        --  
+  Sub1b          Refractor        439.6        --  
+  L1             Reflector        882.8      56.6  off-axis parabola (collimator): fold AOI 20 deg, parent f 756.9 mm (Kr -1513.8), off-axis 551.0 mm, conjugate 857.1 mm
+  BSrefl         Reflector       1139.9        --  flat mirror
+  Comptxfd       Refractor       1329.1        --  
+  Comptxbd       Refractor       1339.4        --  
+  Sub2f          Refractor       1553.4        --  
+  QWPtestIn      WavePlate       1554.4        --  
+  Sub2b          Refractor       1555.4        --  
+  TestOptic      Reflector       1580.4      48.0  flat mirror
+  Sub3f          Refractor       1604.4        --  
+  QWPtestOut     WavePlate       1605.4        --  
+  Sub3b          Refractor       1606.4        --  
+  Comptxfu       Refractor       1821.4        --  
+  Comptxbu       Refractor       1831.8        --  
+  BStxfo         Refractor       2021.0        --  
+  BStxbo         Refractor       2031.3        --  
+  Recomb         Reference       2181.3        --  
+  Sub4f          Refractor       2190.3        --  
+  OutQWP         WavePlate       2191.3        --  
+  Sub4b          Refractor       2192.3        --  
+  Sub5f          Refractor       2201.3        --  
+  Analyzer       TrPolarizer     2202.3        --  
+  Sub5b          Refractor       2203.3        --  
+  L2             Reflector       2308.3      56.6  off-axis parabola (focuser): fold AOI 25 deg, parent f 352.0 mm (Kr -704.1), off-axis 328.3 mm, conjugate 428.6 mm
+  MaskSubf       Refractor       2734.5        --  
+  MaskSubb       Refractor       2736.5        --  
+  FocalMask      Reference       2737.5        --  
+  FLpow          Refractor       2748.3        --  
+  FLflat         Refractor       2754.6        --  
+  Detector       FocalPlane      2790.3        --  camera (see the sampling budget for the pixel count)
+  the two mirrors carry the same coating (bench.coat_oap = protectedAl); each needs a tip/tilt mount
+  the input polarizer is in the DIVERGING source leg (POL_IN 'source')
+  the source sits at the collimator's TRUE focus (SRC_AT_FOCUS)
+
+stations figure redo96_oapstn_stations.png: recovered minus the engine's field on msk 0.00 pm (flat), 463.30 pm (30 nm rms)
+
+wrote redo96_oapstn_report.txt + redo96_oapstn.mat + figures in /Users/dcr/dev/MACOS_resources/mmacos/templates/40_benches/tg_psi_dm96_oap/runs/redo96_oapstn

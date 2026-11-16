@@ -6,7 +6,29 @@ C    +----------------------------------------------------------------+
 C***********************************************************************
 
 C**************************************************************************
-C Adapted from Sigrist's GMI.F 
+C Adapted from Sigrist's GMI.F
+C**************************************************************************
+
+C**************************************************************************
+C Debug output (verbose checkpoint / STOP / applyPert traces)
+C
+C   By default the verbose '-->GMI: check-point N', '*** ifprb=', etc.
+C   prints are silent.  To enable them at runtime, set the environment
+C   variable GMI_DEBUG to a non-empty value before calling the MEX:
+C
+C     >> setenv('GMI_DEBUG','1')        % from MATLAB, turn debug ON
+C     >> test_gmi_ff                    % verbose stream now appears
+C     >> setenv('GMI_DEBUG','')         % turn it back OFF
+C
+C   The variable is re-read on every entry to GMI_DVR, so the user can
+C   toggle it between MEX calls without restarting MATLAB.  It controls
+C   the local 'Debug' logical inside GMI_DVR; the existing 'MsgsOn'
+C   gate (= Debug .OR. WriteToFile) follows it.
+C
+C   When adding new diagnostic prints, gate them with `IF (Debug)` so
+C   they obey the same toggle.  The single 'GMI: loading Rx <fname>'
+C   line at Rx-load time is kept unconditional because it fires at
+C   most once per Rx and carries information the user normally wants.
 C**************************************************************************
 
 #include "realtype.h"
@@ -23,7 +45,9 @@ C**************************************************************************
         IMPLICIT NONE
 
         REAL*8, dimension(:,:), allocatable, save :: psiNom,
-     &          vptNom,rptNom,pNom,xNom,yNom,zNom,ObsTypeNom
+     &          vptNom,rptNom,pNom,xNom,yNom,zNom,ObsTypeNom,
+     &          pFFNom,xFFNom,yFFNom,zFFNom,
+     &          pDataNom,xDataNom,yDataNom,zDataNom
         REAL*8, dimension(:,:,:), allocatable, save :: SrfMetPosNom
 
 #if 0
@@ -34,6 +58,12 @@ C**************************************************************************
 
         SREAL,  dimension(:,:), allocatable, save :: PixArray
         REAL*8, dimension(:,:), allocatable, save :: OPDMat,RaySpot
+
+        ! Module-scope debug toggle.  Set by ReadDebugEnv() (called from
+        ! GMIG.F mexfunction entry and again at GMI_DVR entry) so any
+        ! gated `IF (Debug) print*` line in this file or in GMIG.F can
+        ! check it.  See top-of-file comment for env-var behavior.
+        LOGICAL, SAVE :: Debug = .FALSE.
 
 
         ! These are the SMACOS call-line variables:
@@ -48,14 +78,26 @@ C**************************************************************************
 
 
         CONTAINS
-        
- 
+
+        ! Read GMI_DEBUG env var and update the module-scope Debug flag.
+        ! Called from both GMIG.F (mexfunction entry) and GMI_DVR (top
+        ! of every call) so the toggle takes effect immediately for
+        ! prints on either side.
+        SUBROUTINE ReadDebugEnv
+        IMPLICIT NONE
+        CHARACTER(LEN=8) :: env_val
+        CALL GETENV('GMI_DEBUG', env_val)
+        Debug = (LEN_TRIM(env_val) > 0)
+        END SUBROUTINE ReadDebugEnv
+
+
         SUBROUTINE GMI_DVR(PIX,RealEF,ImagEF,OPD,OPDMask,
      &     SPOT,WFError,ifMet,ifSpf,
      &     cent,USER,prb,pzern,pgrid,pdm,pfa,prad,pimg,pflg,
      &     ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,ifprad,ifpflg,
      &     ifInitOptics,nPix,Npimg,InfFcnZern,InfFcnGrid,fname,
-     &     modelsize,ip,np)
+     &     modelsize,ip,np,
+     &     pmonzern,ifpmonzern)
 
         IMPLICIT NONE
 
@@ -65,12 +107,12 @@ C**************************************************************************
 
         ! Non-dynamic array arguments
         REAL*8, dimension(:) :: prb,pzern,pgrid,pdm,
-     &          pfa,prad,pimg,pflg,cent,USER,InfFcnZern
+     &          pfa,prad,pimg,pflg,cent,USER,InfFcnZern,pmonzern
         REAL*8, dimension(:,:) :: InfFcnGrid
         REAL*8 :: WFError
         Logical :: ifprb,ifpzern,ifpgrid,ifpdm,ifpfa,ifprad,
      &             ifpimg,ifpflg,ifInitOptics,ifMet,ifSpf,
-     &             rxStopSetSave
+     &             rxStopSetSave,ifpmonzern
         Integer :: nPix,Npimg,modelsize,ip,np
         character fname*(*)
 
@@ -103,7 +145,9 @@ C**************************************************************************
      &    idmSrf,jdmSrf,dmSrf(mprb),ldmSrf(mElt),LensElt,Segsrf(mprb),
      &    minrbSrf,nFSM,iFSM(4),irbSrf,jrbSrf,rbSrf(mprb),iRptSrf,
      &    jRptSrf,RptSrf(mElt),ifPupilImg,DBias,ifFEX,numspot(numseg),
-     &    wlens,m_err_jwst,NumChkThr,NumOverThreshold,ifRetRefSrf,iWF
+     &    wlens,m_err_jwst,NumChkThr,NumOverThreshold,ifRetRefSrf,iWF,
+     &    nmonzern,imonzernSrf,jmonzernSrf,monzernSrf(mprb),
+     &    lmonzernSrf(mElt)
 
         Integer, save :: ifRetUserSrf
 
@@ -133,8 +177,12 @@ C  Run parameters
         SAVE
 
 	LOGICAL, PARAMETER :: ReleaseMemory = .FALSE.,
-     &                        WriteToFile   = .FALSE.,
-     &                        Debug         = .FALSE.
+     &                        WriteToFile   = .FALSE.
+
+        ! Re-read GMI_DEBUG every call so the user can toggle the flag
+        ! between MEX invocations.  GMIG also calls this at mexfunction
+        ! entry to gate its own prints.
+        CALL ReadDebugEnv
 
         SystemCalib_Done=.FALSE.
 
@@ -157,7 +205,12 @@ C  Run parameters
      &             IndRefNom(mElt),nObsNom(mElt),ObsTypeNom(1,mElt),
      &             ObsVecNom(6,mObs,mElt),
      &             SrfMetPosNom(3,mMetPos,mMetSrf),
-     &             TEltNom(6,6,mElt), stat=m_err_jwst)
+     &             TEltNom(6,6,mElt),
+     &             pFFNom(3,mElt),xFFNom(3,mElt),
+     &             yFFNom(3,mElt),zFFNom(3,mElt),
+     &             pDataNom(3,mElt),xDataNom(3,mElt),
+     &             yDataNom(3,mElt),zDataNom(3,mElt),
+     &             stat=m_err_jwst)
           IF (m_err_jwst /= 0) THEN
             call macos_memory_failure('jwst: allocate failed!')
             stop "*** Memory allocation failed ***"
@@ -168,14 +221,15 @@ C  Run parameters
 ! Initialisation
 ! ----------------------------------------------------------------------
 
-        print*,'-->GMI: check-point 1, beginning of GMI'
+        IF (Debug) print*,'-->GMI: check-point 1, beginning of GMI'
 
         ! --------------------------------------------------------------
         ! define flag parameters  (extract or use default values.
         ! --------------------------------------------------------------
         CALL ExtractFlagParameters
 
-        print*,'-->GMI: check-point 2, after ExtractFlagParameters()'
+        IF (Debug)
+     &    print*,'-->GMI: check-point 2, after ExtractFlagParameters()'
 
 
         ! --------------------------------------------------------------
@@ -187,7 +241,8 @@ C  Run parameters
 
         IF (.NOT.ifInitOptics) CALL ObtainNominalSettings ! Rx load here
 
-        print*,'-->GMI: check-point 3, after ObtainNominalSettings()'
+        IF (Debug)
+     &    print*,'-->GMI: check-point 3, after ObtainNominalSettings()'
 
         ! Added 10/10/2018 -jzlou
         ! Save aperture stop setting after loading Rx, to be restored after reset 
@@ -221,7 +276,7 @@ C  Run parameters
         ! Restore aperture stop setting to saved value, see above
         ifStopSet = rxStopSetSave 
 
-        print*,'-->GMI: check-point 4, after reset, ifStopSet =',
+        IF (Debug) print*,'-->GMI: check-point 4, after reset, ifStopSet =',
      &         ifStopSet
 
 ! ----------------------------------------------------------------------
@@ -233,7 +288,7 @@ C  Run parameters
         ! --------------------------------------------------------------
 	CALL ApplyPerturbationToOpticalSystem
 
-        print*,'-->GMI: check-point 5, after apply perturbs'
+        IF (Debug) print*,'-->GMI: check-point 5, after apply perturbs'
 
 
         ! --------------------------------------------------------------
@@ -262,9 +317,11 @@ C  Run parameters
             !
             !  Set stop
             !
-            print*,'--> GMI: setting STOP now ...'
-            print*,'    GMI: ifFEX =', ifFEX
-            print*,'    GMI: StopType =',StopType 
+            IF (Debug) THEN
+              print*,'--> GMI: setting STOP now ...'
+              print*,'    GMI: ifFEX =', ifFEX
+              print*,'    GMI: StopType =',StopType
+            END IF
             command='STOP'
             IF (StopType.EQ.0) THEN
               CARG(1)='OBJECT'
@@ -491,11 +548,11 @@ C  Run parameters
             CARG(1)='BEA'
             IF (ifSPOT.NE.0) THEN
               IARG(1)=ifSPOT
-              print*,
+              IF (Debug) print*,
      &        '* Calc SPOT at elt ',ifSPOT,' using Beam Coord'
             ELSE
               IARG(1)=nElt
-              print*,
+              IF (Debug) print*,
      &        '* Calc SPOT at elt ',nElt,' using Beam Coord'
             END IF
             IF (MsgsOn) WRITE(P,*)'SPOT diagram at Element ',IARG(1)
@@ -615,6 +672,14 @@ C  Run parameters
               xNom(i,iElt)        = xMon(i,iElt)
               yNom(i,iElt)        = yMon(i,iElt)
               zNom(i,iElt)        = zMon(i,iElt)
+              pFFNom(i,iElt)      = pFF(i,iElt)
+              xFFNom(i,iElt)      = xFF(i,iElt)
+              yFFNom(i,iElt)      = yFF(i,iElt)
+              zFFNom(i,iElt)      = zFF(i,iElt)
+              pDataNom(i,iElt)    = pData(i,iElt)
+              xDataNom(i,iElt)    = xData(i,iElt)
+              yDataNom(i,iElt)    = yData(i,iElt)
+              zDataNom(i,iElt)    = zData(i,iElt)
               ObsVecNom(i,1,iElt) = ObsVec(i,1,iElt)
               CALL DEQUATE(TEltNom(1,1,iElt),TElt(1,1,iElt),36)
             END DO
@@ -655,6 +720,14 @@ C  Run parameters
               xMon(i,iElt)     = xNom(i,iElt)
               yMon(i,iElt)     = yNom(i,iElt)
               zMon(i,iElt)     = zNom(i,iElt)
+              pFF(i,iElt)      = pFFNom(i,iElt)
+              xFF(i,iElt)      = xFFNom(i,iElt)
+              yFF(i,iElt)      = yFFNom(i,iElt)
+              zFF(i,iElt)      = zFFNom(i,iElt)
+              pData(i,iElt)    = pDataNom(i,iElt)
+              xData(i,iElt)    = xDataNom(i,iElt)
+              yData(i,iElt)    = yDataNom(i,iElt)
+              zData(i,iElt)    = zDataNom(i,iElt)
               ObsVec(i,1,iElt) = ObsVecNom(i,1,iElt)
             END DO
             CALL DEQUATE(TElt(1,1,iElt),TEltNom(1,1,iElt),36)
@@ -690,11 +763,11 @@ C  Run parameters
 
             ifOPDCalc = (INT(ifOPD).NE.9999)
 
-	    ifPIXElt=pflg(26)
-	    ifMetCalc=pflg(27)
-	    ifSpfCalc=pflg(28)
+	    ifPIXElt=INT(pflg(26))
+	    ifMetCalc=(INT(pflg(27)).EQ.1)
+	    ifSpfCalc=(INT(pflg(28)).EQ.1)
 
-            ifRetUserSrf=pflg(29) 
+            ifRetUserSrf=INT(pflg(29))
 	
             ipflg = 30
 
@@ -707,26 +780,27 @@ C  Run parameters
 	    If (i /= -9999) Then
               ! STOP defined in param
               StopType = pflg(ipflg)
-              print*,' * ipflg,StopType,pflg(ipflg) =',
-     &                   ipflg,StopType,pflg(ipflg)
-              IF (.TRUE.) 
-     &         WRITE(*,*)'**ipflg,StopType =',ipflg,StopType
+              IF (Debug) THEN
+                print*,' * ipflg,StopType,pflg(ipflg) =',
+     &                     ipflg,StopType,pflg(ipflg)
+                WRITE(*,*)'**ipflg,StopType =',ipflg,StopType
+              END IF
               DO i=1,3
                 ipflg = ipflg + 1
                 StopVec(i) = pflg(ipflg)
-                IF (.TRUE.) 
+                IF (Debug)
      &           WRITE(*,*)'ipflg,StopVec =',ipflg,StopVec(i)
               END DO
 	    Else
               ! i = pflg(ipflg) = -9999
-              WRITE(*,*)
+              IF (Debug) WRITE(*,*)
      &        '**STOP not defined,ipflg,pflg(ipflg) =',
      &        ipflg,pflg(ipflg)
 	      StopType = -(9999+1)  ! StopType value for STOP undefined
-              ipflg = ipflg + 3  ! skip next three values 
+              ipflg = ipflg + 3  ! skip next three values
 	    End If
 
-            print*,'** GMI: after STOP: ipflg =', ipflg
+            IF (Debug) print*,'** GMI: after STOP: ipflg =', ipflg
             !STOP
 
             ! ------------------------------------
@@ -903,6 +977,35 @@ C  Run parameters
                 IF (MsgsOn) WRITE(P,*)'USER(',i,') =',USER(i)
               END DO
             END IF
+
+            ! ------------------------------------
+            ! monzernSrf (pmonzern) -- mirrors zernSrf
+            ! Parallel to zernSrf, but for FreeForm surfaces:
+            ! pmonzern values land in MonZernCoef(:,iElt) instead of
+            ! ZernCoef(:,iElt).  Encoded at end of pflg with 9999
+            ! sentinel so old callers (no monzernSrf field) leave the
+            ! pflg slot at 0 and we treat that as "absent".
+            ! ------------------------------------
+            lmonzernSrf = 0
+            nmonzern    = nzern   ! default: same mode count as Zernike block
+            ipflg = ipflg + 1
+            imonzernSrf = pflg(ipflg)
+            If (imonzernSrf /= 9999 .and. imonzernSrf > 0) Then
+              IF (MsgsOn) WRITE(P,*)'imonzernSrf =',imonzernSrf
+              ipflg = ipflg + 1
+              jmonzernSrf = pflg(ipflg)
+              IF (MsgsOn) WRITE(P,*)'jmonzernSrf =',jmonzernSrf
+              DO i=1,imonzernSrf*jmonzernSrf
+                ipflg = ipflg + 1
+                monzernSrf(i) = pflg(ipflg)
+                IF (MsgsOn) WRITE(P,*)
+     &            'monzernSrf(',i,') =',monzernSrf(i)
+                lmonzernSrf(INT(pflg(ipflg)))=1
+              END DO
+            Else
+              imonzernSrf = 0
+              jmonzernSrf = 0
+            End If
           ELSE
 	    ! .not. ifpflg
             IF (MsgsOn) WRITE(P,*)' into else IF (ifpflg) ',ifpflg
@@ -929,6 +1032,10 @@ C  Run parameters
             ifPIXflip          = .FALSE.
             ifRetRefSrf        = 0
             ifPIXSpotDetCheck  = .FALSE.
+            imonzernSrf        = 0
+            jmonzernSrf        = 0
+            lmonzernSrf        = 0
+            nmonzern           = nzern
           END IF
         END SUBROUTINE ExtractFlagParameters
          
@@ -952,6 +1059,14 @@ C  Run parameters
 		IF (MsgsOn)
      &		  WRITE(P,*)'zern app. to zernSrf ',iSeg,', Elt ',iElt
 		SrfType(iElt)=8
+		! ZernTypeL governs the mode ordering ZerntoMon dispatches
+		! to (propsub.F:230 etc).  If the Rx didn't set it -- either
+		! because the original surface wasn't Zernike-typed or the
+		! Rx used a legacy typename ParseZernType doesn't know --
+		! it'll be 0 here, and the trace-time dispatch falls
+		! through silently, producing zero perturbation.  Force a
+		! default that matches ChkDf2's behaviour (ANSI/Malacara).
+		IF (ZernTypeL(iElt).EQ.0) ZernTypeL(iElt)=1
 		DO iNode=4,nzern+3   ! skip tip, tilt, piston
 		  k=k+1
 		  ZernCoef(iNode,iElt)=pzern(k)
@@ -970,7 +1085,7 @@ C  Run parameters
 	    DO  i=1,izernSrf
 	      iSeg = iSeg + 1
 	      iElt = zernSrf(iSeg)
-	      DO iNode=1,15
+	      DO iNode=1,mzern
 		ZernCoef(iNode,iElt)=0.d0
 	      END DO
 	      SrfType(iElt)=2
@@ -978,11 +1093,59 @@ C  Run parameters
 	  END DO
 	END IF !of ifpzern check
 
-	print*,'GMI-applyPert: check-point 1'
-	
- 	print*,'Gridded surfaces: jgridSrf =',jgridSrf 
- 	print*,'Gridded surfaces: igridSrf =',igridSrf 
-        print*,'GMI: mgrid = ',mgrid
+        ! ------------------------------------
+        ! Implement MonZernike (FreeForm Mon component) deformations
+        ! Parallel to the ifpzern block above, but writes into
+        ! MonZernCoef(:,iElt) on FreeForm surfaces (SrfType=14).
+        ! Surface type is NOT changed here -- caller must already
+        ! have the target element configured as FreeForm.
+        ! ------------------------------------
+	IF (MsgsOn) WRITE(P,*)'ifpmonzern =',ifpmonzern
+	IF (ifpmonzern) THEN
+	  iSeg = 0
+	  DO j=1,jmonzernSrf
+	    k = 0
+	    DO  i=1,imonzernSrf
+	      iSeg = iSeg + 1
+	      iElt = monzernSrf(iSeg)
+	      IF (iElt.GT.0) THEN
+		IF (MsgsOn)
+     &		  WRITE(P,*)'monzern app. to monzernSrf ',iSeg,
+     &                    ', Elt ',iElt
+		DO iNode=4,nmonzern+3   ! skip tip, tilt, piston
+		  k=k+1
+		  MonZernCoef(iNode,iElt)=pmonzern(k)
+		  IF (MsgsOn)
+     &		    WRITE(P,*)'MonZernCoef(',iNode,iElt,') =',
+     &                      pmonzern(k)
+		END DO
+	      ELSE IF (iElt.LT.0) THEN
+		IF (MsgsOn) WRITE(P,*)'negative value for element'
+	      ELSE
+	      END IF
+	    END DO
+	  END DO
+	ELSE
+	  iSeg = 0
+	  DO j=1,jmonzernSrf
+	    DO  i=1,imonzernSrf
+	      iSeg = iSeg + 1
+	      iElt = monzernSrf(iSeg)
+	      IF (iElt.GT.0) THEN
+	        DO iNode=1,mzern
+		  MonZernCoef(iNode,iElt)=0.d0
+	        END DO
+	      END IF
+	    END DO
+	  END DO
+	END IF !of ifpmonzern check
+
+	IF (Debug) THEN
+	  print*,'GMI-applyPert: check-point 1'
+ 	  print*,'Gridded surfaces: jgridSrf =',jgridSrf
+ 	  print*,'Gridded surfaces: igridSrf =',igridSrf
+          print*,'GMI: mgrid = ',mgrid
+	END IF
 !	print*,'Gridded surfaces: gridSrf =',
 !    &    gridSrf(1:jgridSrf*igridSrf)
  
@@ -1044,7 +1207,7 @@ C  Run parameters
 #endif
         END IF !of ifpgrid check
 
-	print*,'GMI-applyPert: check-point 2'
+	IF (Debug) print*,'GMI-applyPert: check-point 2'
  
 	! Implement DM (radius of curvature) deformations
         ! This section is for (using grid surface as an example)
@@ -1090,7 +1253,7 @@ C  Run parameters
 		ELSEIF (lzernSrf(iElt).EQ.1) THEN
 		  IF (MsgsOn) WRITE(P,*)'pdm(',k,') =',pdm(k)
 		  SrfType(iElt)=8
-		  DO iNode=1,15
+		  DO iNode=1,mzern
 		    IF (ifpzern) THEN
 		      ZernCoef(iNode,iElt)=pdm(k)*InfFcnZern(iNode)+
      &		        ZernCoef(iNode,iElt)
@@ -1115,11 +1278,12 @@ C  Run parameters
 	END IF
 	!STOP ! test only
 
-        print*,'GMI-applyPert: check-point 3'
-
-	print*,'*** ifprb =',ifprb
-        print*,'*** jrbSrf =', jrbSrf
-        print*,'*** irbSrf =',irbSrf
+        IF (Debug) THEN
+          print*,'GMI-applyPert: check-point 3'
+	  print*,'*** ifprb =',ifprb
+          print*,'*** jrbSrf =', jrbSrf
+          print*,'*** irbSrf =',irbSrf
+        END IF
 	 
 	! Apply rigid body perturbations
         IF (ifprb) THEN
@@ -1171,8 +1335,8 @@ C  Run parameters
 	            print*,'prb(1:20) =',prb(1:20)
 	            print*,' **GMIG: B4 calling ApplyPrb, DARG =',DARG(1:6)
 	            stop
-	          End If 
-                  print*,'**B4 calling ApplyPert, iElt =',iElt
+	          End If
+                  IF (Debug) print*,'**B4 calling ApplyPert, iElt =',iElt
                   CALL ApplyPerturbationToOpticalSystem_Prb
                 ELSE
                   k=k+6
@@ -1182,7 +1346,7 @@ C  Run parameters
                 ! Group elements perturb
                 DARG(1:6)=prb(k+1:k+6)
 	        !print*,'prb(k+1:k+6) =',prb(k+1:k+6)
-	        print*,'*** GPER on iElt =',abs(iElt)
+	        IF (Debug) print*,'*** GPER on iElt =',abs(iElt)
                 k=k+6
                 command='GPERTURB'
                 CALL ApplyPerturbationToOpticalSystem_Prb
@@ -1190,7 +1354,7 @@ C  Run parameters
 	    END DO ! irbSrf loop
           END DO ! jrbSrf loop
 
-          print*,'GMI-applyPert: check-point 4'
+          IF (Debug) print*,'GMI-applyPert: check-point 4'
 	  
 	  If (nFSM /= 9999) Then 
 	    !  Actuate FSM in tilt
@@ -1221,7 +1385,7 @@ C  Run parameters
           jElt = ABS(iElt)
           iTmp = (jrbSrf-1)*irbSrf+i
 
-	  print*,'***In ApplyPerturbationToOpticalSystem_Prb, jElt =',jElt
+	  IF (Debug) print*,'***In ApplyPerturbationToOpticalSystem_Prb, jElt =',jElt
 
           !command='PERTURB'  ! command defined in calling routine
           IF (MsgsOn) WRITE(P,*)'rbSrf(',iTmp,

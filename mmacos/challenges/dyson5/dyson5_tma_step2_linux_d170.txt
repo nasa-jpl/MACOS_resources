@@ -1,0 +1,61 @@
+dyson5 round 4 step 2 (Linux, CC) -- unobscured eccentric section of the Korsch parent (2026-10-03 18:35)
+f=330 mm, F/1.8, D=183.3 mm; primary f/1.00, secondary mag 3.50; set_offaxis('none', dist 170 mm); conics by CALIB (WFE) in a ladder: as-is / inner half-strip / full strip,
+  conics only (FP not enrolled).  spot = best-focus rms radius about the centroid, um; EE = energy in an 18 um pixel.
+  clearance = Telescope.check_clipping on the emitted deck (body-in-beam / vignetting), reported per variant.
+
+[layout calibration] holding D=183.3 mm, primary f/1.00, secondary mag 3.50; EFL by exact trace:
+  iter 1: requested f/1.800 (EFL_req 0.3300) -> exact EFL 0.3298 m (F/1.799)
+[layout] R=[0.3667 0.0998 0.0903] m  t=[0.1477 0.2577] m  exact EFL 0.3298 m, F/1.80 at D=183.3 mm
+
+===== module 3k: strip +-4.70 deg, 7 fields =====
+ bias decen mm solve     rms spot per field across the strip, um (NaN=not imaged)  maxspot   EEmin  clear  len mm   M2 mm   M3 mm mass kg
+    0    170.0 as-is     12165.931188.10538.62157.93538.621188.1012165.93        12165.93   0.000   FAIL   257.7    62.0   258.4    2.05
+        K = [-0.7467 -0.3398 -0.4901]; clearance: min body-to-foreign-beam clearance -1.1 mm at M2; 6 body/beam conflicts
+    0    170.0 inner     18094.301084.11 71.20 28.85 71.201084.1118094.30        18094.30   0.000   FAIL   257.7    63.6   241.9    1.89
+        K = [-0.8092 -0.8024 -0.4465]; clearance: min body-to-foreign-beam clearance -3.9 mm at M2; 12 body/beam conflicts
+    0    170.0 strip     12260.671133.96543.79162.15543.791133.9612260.67        12260.67   0.000   FAIL   257.7    62.0   258.4    2.05
+        K = [-0.7466 -0.3433 -0.4906]; clearance: min body-to-foreign-beam clearance -1.1 mm at M2; 6 body/beam conflicts
+    1    170.0 as-is     10831.991071.98571.30389.17571.301071.9810831.99        10831.99   0.000   FAIL   257.7    62.1   253.3    2.00
+        K = [-0.7467 -0.3398 -0.4901]; clearance: min body-to-foreign-beam clearance -11.6 mm at M2; 47 body/beam conflicts
+    1    170.0 inner     14328.61628.37 94.69 89.40 94.69628.3714328.61          14328.61   0.000   FAIL   257.7    64.3   235.0    1.83
+        K = [-0.8271 -1.0105 -0.4451]; clearance: min body-to-foreign-beam clearance -15.0 mm at M2; 20 body/beam conflicts
+    1    170.0 strip     19142.852798.531749.611052.221749.612798.5319142.85     19142.85   0.000   FAIL   257.7    59.8   281.7    2.29
+        K = [-0.6465 -0.5324 -0.5094]; clearance: min body-to-foreign-beam clearance -9.0 mm at FP; 59 body/beam conflicts
+    2    170.0 as-is     29144.231360.37705.84591.87705.841360.3729144.23        29144.23   0.000   FAIL   257.7    62.2   246.9    1.93
+        K = [-0.7467 -0.3398 -0.4901]; clearance: min body-to-foreign-beam clearance -11.6 mm at M2; 18 body/beam conflicts
+    2    170.0 inner     25449.76403.19 93.69 72.62 93.69403.1925449.76          25449.76   0.000   FAIL   257.7    65.2   227.1    1.76
+        K = [-0.8471 -1.2676 -0.4735]; clearance: min body-to-foreign-beam clearance -10.8 mm at M2; 18 body/beam conflicts
+    2    170.0 strip     26769.201406.65771.30646.66771.301406.6526769.20        26769.20   0.000   FAIL   257.7    61.9   249.0    1.95
+        K = [-0.7378 -0.2980 -0.4919]; clearance: min body-to-foreign-beam clearance -11.7 mm at M2; 18 body/beam conflicts
+
+BEST 3k: bias 1 deg, decenter 170.0 mm (as-is solve): 7/7 strip fields imaged; worst spot 10831.99 um (601.78 px), EE_min 0.000, clearance FAIL
+  conics K = [-0.7467 -0.3398 -0.4901]; length 257.7 mm, M2 62.1 mm, M3 253.3 mm; mirror mass 2.00 kg at 25 kg/m^2
+  deck of record: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step2_linux_3k.in
+  layout rendered: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step2_linux_layout_3k.png
+
+===== module 1k5: strip +-2.35 deg, 7 fields =====
+ bias decen mm solve     rms spot per field across the strip, um (NaN=not imaged)  maxspot   EEmin  clear  len mm   M2 mm   M3 mm mass kg
+    0    170.0 as-is     787.87538.62315.69157.93315.69538.62787.87                787.87   0.000   FAIL   257.7    47.0   162.9    1.22
+        K = [-0.7467 -0.3398 -0.4901]; clearance: min body-to-foreign-beam clearance -1.1 mm at M2; 6 body/beam conflicts
+    0    170.0 inner     431.88110.69 29.13 12.35 29.13110.69431.88                431.88   0.001   FAIL   257.7    49.5   144.3    1.12
+        K = [-0.8276 -1.2083 -0.4177]; clearance: min body-to-foreign-beam clearance -4.7 mm at M2; 13 body/beam conflicts
+    0    170.0 strip     192.44138.90 87.73 31.82 87.73138.90192.44                192.44   0.006   FAIL   257.7    48.5   148.5    1.14
+        K = [-0.7998 -0.6039 -0.4667]; clearance: min body-to-foreign-beam clearance -3.4 mm at M2; 11 body/beam conflicts
+    1    170.0 as-is     747.21571.30441.94389.17441.94571.30747.21                747.21   0.000   FAIL   257.7    47.4   155.4    1.18
+        K = [-0.7467 -0.3398 -0.4901]; clearance: min body-to-foreign-beam clearance -11.6 mm at M2; 47 body/beam conflicts
+    1    170.0 inner     488.64177.48 66.28 50.50 66.28177.48488.64                488.64   0.001   FAIL   257.7    50.6   138.5    1.09
+        K = [-0.8453 -1.2865 -0.3809]; clearance: min body-to-foreign-beam clearance -16.0 mm at M2; 21 body/beam conflicts
+    1    170.0 strip     235.39201.26170.30159.53170.30201.26235.39                235.39   0.000   FAIL   257.7    49.3   143.5    1.11
+        K = [-0.8095 -0.8997 -0.4785]; clearance: min body-to-foreign-beam clearance -14.2 mm at M2; 22 body/beam conflicts
+    2    170.0 as-is     902.49705.84618.35591.87618.35705.84902.49                902.49   0.000   FAIL   257.7    47.7   148.9    1.14
+        K = [-0.7467 -0.3398 -0.4901]; clearance: min body-to-foreign-beam clearance -11.6 mm at M2; 18 body/beam conflicts
+    2    170.0 inner     213.19147.45 92.16 56.35 92.16147.45213.19                213.19   0.001   FAIL   257.7    51.6   133.8    1.06
+        K = [-0.8598 -1.4161 -0.4660]; clearance: min body-to-foreign-beam clearance -10.7 mm at M2; 18 body/beam conflicts
+    2    170.0 strip     85.54103.95 99.14 91.08 99.14103.95 85.54                 103.95   0.004   FAIL   257.7    51.1   135.2    1.07
+        K = [-0.8457 -1.2733 -0.4918]; clearance: min body-to-foreign-beam clearance -10.8 mm at M2; 18 body/beam conflicts
+
+BEST 1k5: bias 2 deg, decenter 170.0 mm (strip solve): 7/7 strip fields imaged; worst spot 103.95 um (5.78 px), EE_min 0.004, clearance FAIL
+  conics K = [-0.8457 -1.2733 -0.4918]; length 257.7 mm, M2 51.1 mm, M3 135.2 mm; mirror mass 1.07 kg at 25 kg/m^2
+  deck of record: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step2_linux_1k5.in
+  layout rendered: /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tma_step2_linux_layout_1k5.png
+

@@ -1,0 +1,67 @@
+=== ZWFS runner: tag vloop193  (2026-09-11 22:36) ===
+model 1024, NGRID 193, lambda 632.8 nm, mask_prop nf, spot 2.00 lam/D, etch 346.2 nm, NITER 5
+stages: bench loop figs | readings: L I+ S V
+readings: L frozen-linear (1 frame) | F exact frozen-b (1) | I exact iterated-b (1) | I+ = I with the base's refined stepped branch prior (1; base 4 once) | S phase-stepped (4) | V vector pair: +phi and -phi dimple images at once, exact, no fold (2 simultaneous frames)
+
+---- bench ----
+deck vloop193_test.in: TO elt 7, FocalMask 16, Detector 20; mask sandwich spheres zElt 352.686 / 352.686 mm (SYMMETRIC)
+mask: phase 1.5710 rad (|c| 1.414), dimple 2.000 lam/D = 5.2733e-03 mm = 7.92 px at the mask plane; msk 28917 px
+G1 mask-sandwich round trip (unmasked, entrance -> exit sphere): 1.817e-15   (gate < 1e-12)
+G2 reference-wave surrogate T(D Ti(E0)) vs the engine's Eb on msk: 1.967e-15   (gate < 1e-10)
+reference wave |Eb|/|E0| vs pupil radius (20 bins, 0..1): 0.9539 0.9510 0.9452 0.9369 0.9260 0.9120 0.8957 0.8770 0.8561 0.8328 0.8071 0.7798 0.7511 0.7206 0.6885 0.6554 0.6215 0.5867 0.5514 0.5156 
+frame: ray magnification 10.1583 DM-mm per detector-mm, detector px 3.9135e-02 mm -> 0.3976 DM-mm per px
+sampling budget (P.samp, enforce = warn):
+  dimple 7.92 px across at the mask plane (min 6)  -> PASS
+  DM 96x96: 2.52 detector px per actuator (min 2)  -> PASS
+  DM 48x48: 5.03 detector px per actuator (min 2)  -> PASS
+G3 30 nm rms working state (DM 96x96, lit 3252): detector |E|/|E_flat| on msk std 4.120e-16   (gate < 1e-12: A = |E0| is exact)
+G4 vector pair on 100 nm single-actuator pokes every 8th actuator (12028 pm rms on msk, peak 1.93 rad; 3.06% of msk beyond the one-frame fold): V rms error 0.053 pm (gate < 0.1% of the figure), one-frame exact I 8975 pm (non-vacuity: must exceed 10x)   -> PASS
+registration: center-poke anchor at detector px (511.67, 511.67) <-> DM (-0.42, -0.42) mm
+  parity search on the off-center poke (60,40): winner [1  2  1  1] sign +1, |corr| 0.979, runner-up 0.006 (gates >= 0.40, sep >= 0.30); all 8: 0.98 -0.00 -0.00 -0.01 -0.01 -0.00 -0.00 -0.00 
+  center poke in the DM frame: raw peak gain 0.7509, corr(map, truth) 0.9800
+bench stage 0.3 min
+
+---- loop: closed-loop hold, DM 96x96, readings S V ----
+loop: gain 0.50, 60 cycles (steady state = last 30), set point = base, reference frames noiseless, drift seed 77; each cycle = ONE measurement (the DM shape traced once, the reading's frames with N photons), differential to the set point through the measured matrix
+dynamics: r(k+1) = (1 - gG) r(k) - gG e(k) + d(k+1); noise-only rms = sig_n sqrt(gG/(2-gG)); walk rms^2 = (sig_d^2 + g^2G^2 sig_n^2)/(gG(2-gG)); ramp lag = rate/(gG)
+calibration: measured response matrix on the base (30 nm rms, seed 7); lit actuators 3252
+28 loop runs of 61 states each (1708 traced states)
+
+step response (noiseless; a step of the given rms at cycle 1).  rho = fitted per-cycle contraction (1 - gG), tau = cycles to 1/e, k1e = first cycle below 1/e, r(K/2) and r(K) = residual (pm) at cycles 30 and 60 -- a residual that stops falling is the reading's noiseless bias floor on this surface
+    step | S: rho tau k1e r(K/2) r(K)            | V: rho tau k1e r(K/2) r(K)            |
+    1 nm |  0.609    2.0    3      0.001      0.000 |  0.509    1.5    3      0.000      0.000 |
+   10 nm |  0.629    2.2    3      0.009      0.000 |  0.509    1.5    3      0.000      0.000 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- noise only (drift 0): the G2 line, ss vs sig_n sqrt(g/(2-g)).  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | S: ss bias sig_n th           | V: ss bias sig_n th           |
+  1.0e+12 |    4.81   1.46   8.18   4.72 |    3.72   1.18   6.35   3.66 |
+  1.0e+13 |    1.52   0.46   2.59   1.49 |    1.17   0.37   2.01   1.16 |
+  1.0e+14 |    0.48   0.15   0.82   0.47 |    0.37   0.12   0.63   0.37 |
+  1.0e+15 |    0.15   0.05   0.26   0.15 |    0.12   0.04   0.20   0.12 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- random walk, 2 pm per actuator per cycle.  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | S: ss bias sig_n th           | V: ss bias sig_n th           |
+  1.0e+12 |    5.33   1.62   8.18   5.26 |    4.38   1.39   6.35   4.33 |
+  1.0e+13 |    2.77   0.86   2.59   2.75 |    2.60   0.82   2.01   2.58 |
+  1.0e+14 |    2.36   0.74   0.82   2.36 |    2.35   0.74   0.63   2.34 |
+  1.0e+15 |    2.32   0.73   0.26   2.31 |    2.32   0.73   0.20   2.31 |
+
+hold error vs photons per cycle (= per measurement, one per cycle) -- thermal ramp, 5 pm rms per cycle (defocus + astigmatism).  ss = steady-state rms over lit (pm), bias = rms of the mean residual (noise averaged out), sig_n = single-shot estimate noise (pm), th = the theory line from sig_n
+  N/cycle | S: ss bias sig_n th           | V: ss bias sig_n th           |
+  1.0e+12 |   11.13  10.14   8.18  11.06 |   10.55   9.94   6.35  10.65 |
+  1.0e+13 |   10.16  10.06   2.59  10.11 |    9.94   9.88   2.01  10.07 |
+  1.0e+14 |   10.06  10.05   0.82  10.01 |    9.88   9.87   0.63  10.01 |
+  1.0e+15 |   10.05  10.05   0.26  10.00 |    9.87   9.87   0.20  10.00 |
+
+photons per cycle to hold 3.0 pm rms (log-log interpolation of ss over N; 'floor x' = not reached: the noise-free residual sits at x pm):
+drift    | S             | V             |
+none     | 2.6e+12       | 1.5e+12       |
+walk     | 7.5e+12       | 5.3e+12       |
+thermal  | floor 10.0    | floor 9.9     |
+
+spectrum of the held residual at 1e+15 photons per cycle: rms (pm) in [< 4, 4-12, > 12] cycles per aperture
+none     | S:  0.00  0.01  0.15 | V:  0.00  0.01  0.12 |
+walk     | S:  0.25  0.72  2.19 | V:  0.25  0.72  2.19 |
+thermal  | S:  9.13  3.14  2.77 | V:  9.10  3.14  2.19 |
+loop stage 84.8 min (1708 traced states)
+run complete in 85.2 min

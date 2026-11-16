@@ -1,0 +1,32 @@
+==== run_sensitivities: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1.in ====
+field set: center + 4 corners at +-0.0002909 rad
+OPD conventions: orient=raw sign=opl opd_ref=chief
+piston: saved columns kept, analyses removed (macos.piston)
+NOTE: no ApStop in the Rx -- injected StopPos [0 0 0] (-> /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_stop.in)
+segments: 7
+
+[dwdx] rigid-body 6-DOF per element, LOCAL triads...
+    dwdxall 12440 x 54 over 5 fields
+
+[dwdz] segment-LOCAL MonZernike modes [4 5 6 7 8 9 10 11]...
+    dwdzall 12440 x 56
+
+[conditioning] finite rows only, piston removed:
+    channel          size   rank     sv_max    sv_min+      cond+
+    dwdx     12440x54         52  5.422e+03  2.054e-06  2.640e+09
+    dwdx     segment-only: 12440x42  cond+ 1.194e+17
+    dwdz     12440x56         56  4.310e+01  1.504e+01  2.865e+00
+
+    dwdx per-segment column norms (rms native-unit per unit DOF):
+      seg     rx        ry        rz        tx        ty        tz
+        1   3.16e+01  3.14e+01  0.00e+00  3.13e-02  3.15e-02  6.67e-01 
+        2   3.23e+01  3.31e+01  3.36e-02  3.19e-02  3.16e-02  6.96e-01 
+        3   3.31e+01  3.22e+01  3.36e-02  3.11e-02  3.24e-02  6.96e-01 
+        4   3.14e+01  3.14e+01  3.17e-02  3.03e-02  3.07e-02  6.85e-01 
+        5   3.23e+01  3.31e+01  3.36e-02  3.19e-02  3.16e-02  6.96e-01 
+        6   3.31e+01  3.22e+01  3.36e-02  3.11e-02  3.24e-02  6.96e-01 
+        7   3.14e+01  3.14e+01  3.17e-02  3.03e-02  3.07e-02  6.85e-01 
+
+figures: zc_hex1_opdall/svspec + 50 dW pages in zc_hex1_pages/ (>= 3.5 in per OPD map, 1.2 in per field tile) -- index: zc_hex1_pages_index.txt
+
+Done: /home/dcr/dev/MACOS_resources/mmacos/templates/20_segmentation/zemax_cassegrain/zc_hex1_sens.mat + zc_hex1_sens_report.txt

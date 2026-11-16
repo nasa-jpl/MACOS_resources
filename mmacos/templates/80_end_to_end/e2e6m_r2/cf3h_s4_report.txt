@@ -1,0 +1,47 @@
+==== e2e6m CF3h -- FEATHERED d=1.10 sweep arm (sigma 4.0 px) 2026-09-02 00:43:03
+chain seg_d110_f40_h280_L090_c098 | dz 2756 px | THRU 0.571 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 2.0 h
+[round 1 PUSH] no gain at targets [100 200 400] nm
+[round 1 BUMP] no gain
+[round 1] 9.578e-05 -> 9.165e-05 | alpha 1.0e-04 | stroke 7.2 nm | la(G) 1.686e-09 | laU 2.045e-10 @ 5564 nm | 12.5 min
+[round 2 PUSH] no gain at targets [100 200 400] nm
+[round 2 BUMP] no gain
+[round 2] 9.165e-05 -> 7.794e-05 | alpha 1.0e-02 | stroke 9.9 nm | la(G) 3.978e-05 | laU 3.274e-10 @ 5908 nm | 13.5 min
+[round 3 PUSH] no gain at targets [100 200 400] nm
+[round 3 BUMP] no gain
+[round 3] 7.794e-05 -> 7.229e-05 | alpha 1.0e-02 | stroke 14.9 nm | la(G) 3.276e-05 | laU 2.425e-10 @ 5686 nm | 13.6 min
+[round 4 PUSH] no gain at targets [100 200 400] nm
+[round 4 BUMP] no gain
+[round 4] 7.229e-05 -> 6.612e-05 | alpha 1.0e-04 | stroke 26.6 nm | la(G) 1.515e-08 | laU 1.886e-10 @ 4939 nm | 13.7 min
+[round 5 PUSH] 5.626e-05 -> 5.522e-05 | target 100 nm | stroke 46.6 nm | 28 runs
+[round 5] 6.612e-05 -> 5.522e-05 | alpha 1.0e-02 | stroke 46.6 nm | la(G) 1.837e-05 | laU 2.210e-10 @ 4873 nm | 13.3 min
+[round 6 PUSH] no gain at targets [106 212 425] nm
+[round 6 BUMP] no gain
+[round 6] 5.522e-05 -> 3.473e-05 | alpha 1.0e-03 | stroke 53.1 nm | la(G) 2.259e-06 | laU 1.802e-10 @ 4239 nm | 13.8 min
+[round 7 PUSH] no gain at targets [110 219 438] nm
+[round 7 BUMP] no gain
+[round 7] 3.473e-05 -> 1.968e-05 | alpha 1.0e-02 | stroke 54.8 nm | la(G) 1.038e-06 | laU 1.121e-10 @ 4278 nm | 13.8 min
+[round 8 PUSH] no gain at targets [114 228 456] nm
+[round 8 BUMP] 1.563e-05 -> kick 2.552e-05 -> 1.494e-05 | alpha_b 1e-06
+[round 8] 1.968e-05 -> 1.494e-05 | alpha 1.0e-04 | stroke 69.1 nm | la(G) 2.334e-08 | laU 8.812e-11 @ 4788 nm | 13.4 min
+[round 9 PUSH] no gain at targets [148 297 594] nm
+[round 9 BUMP] no gain
+[round 9] 1.494e-05 -> 7.134e-06 | alpha 1.0e-02 | stroke 74.2 nm | la(G) 7.886e-07 | laU 5.816e-11 @ 4294 nm | 13.9 min
+WALL CLOCK: 2.0 h -- stopping after round 9 (floor 7.134e-06)
+CF3h DONE in 2.0 h: 9.578e-05 -> 7.134e-06 over 9 rounds (lin-ach 7.886e-07; thru 0.571 vs apl 0.091 / bare 0.745)
+==== e2e6m CF3h -- FEATHERED d=1.10 sweep arm (sigma 4.0 px) 2026-09-02 08:24:42
+chain seg_d110_f40_h280_L090_c098 | dz 2756 px | THRU 0.571 (apl: 0.091) | niter 20 | alphas 1e-10..1e-02 | budget 3.0 h
+RESUMED at round 10 (last floor 7.134e-06)
+[round 10] NO ACCEPTED STEP (line search exhausted at 7.134e-06)
+[round 10 PUSH] no gain at targets [148 297 594] nm
+[round 10 BUMP] no gain
+[round 10] 7.134e-06 -> 7.134e-06 | alpha NaN | stroke 74.2 nm | la(G) 1.416e-08 | laU 4.270e-11 @ 4232 nm | 13.4 min
+[round 11] NO ACCEPTED STEP (line search exhausted at 7.134e-06)
+[round 11 PUSH] no gain at targets [148 297 594] nm
+[round 11 BUMP] no gain
+[round 11] 7.134e-06 -> 7.134e-06 | alpha NaN | stroke 74.2 nm | la(G) 1.416e-08 | laU 4.270e-11 @ 4232 nm | 13.4 min
+[round 12] NO ACCEPTED STEP (line search exhausted at 7.134e-06)
+[round 12 PUSH] no gain at targets [148 297 594] nm
+[round 12 BUMP] no gain
+[round 12] 7.134e-06 -> 7.134e-06 | alpha NaN | stroke 74.2 nm | la(G) 1.416e-08 | laU 4.270e-11 @ 4232 nm | 13.4 min
+CONVERGED: <3% over two consecutive rounds -- floor 7.134e-06
+CF3h DONE in 0.7 h: 9.578e-05 -> 7.134e-06 over 12 rounds (lin-ach 1.416e-08; thru 0.571 vs apl 0.091 / bare 0.745)

@@ -1,0 +1,21 @@
+IODC 2010 "green lens" -- retro_nf2_G3_m4_t0p3_g0p05_last_rear_relax_D40
+
+METRIC (stated before the numbers; challenges/iodc2010/README.md):
+  RMS wavefront error in waves at 532 nm on the exit-pupil sphere centred on the chief
+  ray's image-plane point (chief-ray reference; tilt and focus not removed), piston
+  removed, 97 rays across the paraxial entrance pupil, every launched ray must pass;
+  distortion 100 (yR - yP)/yP at the image plane used; EFL paraxial (y-nu).
+  Semi-field = the largest field (to 0.01 deg) with RMS <= 0.070, |dist| <= 5.0 %, no ray lost.
+
+PRESCRIPTION: R = 59.735714 mm, signs [+0 +0 +0 +0 +1 +0 +1 +1 +1 +1 +1 +1 +1 +1 -1 +0 ], t = [25.0473 32.4833 5.3938 5.8431 3.3365 0.7293 10.4606 0.7896 11.3841 0.7481 14.2033 0.9752 12.1977 1.0292 59.4968 NaN ] mm, glass {N-BK7,air,N-BK7,air,N-BK7,air,N-BK7,air,N-BK7,air,N-BK7,air,N-BK7,air,N-BK7,air}, stop z = 118.4964 mm a = 6.1916 mm
+  clear semi-diameters [13.3866 13.3866 13.3866 13.3866 13.3866 13.2445 12.9872 11.4236 11.3209 9.6180 9.5093 7.3822 7.2218 5.3961 5.2947 0.0029 ] mm; image plane at z = 184.118172 mm (paraxial focus 184.118172)
+
+FIRST ORDER: EFL 100.000000 mm (engine near-axis 100.000000; within 0.01 mm of 100), D 26.7954 mm (f/3.732), EP at z = 130.0687, XP at z = 140.8282 mm
+RULES: edge thickness/air space per gap [25.0473 32.4833 5.3938 7.3623 1.8172 2.1581 10.1342 0.7697 11.0809 0.7305 13.8995 0.9555 12.0038 0.5499 59.7320 ] mm -> all positive
+
+FIELDS:
+  theta_deg  rms_waves  dist_pct  lost/launched  result
+     0.000    0.07127       NaN      0/7081      FAIL rms
+
+RESULT: semi-field 0.00 deg (limited by rms), D 26.795 mm, MERIT D*theta = 0.0
+Published 2010 winner: 81.30 mm x 43.50 deg = 3537 (Bates); 10th place 1094.

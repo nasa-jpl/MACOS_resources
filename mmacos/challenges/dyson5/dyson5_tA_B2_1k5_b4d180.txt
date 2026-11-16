@@ -1,0 +1,28 @@
+dyson5 tA -- TMA stage A: the eccentric section of the TELECENTRIC Korsch parent, first order before figure (2026-10-04 18:11)
+CONVENTIONS: f spec 330.0 mm (pixel 18 um / IFOV 54.55 urad), D 183.3 mm (F/1.8), strip +-2.344 deg (1500 px), lambda 633 nm, model 256.
+  parent: tma_layout(D, 1.0, F, 'secondary_mag', 3.5, 'int_focus_m', -0.125 D, 'telecentric', true) -- M1 the stop, M3 between
+  M2 and M1 (the virtual-intermediate-image Korsch).  Section: Telescope.set_field_bias(bias) + set_offaxis('none','dist',d).
+  THE THREE NUMBERS (engine, the chief ray per strip field): SPREAD = max angle of a field's chief to the centre chief (deg;
+  0 = telecentric); PUPIL = where the edge chief crosses the centre chief's line, m from the FP hit (+ beyond the FP; Inf =
+  telecentric); PLATE = traced scale, local (+-0.02 deg about the bias) / to the strip edge (offset / tan).  TILT = the common
+  angle of the section's chiefs to the parent FP normal (= atan(d/f) on the parent; about the slit axis, harmless).
+  CLEAR = Telescope.check_clipping (body-in-beam + footprint margin; bodies = the telescope's own beam-footprint discs, NO
+  mount), min margin and the element.  SPOT = best-focus rms radius per field from the ENGINE TRACE (step 1's helper), um.
+
+PARENT: R = [0.3667 0.0998 0.1667] m, t = [0.1477 0.0460] m, M3 z -0.1016 m, EFL 0.3300 m, paraxial chief exit slope -1.3e-15
+
+SCAN (as is, no figure):
+    bias dec mm | clear    margin at    |  spread  pupil m |    plate     edge |   tilt
+    -4.0    180 | PASS      +18.9 M2    |   0.623   +1.350 |    349.3    360.7 |  28.67
+
+WORKING POINT: bias -4.0 deg, decenter 180 mm -- PASS +18.9 mm (M2); spread 0.623 deg, pupil +1.350 m, plate 349.3 / 360.7 mm (spec 330.0)
+  first-order residual before calibration: plate +5.8 % of spec (the section's local magnification at the bias)
+
+CALIBRATION (parent F/# so the SECTION's local plate scale = spec; the telecentric M3 re-solved each pass):
+  pass 1: parent F/1.7005 (EFL 0.3118 m), R = [0.3667 0.0998 0.1575], t = [0.1477 0.0414] -> plate 327.5 / 337.6 mm, spread 0.726 deg, pupil +1.084 m, PASS +14.4 mm (M3)
+  pass 2: parent F/1.7133 (EFL 0.3141 m), R = [0.3667 0.0998 0.1587], t = [0.1477 0.0420] -> plate 330.3 / 340.5 mm, spread 0.715 deg, pupil +1.112 m, PASS +15.6 mm (M3)
+
+LADDER (calibrated parent, bias -4.0 deg, decenter 180 mm; conics only, CALIB WFE over the strip):
+  rung   | clear    margin at    |  spread  pupil m |    plate     edge | best-focus rms spot per field (um)
+  B1     | PASS      +11.9 M3    |   1.159   +0.671 |    331.3    332.4 | 420.9 202.1 86.2 46.8 86.2 202.1 420.9   (max 420.9 um = 23.4 px)
+         K = [-1.209 -7.734 -15.64]; deck /home/dcr/dev/MACOS_resources/mmacos/challenges/dyson5/dyson5_tA_B2_1k5_b4d180_B1.in

@@ -1,0 +1,12 @@
+=== IFO S5: photon-noise pricing of the 1 pm target ===
+scenario: single act (60,40) 10 nm differential on the 30 nm base, 96x96
+axis: photons per DM STATE, split across the 4 analyzer frames
+frames captured (1.9 min); Monte-Carlo is trace-free
+   N/state |     sig_pk      floor     gain
+   1.0e+06 |  27160.0 pm  41081.5 pm    2.356
+   1.0e+08 |   3043.2 pm   3120.1 pm    1.002
+   1.0e+10 |    205.5 pm    314.7 pm    0.920
+   1.0e+12 |     27.2 pm     53.6 pm    0.916
+   1.0e+14 |      3.8 pm     43.6 pm    0.915
+fourstep: sigma ~ 2.82e+07/sqrt(N) pm  ->  N(1 pm) ~ 7.94e+14 photons/state
+S5 noise complete in 2.1 min
